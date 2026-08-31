@@ -7,6 +7,7 @@ use App\Http\Requests\Provider\Activity\StoreActivityRequest;
 use App\Http\Requests\Provider\Activity\UpdateActivityRequest;
 use App\Http\Resources\Activity\ActivityResource;
 use App\Models\Activity;
+use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Services\ActivityService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -15,14 +16,17 @@ class ActivityController extends BaseApiController
 {
     use AuthorizesRequests;
 
-    public function __construct(protected ActivityService $service) {}
+    public function __construct(
+        protected ActivityService $service,
+        protected ActivityRepositoryInterface $repository,
+    ) {}
 
     public function index(Request $request)
     {
-        $activities = $request->user()->provider->activities()
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->latest()
-            ->paginate(15);
+        $activities = $this->repository->paginateForProvider(
+            $request->user()->provider->id,
+            $request->only(['status'])
+        );
 
         return $this->success(ActivityResource::collection($activities));
     }

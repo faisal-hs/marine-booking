@@ -28,7 +28,9 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
 
     public function paginateForProvider(int $providerId, array $filters, int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()->where('provider_id', $providerId);
+        $query = $this->model->newQuery()
+            ->where('provider_id', $providerId)
+            ->with(['category', 'images']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -39,7 +41,9 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
 
     public function paginatePublished(array $filters, int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()->where('status', 'published');
+        $query = $this->model->newQuery()
+            ->where('status', 'published')
+            ->with(['category', 'provider', 'images']);
 
         if (! empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
@@ -49,6 +53,7 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             $query->where('title', 'like', '%' . $filters['search'] . '%');
         }
 
-        return $query->with('category', 'provider')->latest()->paginate($perPage)->withQueryString();
+        return $query->latest()->paginate($perPage)->withQueryString();
     }
+
 }

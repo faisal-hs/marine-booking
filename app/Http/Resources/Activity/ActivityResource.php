@@ -29,7 +29,7 @@ class ActivityResource extends JsonResource
             'min_age' => $this->min_age,
             'status' => $this->status,
             'rejection_reason' => $this->when($this->status === 'rejected', $this->rejection_reason),
-            'images' => ActivityImageResource::collection($this->whenLoaded('images', fn() => $this->images, $this->images)),
+            'images' => ActivityImageResource::collection($this->images),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
