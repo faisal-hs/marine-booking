@@ -49,3 +49,19 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
 Route::prefix('public')->name('public.')->group(function () {
     Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
 });
+
+
+Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
+    Route::get('/profile', [ProviderProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
+
+    Route::apiResource('activities', \App\Http\Controllers\Api\Provider\ActivityController::class);
+    Route::post('/activities/{activity}/submit-for-review', [\App\Http\Controllers\Api\Provider\ActivityController::class, 'submitForReview'])
+        ->name('activities.submit-for-review');
+});
+
+Route::prefix('public')->name('public.')->group(function () {
+    Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
+    Route::get('/activities', [\App\Http\Controllers\Api\Public\ActivityController::class, 'index'])->name('activities.index');
+    Route::get('/activities/{slug}', [\App\Http\Controllers\Api\Public\ActivityController::class, 'show'])->name('activities.show');
+});

@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Activity;
 use App\Models\Category;
 use App\Models\User;
+use App\Policies\ActivityPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -20,5 +22,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Category::class, CategoryPolicy::class);
+        Gate::policy(Activity::class, ActivityPolicy::class);
     }
 }

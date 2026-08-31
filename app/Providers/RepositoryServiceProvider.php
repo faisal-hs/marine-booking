@@ -2,12 +2,13 @@
 
 namespace App\Providers;
 
-use App\Repositories\Contracts\CustomerRepositoryInterface;
-use App\Repositories\Contracts\ProviderRepositoryInterface;
-use App\Repositories\Contracts\UserRepositoryInterface;
-use App\Repositories\Eloquent\CustomerRepository;
-use App\Repositories\Eloquent\ProviderRepository;
-use App\Repositories\Eloquent\UserRepository;
+use App\Models\Activity;
+use App\Models\Category;
+use App\Models\User;
+use App\Policies\ActivityPolicy;
+use App\Policies\CategoryPolicy;
+use App\Policies\UserPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class RepositoryServiceProvider extends ServiceProvider
@@ -35,10 +36,16 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\CategoryRepositoryInterface::class,
             \App\Repositories\Eloquent\CategoryRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\ActivityRepositoryInterface::class,
+            \App\Repositories\Eloquent\ActivityRepository::class
+        );
     }
 
     public function boot(): void
     {
-        //
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Category::class, CategoryPolicy::class);
+        Gate::policy(Activity::class, ActivityPolicy::class);
     }
 }
