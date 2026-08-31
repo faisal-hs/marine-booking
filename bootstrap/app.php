@@ -35,12 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $responder = new class {
             use ApiResponseTrait;
 
-            public function success(mixed $data = null, string $message = 'OK', int $code = 200)
+            public function jsonSuccess(mixed $data = null, string $message = 'OK', int $code = 200)
             {
                 return $this->success($data, $message, $code);
             }
 
-            public function error(string $message, int $code = 400, ?array $errors = null)
+            public function jsonError(string $message, int $code = 400, ?array $errors = null)
             {
                 return $this->error($message, $code, $errors);
             }
@@ -48,43 +48,43 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ValidationException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error('The given data was invalid.', 422, $e->errors());
+                return $responder->jsonError('The given data was invalid.', 422, $e->errors());
             }
         });
 
         $exceptions->render(function (AuthenticationException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error('Unauthenticated.', 401);
+                return $responder->jsonError('Unauthenticated.', 401);
             }
         });
 
         $exceptions->render(function (AuthorizationException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error($e->getMessage() ?: 'This action is unauthorized.', 403);
+                return $responder->jsonError($e->getMessage() ?: 'This action is unauthorized.', 403);
             }
         });
 
         $exceptions->render(function (ModelNotFoundException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error('Resource not found.', 404);
+                return $responder->jsonError('Resource not found.', 404);
             }
         });
 
         $exceptions->render(function (NotFoundHttpException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error('Endpoint not found.', 404);
+                return $responder->jsonError('Endpoint not found.', 404);
             }
         });
 
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return $responder->error($e->getMessage() ?: 'Request failed.', $e->getStatusCode());
+                return $responder->jsonError($e->getMessage() ?: 'Request failed.', $e->getStatusCode());
             }
         });
 
         $exceptions->render(function (\Throwable $e, Request $request) use ($responder) {
             if (($request->is('api/*') || $request->expectsJson()) && ! app()->hasDebugModeEnabled()) {
-                return $responder->error('An unexpected error occurred.', 500);
+                return $responder->jsonError('An unexpected error occurred.', 500);
             }
         });
     })->create();
