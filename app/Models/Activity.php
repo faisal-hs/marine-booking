@@ -54,4 +54,14 @@ class Activity extends Model
     {
         return $query->where('status', 'published');
     }
+
+    public function images()
+    {
+        return $this->hasMany(ActivityImage::class)->orderBy('sort_order');
+    }
+
+    public function coverImage()
+    {
+        return $this->hasOne(ActivityImage::class)->where('is_cover', true);
+    }
 }

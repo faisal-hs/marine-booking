@@ -65,3 +65,22 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::get('/activities', [\App\Http\Controllers\Api\Public\ActivityController::class, 'index'])->name('activities.index');
     Route::get('/activities/{slug}', [\App\Http\Controllers\Api\Public\ActivityController::class, 'show'])->name('activities.show');
 });
+
+
+Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
+    Route::get('/profile', [ProviderProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
+
+    Route::apiResource('activities', \App\Http\Controllers\Api\Provider\ActivityController::class);
+    Route::post('/activities/{activity}/submit-for-review', [\App\Http\Controllers\Api\Provider\ActivityController::class, 'submitForReview'])
+        ->name('activities.submit-for-review');
+
+    Route::post('/activities/{activity}/images', [\App\Http\Controllers\Api\Provider\ActivityImageController::class, 'store'])
+        ->name('activities.images.store');
+    Route::delete('/activities/{activity}/images/{image}', [\App\Http\Controllers\Api\Provider\ActivityImageController::class, 'destroy'])
+        ->name('activities.images.destroy');
+    Route::put('/activities/{activity}/images/{image}/cover', [\App\Http\Controllers\Api\Provider\ActivityImageController::class, 'setCover'])
+        ->name('activities.images.set-cover');
+    Route::put('/activities/{activity}/images/reorder', [\App\Http\Controllers\Api\Provider\ActivityImageController::class, 'reorder'])
+        ->name('activities.images.reorder');
+});
