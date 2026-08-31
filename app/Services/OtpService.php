@@ -10,7 +10,7 @@ class OtpService
 {
     public function __construct(protected SmsGatewayInterface $smsGateway) {}
 
-    public function issue(string $phone, string $type, ?int $userId = null): Otp
+    public function issue(string $phone, string $type, ?int $userId = null, ?array $payload = null): Otp
     {
         Otp::where('phone', $phone)
             ->where('type', $type)
@@ -24,6 +24,7 @@ class OtpService
             'phone' => $phone,
             'code' => $code,
             'type' => $type,
+            'payload' => $payload,
             'expires_at' => now()->addMinutes(config('otp.expiry_minutes', 5)),
         ]);
 
@@ -66,17 +67,16 @@ class OtpService
         return $last->created_at->diffInSeconds(now()) >= config('otp.resend_cooldown_seconds', 60);
     }
 
-    public function latestType(string $phone): ?string
+    /**
+     * Returns the most recent OTP row for a phone (any type), so resend()
+     * can reissue with the same type + payload without the caller needing
+     * to already know whether it was a registration or login attempt.
+     */
+    public function latest(string $phone): ?Otp
     {
-        return Otp::where('phone', $phone)->latest('created_at')->value('type');
+        return Otp::where('phone', $phone)->latest('created_at')->first();
     }
 
-    /**
-     * Uses a fixed dev/testing code when configured, so far as the app is
-     * NOT running in production — this guard is intentional and non-negotiable,
-     * a hardcoded bypass code must never be reachable in production regardless
-     * of misconfiguration.
-     */
     protected function generateCode(): string
     {
         $defaultCode = config('otp.default_code');

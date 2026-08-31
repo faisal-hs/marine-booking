@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Auth\Admin;
+namespace App\Http\Requests\Auth\Provider;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class LoginRequest extends FormRequest
+class ResendOtpRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,13 +14,12 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'phone' => ['required', 'string', 'max:20'],
         ];
     }
 
     public function payload(): array
     {
-        return $this->only(['email', 'password']);
+        return $this->only(['phone']);
     }
 }

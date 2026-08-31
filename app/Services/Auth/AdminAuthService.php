@@ -14,11 +14,11 @@ class AdminAuthService
     ) {}
 
     /**
-     * No register() method — admins are seeded only (see Module 01 analysis).
-     *
-     * @return array{user: User, admin: \App\Models\Admin, token: string}
+     * Validates admin credentials and returns the User for the Controller
+     * to log in via the session-based 'web' guard. No token is issued —
+     * admin auth is browser-session based, not API-token based.
      */
-    public function login(string $email, string $password): array
+    public function attemptLogin(string $email, string $password): User
     {
         $user = $this->userRepository->findByEmail($email);
 
@@ -40,13 +40,6 @@ class AdminAuthService
             ]);
         }
 
-        $token = $user->createToken('admin-auth', ['admin'])->plainTextToken;
-
-        return ['user' => $user, 'admin' => $user->admin, 'token' => $token];
-    }
-
-    public function logout(User $user): void
-    {
-        $user->currentAccessToken()?->delete();
+        return $user;
     }
 }

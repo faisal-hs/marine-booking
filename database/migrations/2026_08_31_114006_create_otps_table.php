@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->string('code', 6);
             $table->enum('type', ['registration', 'login', 'password_reset']);
+            $table->json('payload')->nullable();
             $table->timestamp('expires_at');
             $table->timestamp('consumed_at')->nullable();
             $table->timestamps();

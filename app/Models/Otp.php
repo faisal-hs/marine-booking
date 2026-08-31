@@ -11,11 +11,13 @@ class Otp extends Model
         'phone',
         'code',
         'type',
+        'payload',
         'expires_at',
         'consumed_at',
     ];
 
     protected $casts = [
+        'payload' => 'array',
         'expires_at' => 'datetime',
         'consumed_at' => 'datetime',
     ];

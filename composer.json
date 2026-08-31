@@ -9,7 +9,8 @@
         "php": "^8.3",
         "laravel/framework": "^12.60",
         "laravel/sanctum": "^4.3",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {
         "doctrine/dbal": "^4.4",

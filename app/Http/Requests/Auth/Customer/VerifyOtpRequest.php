@@ -4,7 +4,7 @@ namespace App\Http\Requests\Auth\Customer;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class LoginRequest extends FormRequest
+class VerifyOtpRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,13 +14,13 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'phone' => ['required', 'string', 'max:20'],
+            'code' => ['required', 'string'],
         ];
     }
 
     public function payload(): array
     {
-        return $this->only(['email', 'password']);
+        return $this->only(['phone', 'code']);
     }
 }

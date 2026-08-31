@@ -9,11 +9,6 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminSeeder extends Seeder
 {
-    /**
-     * Seeds the one and only bootstrap Super Admin account.
-     * Admins are never self-registered (see Module 01 analysis) — this
-     * seeder is the sole way an admin account initially comes into existence.
-     */
     public function run(): void
     {
         $user = User::firstOrCreate(
@@ -33,6 +28,8 @@ class AdminSeeder extends Seeder
             ['job_title' => 'Super Administrator']
         );
 
-        $this->command->info('Admin seeded: admin@marine-booking.test / password');
+        $user->syncRoles(['super_admin']);
+
+        $this->command->info('Admin seeded: admin@marine-booking.test / password (super_admin)');
     }
 }

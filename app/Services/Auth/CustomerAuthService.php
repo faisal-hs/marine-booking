@@ -5,8 +5,8 @@ namespace App\Services\Auth;
 use App\Models\User;
 use App\Repositories\Contracts\CustomerRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\OtpService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class CustomerAuthService
@@ -14,62 +14,100 @@ class CustomerAuthService
     public function __construct(
         protected UserRepositoryInterface $userRepository,
         protected CustomerRepositoryInterface $customerRepository,
+        protected OtpService $otpService,
     ) {}
+
+    public function requestOtp(string $phone, ?string $name): void
+    {
+        $existingUser = $this->userRepository->findByPhone($phone);
+
+        if ($existingUser) {
+            if (! $existingUser->isCustomer()) {
+                throw ValidationException::withMessages([
+                    'phone' => ['This phone number is not registered as a customer.'],
+                ]);
+            }
+
+            $this->otpService->issue($phone, 'login', $existingUser->id);
+
+            return;
+        }
+
+        if (! $name) {
+            throw ValidationException::withMessages([
+                'name' => ['Name is required to register.'],
+            ]);
+        }
+
+        $this->otpService->issue($phone, 'registration', null, ['name' => $name]);
+    }
+
+    public function resendOtp(string $phone): void
+    {
+        if (! $this->otpService->canResend($phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Please wait before requesting another code.'],
+            ]);
+        }
+
+        $last = $this->otpService->latest($phone);
+
+        if (! $last) {
+            throw ValidationException::withMessages([
+                'phone' => ['No previous verification request found for this phone.'],
+            ]);
+        }
+
+        $this->otpService->issue($phone, $last->type, $last->user_id, $last->payload);
+    }
 
     /**
      * @return array{user: User, customer: \App\Models\Customer, token: string}
      */
-    public function register(array $data): array
+    public function verifyOtp(string $phone, string $code): array
     {
-        return DB::transaction(function () use ($data) {
+        $otp = $this->otpService->verify($phone, $code);
+
+        return DB::transaction(function () use ($otp, $phone) {
+            if ($otp->type === 'login') {
+                $user = $this->userRepository->findByPhone($phone);
+
+                if (! $user || ! $user->isCustomer()) {
+                    throw ValidationException::withMessages([
+                        'phone' => ['Customer account not found.'],
+                    ]);
+                }
+
+                if ($user->status !== 'active') {
+                    throw ValidationException::withMessages([
+                        'phone' => ['This account is not active. Please contact support.'],
+                    ]);
+                }
+
+                $token = $user->createToken('customer-auth', ['customer'])->plainTextToken;
+
+                return ['user' => $user, 'customer' => $user->customer, 'token' => $token];
+            }
+
+            $payload = $otp->payload;
+
             $user = $this->userRepository->create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'phone' => $data['phone'] ?? null,
-                'password' => Hash::make($data['password']),
+                'name' => $payload['name'],
+                'phone' => $phone,
                 'user_type' => 'customer',
                 'status' => 'active',
+                'phone_verified_at' => now(),
             ]);
 
             $customer = $this->customerRepository->create([
                 'user_id' => $user->id,
-                'preferred_language' => $data['preferred_language'] ?? 'en',
+                'preferred_language' => 'en',
             ]);
 
             $token = $user->createToken('customer-auth', ['customer'])->plainTextToken;
 
             return ['user' => $user, 'customer' => $customer, 'token' => $token];
         });
-    }
-
-    /**
-     * @return array{user: User, customer: \App\Models\Customer, token: string}
-     */
-    public function login(string $email, string $password): array
-    {
-        $user = $this->userRepository->findByEmail($email);
-
-        if (! $user || ! Hash::check($password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        if (! $user->isCustomer()) {
-            throw ValidationException::withMessages([
-                'email' => ['This account is not registered as a customer.'],
-            ]);
-        }
-
-        if ($user->status !== 'active') {
-            throw ValidationException::withMessages([
-                'email' => ['This account is not active. Please contact support.'],
-            ]);
-        }
-
-        $token = $user->createToken('customer-auth', ['customer'])->plainTextToken;
-
-        return ['user' => $user, 'customer' => $user->customer, 'token' => $token];
     }
 
     public function logout(User $user): void
