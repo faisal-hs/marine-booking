@@ -8,27 +8,25 @@ use Illuminate\View\View;
 class DashboardController extends Controller
 {
     /**
-     * Shows every module link unconditionally for now.
-     *
-     * TODO(Module 02): gate each entry by the authenticated admin's
-     * actual permissions once the RBAC system exists — right now this
-     * is a static shell so admin web auth can ship without pretending
-     * we have real permission data.
+     * Each module maps to its 'view' permission — the Blade view checks
+     * this same permission (plus create/update/delete individually) via
+     * @can, so this array only needs to define what modules exist and
+     * which permission key gates visibility of the module itself.
      */
     public function index(): View
     {
         $modules = [
-            ['label' => 'Users', 'icon' => 'users'],
-            ['label' => 'Providers', 'icon' => 'building'],
-            ['label' => 'Customers', 'icon' => 'user'],
-            ['label' => 'Categories', 'icon' => 'tag'],
-            ['label' => 'Activities', 'icon' => 'map'],
-            ['label' => 'Reservations', 'icon' => 'calendar'],
-            ['label' => 'Payments', 'icon' => 'credit-card'],
-            ['label' => 'Notifications', 'icon' => 'bell'],
-            ['label' => 'Reports', 'icon' => 'chart'],
-            ['label' => 'Roles & Permissions', 'icon' => 'lock'],
-            ['label' => 'Settings', 'icon' => 'cog'],
+            ['label' => 'Users', 'permission' => 'users', 'icon' => '👤'],
+            ['label' => 'Providers', 'permission' => 'providers', 'icon' => '🏢'],
+            ['label' => 'Customers', 'permission' => 'customers', 'icon' => '🧑'],
+            ['label' => 'Categories', 'permission' => 'categories', 'icon' => '🏷️'],
+            ['label' => 'Activities', 'permission' => 'activities', 'icon' => '🗺️'],
+            ['label' => 'Reservations', 'permission' => 'reservations', 'icon' => '📅'],
+            ['label' => 'Payments', 'permission' => 'payments', 'icon' => '💳'],
+            ['label' => 'Notifications', 'permission' => 'notifications', 'icon' => '🔔'],
+            ['label' => 'Reports', 'permission' => 'reports', 'icon' => '📊'],
+            ['label' => 'Roles & Permissions', 'permission' => 'roles', 'icon' => '🔒'],
+            ['label' => 'Settings', 'permission' => 'settings', 'icon' => '⚙️'],
         ];
 
         return view('admin.dashboard', ['modules' => $modules]);
