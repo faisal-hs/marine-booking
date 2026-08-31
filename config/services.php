@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
@@ -35,4 +34,13 @@ return [
         ],
     ],
 
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'taqnyat'),
+    ],
+
+    'taqnyat' => [
+        'api_key' => env('TAQNYAT_API_KEY'),
+        'sender' => env('TAQNYAT_SENDER', 'MarineBooking'),
+        'base_url' => env('TAQNYAT_BASE_URL', 'https://api.taqnyat.sa/v1'),
+    ],
 ];
