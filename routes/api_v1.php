@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\Auth\CustomerAuthController;
 use App\Http\Controllers\Api\Auth\ProviderAuthController;
+use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Api\Provider\ProfileController as ProviderProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -31,4 +33,14 @@ Route::prefix('auth')->name('auth.')->group(function () {
             ->middleware(['auth:sanctum', 'ability:customer'])
             ->name('logout');
     });
+});
+
+Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
+    Route::get('/profile', [ProviderProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
+});
+
+Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
+    Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
 });
