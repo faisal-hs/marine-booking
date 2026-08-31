@@ -69,4 +69,19 @@ class Activity extends Model
     {
         return $this->hasMany(ActivityFeatureValue::class);
     }
+
+    public function options()
+    {
+        return $this->hasMany(ActivityOption::class)->orderBy('sort_order');
+    }
+
+    public function requirements()
+    {
+        return $this->hasMany(ActivityRequirement::class)->orderBy('sort_order');
+    }
+
+    public function inclusions()
+    {
+        return $this->hasMany(ActivityInclusion::class)->orderBy('sort_order');
+    }
 }

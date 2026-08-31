@@ -4,6 +4,9 @@ namespace App\Http\Resources\Activity;
 
 use App\Http\Resources\ActivityFeature\ActivityFeatureResource;
 use App\Http\Resources\ActivityImage\ActivityImageResource;
+use App\Http\Resources\ActivityInclusion\ActivityInclusionResource;
+use App\Http\Resources\ActivityOption\ActivityOptionResource;
+use App\Http\Resources\ActivityRequirement\ActivityRequirementResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,6 +35,9 @@ class ActivityResource extends JsonResource
             'rejection_reason' => $this->when($this->status === 'rejected', $this->rejection_reason),
             'images' => ActivityImageResource::collection($this->images),
             'features' => ActivityFeatureResource::collection($this->featureValues),
+            'options' => ActivityOptionResource::collection($this->options),
+            'requirements' => ActivityRequirementResource::collection($this->requirements),
+            'inclusions' => ActivityInclusionResource::collection($this->inclusions),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

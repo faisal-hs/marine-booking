@@ -30,7 +30,7 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
     {
         $query = $this->model->newQuery()
             ->where('provider_id', $providerId)
-            ->with(['category', 'images', 'featureValues.featureDefinition']);
+            ->with(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
