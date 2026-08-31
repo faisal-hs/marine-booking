@@ -19,9 +19,22 @@ class RepositoryServiceProvider extends ServiceProvider
 
     protected function registerRepositoryBindings(): void
     {
-        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
-        $this->app->bind(ProviderRepositoryInterface::class, ProviderRepository::class);
-        $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);
+        $this->app->bind(
+            \App\Repositories\Contracts\UserRepositoryInterface::class,
+            \App\Repositories\Eloquent\UserRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\ProviderRepositoryInterface::class,
+            \App\Repositories\Eloquent\ProviderRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\CustomerRepositoryInterface::class,
+            \App\Repositories\Eloquent\CustomerRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\CategoryRepositoryInterface::class,
+            \App\Repositories\Eloquent\CategoryRepository::class
+        );
     }
 
     public function boot(): void

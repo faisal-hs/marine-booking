@@ -50,35 +50,34 @@
 
             <nav class="flex-1 py-4 space-y-1 overflow-y-auto">
                 @php
-$navItems = [
-    ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
-    ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
-    ['key' => 'providers', 'route' => null, 'permission' => 'providers.view', 'icon' => 'building'],
-    ['key' => 'customers', 'route' => null, 'permission' => 'customers.view', 'icon' => 'user'],
-    ['key' => 'categories', 'route' => null, 'permission' => 'categories.view', 'icon' => 'tag'],
-    ['key' => 'activities', 'route' => null, 'permission' => 'activities.view', 'icon' => 'map'],
-    ['key' => 'reservations', 'route' => null, 'permission' => 'reservations.view', 'icon' => 'calendar'],
-    ['key' => 'payments', 'route' => null, 'permission' => 'payments.view', 'icon' => 'card'],
-    ['key' => 'notifications', 'route' => null, 'permission' => 'notifications.view', 'icon' => 'bell'],
-    ['key' => 'reports', 'route' => null, 'permission' => 'reports.view', 'icon' => 'chart'],
-    ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],
-    ['key' => 'settings', 'route' => null, 'permission' => 'settings.view', 'icon' => 'cog'],
-];
+                    $navItems = [
+                        ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
+                        ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
+                        ['key' => 'providers', 'route' => null, 'permission' => 'providers.view', 'icon' => 'building'],
+                        ['key' => 'customers', 'route' => null, 'permission' => 'customers.view', 'icon' => 'user'],
+                        ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],    ['key' => 'activities', 'route' => null, 'permission' => 'activities.view', 'icon' => 'map'],
+                        ['key' => 'reservations', 'route' => null, 'permission' => 'reservations.view', 'icon' => 'calendar'],
+                        ['key' => 'payments', 'route' => null, 'permission' => 'payments.view', 'icon' => 'card'],
+                        ['key' => 'notifications', 'route' => null, 'permission' => 'notifications.view', 'icon' => 'bell'],
+                        ['key' => 'reports', 'route' => null, 'permission' => 'reports.view', 'icon' => 'chart'],
+                        ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],
+                        ['key' => 'settings', 'route' => null, 'permission' => 'settings.view', 'icon' => 'cog'],
+                    ];
 
-$icons = [
-    'home' => 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10',
-    'users' => 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0zm6 3a4 4 0 11-8 0 4 4 0 018 0z',
-    'building' => 'M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1',
-    'user' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-1a6 6 0 0112 0v1',
-    'tag' => 'M7 7h.01M4 4h6l10 10-6 6L4 10V4z',
-    'map' => 'M9 20l-6-3V4l6 3m0 13l6-3m-6 3V7m6 10l6 3V6l-6-3m0 17V4',
-    'calendar' => 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
-    'card' => 'M2 7h20M2 11h20M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z',
-    'bell' => 'M12 22a2 2 0 002-2H10a2 2 0 002 2zm6-6V11a6 6 0 10-12 0v5l-2 2h16l-2-2z',
-    'chart' => 'M3 3v18h18M8 17V9m5 8V5m5 12v-4',
-    'lock' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm2-10V7a4 4 0 118 0v4',
-    'cog' => 'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
-];
+                    $icons = [
+                        'home' => 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10',
+                        'users' => 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0zm6 3a4 4 0 11-8 0 4 4 0 018 0z',
+                        'building' => 'M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1',
+                        'user' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-1a6 6 0 0112 0v1',
+                        'tag' => 'M7 7h.01M4 4h6l10 10-6 6L4 10V4z',
+                        'map' => 'M9 20l-6-3V4l6 3m0 13l6-3m-6 3V7m6 10l6 3V6l-6-3m0 17V4',
+                        'calendar' => 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
+                        'card' => 'M2 7h20M2 11h20M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z',
+                        'bell' => 'M12 22a2 2 0 002-2H10a2 2 0 002 2zm6-6V11a6 6 0 10-12 0v5l-2 2h16l-2-2z',
+                        'chart' => 'M3 3v18h18M8 17V9m5 8V5m5 12v-4',
+                        'lock' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm2-10V7a4 4 0 118 0v4',
+                        'cog' => 'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
+                    ];
                 @endphp
 
                 @foreach ($navItems as $item)

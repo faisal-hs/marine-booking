@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Auth\CustomerAuthController;
 use App\Http\Controllers\Api\Auth\ProviderAuthController;
 use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Api\Provider\ProfileController as ProviderProfileController;
+use App\Http\Controllers\Api\Public\CategoryController as PublicCategoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -43,4 +44,8 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+});
+
+Route::prefix('public')->name('public.')->group(function () {
+    Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
 });

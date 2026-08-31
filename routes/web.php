@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Web\Admin\AuthController;
+use App\Http\Controllers\Web\Admin\CategoryController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,5 +29,7 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::resource('users', UserController::class)->except(['destroy'])->parameters(['users' => 'user']);
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::resource('categories', CategoryController::class)->except(['show', 'destroy']);
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
     });
 });
