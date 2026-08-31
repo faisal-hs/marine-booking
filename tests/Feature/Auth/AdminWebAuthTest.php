@@ -13,7 +13,7 @@ class AdminWebAuthTest extends TestCase
 
     public function test_login_page_renders(): void
     {
-        $this->get(route('admin.login'))->assertOk()->assertSee('Marine Booking Admin');
+        $this->get(route('admin.login'))->assertOk()->assertSee('Marine Booking');
     }
 
     public function test_admin_can_login_and_reach_dashboard(): void

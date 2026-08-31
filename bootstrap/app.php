@@ -31,8 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'admin.access' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'locale' => \App\Http\Middleware\SetLocale::class,
         ]);
-
         $middleware->redirectGuestsTo(fn() => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {

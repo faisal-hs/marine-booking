@@ -9,7 +9,15 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::prefix('admin')->name('admin.')->group(function () {
+Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () {
+    Route::get('/locale/{locale}', function (string $locale) {
+        if (in_array($locale, ['en', 'ar'], true)) {
+            session(['admin_locale' => $locale]);
+        }
+
+        return back();
+    })->name('locale.switch');
+
     Route::middleware('guest:web')->group(function () {
         Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [AuthController::class, 'login'])->name('login.submit');

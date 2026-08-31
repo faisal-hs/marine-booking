@@ -28,7 +28,7 @@ class DashboardPermissionTest extends TestCase
         return $user;
     }
 
-    public function test_super_admin_sees_every_module(): void
+    public function test_super_admin_sees_every_module_in_sidebar(): void
     {
         $admin = $this->makeAdmin('super_admin');
 
@@ -37,13 +37,10 @@ class DashboardPermissionTest extends TestCase
         $response->assertOk()
             ->assertSee('Users')
             ->assertSee('Roles & Permissions')
-            ->assertSee('Settings')
-            ->assertSee('+ Add User')
-            ->assertSee('Edit')
-            ->assertSee('Delete');
+            ->assertSee('Settings');
     }
 
-    public function test_content_admin_does_not_see_users_module(): void
+    public function test_content_admin_does_not_see_users_in_sidebar(): void
     {
         $admin = $this->makeAdmin('content_admin');
 
@@ -53,32 +50,44 @@ class DashboardPermissionTest extends TestCase
             ->assertSee('Categories')
             ->assertSee('Activities')
             ->assertDontSee('Roles & Permissions')
-            ->assertDontSeeText('You don\'t have permission to view users.') // never reaches this branch — the module tile itself is hidden
-            ->assertDontSee('+ Add User');
+            ->assertDontSee('Users');
     }
 
-    public function test_support_admin_sees_users_but_cannot_create_or_delete(): void
+    public function test_support_admin_sees_users_page_but_cannot_create_or_delete(): void
     {
         $admin = $this->makeAdmin('support_admin');
+        $target = User::factory()->customer()->create();
 
-        $response = $this->actingAs($admin, 'web')->get(route('admin.dashboard'));
+        $response = $this->actingAs($admin, 'web')->get(route('admin.users.index'));
 
         $response->assertOk()
-            ->assertSee('Users')
-            ->assertDontSee('+ Add User')
-            ->assertDontSee('Delete');
+            ->assertDontSee('+ Add User');
+
+        $showResponse = $this->actingAs($admin, 'web')->get(route('admin.users.show', $target));
+        $showResponse->assertOk()->assertDontSee('Delete');
     }
 
-    public function test_admin_role_sees_users_with_full_actions(): void
+    public function test_admin_role_sees_users_page_with_full_actions(): void
     {
         $admin = $this->makeAdmin('admin');
+        $target = User::factory()->customer()->create();
 
-        $response = $this->actingAs($admin, 'web')->get(route('admin.dashboard'));
-
-        $response->assertOk()
+        $indexResponse = $this->actingAs($admin, 'web')->get(route('admin.users.index'));
+        $indexResponse->assertOk()
             ->assertSee('+ Add User')
             ->assertSee('Edit')
-            ->assertSee('Delete')
-            ->assertDontSee('Roles & Permissions');
+            ->assertSee('Delete');
+
+        $dashboardResponse = $this->actingAs($admin, 'web')->get(route('admin.dashboard'));
+        $dashboardResponse->assertOk()->assertDontSee('Roles & Permissions');
+    }
+
+    public function test_content_admin_cannot_access_users_index_directly(): void
+    {
+        $admin = $this->makeAdmin('content_admin');
+
+        $response = $this->actingAs($admin, 'web')->get(route('admin.users.index'));
+
+        $response->assertStatus(403);
     }
 }
