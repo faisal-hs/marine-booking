@@ -64,4 +64,9 @@ class Activity extends Model
     {
         return $this->hasOne(ActivityImage::class)->where('is_cover', true);
     }
+
+    public function featureValues()
+    {
+        return $this->hasMany(ActivityFeatureValue::class);
+    }
 }

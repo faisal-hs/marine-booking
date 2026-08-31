@@ -3,6 +3,7 @@
 use App\Http\Controllers\Web\Admin\AuthController;
 use App\Http\Controllers\Web\Admin\CategoryController;
 use App\Http\Controllers\Web\Admin\DashboardController;
+use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
 use App\Http\Controllers\Web\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,4 +33,10 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::resource('categories', CategoryController::class)->except(['show', 'destroy']);
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
     });
+
+    Route::resource('feature-definitions', FeatureDefinitionController::class)
+        ->except(['show', 'destroy'])
+        ->parameters(['feature-definitions' => 'featureDefinition']);
+    Route::delete('/feature-definitions/{featureDefinition}', [FeatureDefinitionController::class, 'destroy'])
+        ->name('feature-definitions.destroy');
 });

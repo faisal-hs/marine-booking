@@ -30,4 +30,10 @@ class Category extends Model
         // is discoverable from the model that owns the foreign key's "one" side.
         return $this->hasMany(Activity::class);
     }
+
+
+    public function featureDefinitions()
+    {
+        return $this->hasMany(FeatureDefinition::class);
+    }
 }

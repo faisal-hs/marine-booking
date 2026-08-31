@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Activity;
 
+use App\Http\Resources\ActivityFeature\ActivityFeatureResource;
 use App\Http\Resources\ActivityImage\ActivityImageResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -30,6 +31,7 @@ class ActivityResource extends JsonResource
             'status' => $this->status,
             'rejection_reason' => $this->when($this->status === 'rejected', $this->rejection_reason),
             'images' => ActivityImageResource::collection($this->images),
+            'features' => ActivityFeatureResource::collection($this->featureValues),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

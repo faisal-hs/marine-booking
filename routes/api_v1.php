@@ -39,6 +39,8 @@ Route::prefix('auth')->name('auth.')->group(function () {
 Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
     Route::get('/profile', [ProviderProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
+    Route::put('/activities/{activity}/features', [\App\Http\Controllers\Api\Provider\ActivityFeatureController::class, 'sync'])
+        ->name('activities.features.sync');
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {

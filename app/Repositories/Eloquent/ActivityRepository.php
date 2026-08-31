@@ -30,7 +30,7 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
     {
         $query = $this->model->newQuery()
             ->where('provider_id', $providerId)
-            ->with(['category', 'images']);
+            ->with(['category', 'images', 'featureValues.featureDefinition']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -55,5 +55,4 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
 
         return $query->latest()->paginate($perPage)->withQueryString();
     }
-
 }

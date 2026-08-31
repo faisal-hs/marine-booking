@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             AdminRoleUsersSeeder::class,
             DemoUsersSeeder::class,
             CategorySeeder::class,
+            FeatureDefinitionSeeder::class,
         ]);
     }
 }

@@ -4,9 +4,11 @@ namespace App\Providers;
 
 use App\Models\Activity;
 use App\Models\Category;
+use App\Models\FeatureDefinition;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
 use App\Policies\CategoryPolicy;
+use App\Policies\FeatureDefinitionPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -40,6 +42,14 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\ActivityRepositoryInterface::class,
             \App\Repositories\Eloquent\ActivityRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\FeatureDefinitionRepositoryInterface::class,
+            \App\Repositories\Eloquent\FeatureDefinitionRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\ActivityFeatureValueRepositoryInterface::class,
+            \App\Repositories\Eloquent\ActivityFeatureValueRepository::class
+        );
     }
 
     public function boot(): void
@@ -47,5 +57,6 @@ class RepositoryServiceProvider extends ServiceProvider
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Activity::class, ActivityPolicy::class);
+        Gate::policy(FeatureDefinition::class, FeatureDefinitionPolicy::class);
     }
 }

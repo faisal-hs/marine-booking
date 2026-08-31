@@ -9,11 +9,6 @@ use Spatie\Permission\Models\Role;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
-    /**
-     * Central list of every permission the platform currently defines.
-     * New modules append to this array as they're built — this is the
-     * single source of truth referenced by every role below.
-     */
     protected array $allPermissions = [
         'users.view',
         'users.create',
@@ -35,6 +30,10 @@ class RolesAndPermissionsSeeder extends Seeder
         'activities.create',
         'activities.update',
         'activities.delete',
+        'feature_definitions.view',
+        'feature_definitions.create',
+        'feature_definitions.update',
+        'feature_definitions.delete',
         'reservations.view',
         'reservations.create',
         'reservations.update',
@@ -83,6 +82,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'activities.create',
             'activities.update',
             'activities.delete',
+            'feature_definitions.view',
+            'feature_definitions.create',
+            'feature_definitions.update',
+            'feature_definitions.delete',
             'reservations.view',
             'reservations.create',
             'reservations.update',
@@ -114,8 +117,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'activities.create',
             'activities.update',
             'activities.delete',
+            'feature_definitions.view',
+            'feature_definitions.create',
+            'feature_definitions.update',
+            'feature_definitions.delete',
         ]);
-
 
         Role::firstOrCreate(['name' => 'provider', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);

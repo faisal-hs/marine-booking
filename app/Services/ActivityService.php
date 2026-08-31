@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Activity;
 use App\Models\Provider;
+use App\Repositories\Contracts\ActivityFeatureValueRepositoryInterface;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,13 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class ActivityService
 {
-    public function __construct(protected ActivityRepositoryInterface $repository) {}
+    public function __construct(
+        protected ActivityRepositoryInterface $repository,
+        protected ActivityFeatureValueRepositoryInterface $featureValueRepository,
+    ) {}
 
-    /**
-     * provider_id is deliberately a required parameter here, not part of
-     * $data — it must be resolved by the caller (Controller) from the
-     * authenticated user, never trusted from request input (blueprint §20).
-     */
     public function create(Provider $provider, array $data): Activity
     {
         return DB::transaction(function () use ($provider, $data) {
@@ -35,7 +34,19 @@ class ActivityService
                 $data['slug'] = $this->generateUniqueSlug($data['title'], $activity->id);
             }
 
-            return $this->repository->update($activity, $data);
+            $categoryChanging = isset($data['category_id']) && (int) $data['category_id'] !== $activity->category_id;
+
+            $updated = $this->repository->update($activity, $data);
+
+            if ($categoryChanging) {
+                // Feature values are only meaningful within the category they
+                // were collected under — changing category invalidates them
+                // rather than silently leaving stale answers attached to a
+                // now-unrelated category's feature definitions.
+                $this->featureValueRepository->deleteForActivity($activity->id);
+            }
+
+            return $updated;
         });
     }
 
@@ -44,10 +55,6 @@ class ActivityService
         $this->repository->delete($activity);
     }
 
-    /**
-     * Draft -> pending_review only. Provider self-serve submission;
-     * approval/rejection is an admin action, built in Module 06.
-     */
     public function submitForReview(Activity $activity): Activity
     {
         if ($activity->status !== 'draft') {
