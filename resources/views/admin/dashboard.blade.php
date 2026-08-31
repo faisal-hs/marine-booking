@@ -24,10 +24,11 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 @foreach ($modules as $module)
                     @can($module['permission'] . '.view')
-                        <div class="bg-white rounded-lg shadow-sm p-4 text-center text-sm font-medium text-gray-700">
+                        <a href="{{ $module['permission'] === 'users' ? route('admin.users.index') : '#' }}"
+                            class="bg-white rounded-lg shadow-sm p-4 text-center text-sm font-medium text-gray-700 hover:shadow-md transition">
                             <span class="text-lg block mb-1">{{ $module['icon'] }}</span>
                             {{ $module['label'] }}
-                        </div>
+                        </a>
                     @endcan
                 @endforeach
             </div>

@@ -3,6 +3,7 @@
 namespace App\Repositories\Contracts;
 
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface UserRepositoryInterface extends BaseRepositoryInterface
 {
@@ -13,4 +14,6 @@ interface UserRepositoryInterface extends BaseRepositoryInterface
     public function emailExists(string $email): bool;
 
     public function phoneExists(string $phone): bool;
+
+    public function paginateWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator;
 }
