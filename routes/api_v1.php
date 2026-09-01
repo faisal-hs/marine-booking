@@ -87,6 +87,14 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         ->name('activities.requirements.sync');
     Route::put('/activities/{activity}/inclusions', [ActivityDetailsController::class, 'syncInclusions'])
         ->name('activities.inclusions.sync');
+
+    Route::apiResource('activities.schedule', \App\Http\Controllers\Api\Provider\ScheduleController::class)
+        ->parameters(['schedule' => 'period'])
+        ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::apiResource('activities.overrides', \App\Http\Controllers\Api\Provider\AvailabilityOverrideController::class)
+        ->parameters(['overrides' => 'override'])
+        ->only(['index', 'store', 'update', 'destroy']);
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
