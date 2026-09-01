@@ -106,4 +106,6 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');
     Route::get('/activities/{slug}', [PublicActivityController::class, 'show'])->name('activities.show');
+    Route::get('/activities/{slug}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
+        ->name('activities.availability');
 });
