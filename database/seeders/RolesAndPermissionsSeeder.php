@@ -30,6 +30,9 @@ class RolesAndPermissionsSeeder extends Seeder
         'activities.create',
         'activities.update',
         'activities.delete',
+        'activities.approve',
+        'activities.reject',
+        'activities.publish',
         'feature_definitions.view',
         'feature_definitions.create',
         'feature_definitions.update',
@@ -93,6 +96,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'payments.view',
             'notifications.view',
             'reports.view',
+            'activities.approve',
+            'activities.reject',
+            'activities.publish',
         ]);
 
         $supportAdmin = Role::firstOrCreate(['name' => 'support_admin', 'guard_name' => 'web']);

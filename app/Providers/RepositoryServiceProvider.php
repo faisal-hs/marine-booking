@@ -50,6 +50,14 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\ActivityFeatureValueRepositoryInterface::class,
             \App\Repositories\Eloquent\ActivityFeatureValueRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\ScheduleRepositoryInterface::class,
+            \App\Repositories\Eloquent\ScheduleRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\AvailabilityOverrideRepositoryInterface::class,
+            \App\Repositories\Eloquent\AvailabilityOverrideRepository::class
+        );
     }
 
     public function boot(): void

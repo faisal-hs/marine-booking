@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             DemoUsersSeeder::class,
             CategorySeeder::class,
             FeatureDefinitionSeeder::class,
+            ActivitySeeder::class,
         ]);
     }
 }

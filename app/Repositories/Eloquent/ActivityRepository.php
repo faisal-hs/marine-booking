@@ -55,4 +55,20 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
 
         return $query->latest()->paginate($perPage)->withQueryString();
     }
+
+    public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->model->newQuery()
+            ->with(['category', 'provider']);
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['search'])) {
+            $query->where('title', 'like', '%' . $filters['search'] . '%');
+        }
+
+        return $query->latest()->paginate($perPage)->withQueryString();
+    }
 }

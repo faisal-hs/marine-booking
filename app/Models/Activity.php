@@ -84,4 +84,14 @@ class Activity extends Model
     {
         return $this->hasMany(ActivityInclusion::class)->orderBy('sort_order');
     }
+
+    public function schedulePeriods()
+    {
+        return $this->hasMany(ActivitySchedulePeriod::class)->orderBy('day_of_week')->orderBy('sort_order');
+    }
+
+    public function availabilityOverrides()
+    {
+        return $this->hasMany(ActivityAvailabilityOverride::class);
+    }
 }
