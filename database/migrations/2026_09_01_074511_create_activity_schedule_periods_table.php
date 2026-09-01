@@ -24,7 +24,7 @@ return new class extends Migration
             // the single place this is calculated from start/end.
             $table->boolean('crosses_midnight')->default(false);
 
-            $table->decimal('price', 10, 2);
+
             $table->text('instructions')->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->unsignedInteger('sort_order')->default(0);

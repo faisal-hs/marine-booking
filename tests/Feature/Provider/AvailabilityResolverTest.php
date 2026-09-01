@@ -11,6 +11,17 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
+/**
+ * Module 08 note: pricing assertions were removed from every test here —
+ * AvailabilityService no longer resolves price at all (that moved to
+ * ActivityBookingOption/ActivityPricingRule via ActivityPricingService,
+ * kept deliberately separate per the "availability and pricing must
+ * remain independent services" architectural rule). Two tests whose
+ * entire premise was schedule-period-price/override-price resolution
+ * were removed outright rather than patched into something they no
+ * longer test; instructions-override inheritance (a genuine remaining
+ * availability concern) is preserved in test_override_without_instructions_uses_weekly_period.
+ */
 class AvailabilityResolverTest extends TestCase
 {
     use RefreshDatabase;
@@ -45,7 +56,6 @@ class AvailabilityResolverTest extends TestCase
             'start_time' => '09:00',
             'end_time' => '13:00',
             'crosses_midnight' => false,
-            'price' => 300,
         ]);
 
         $result = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-05'));
@@ -54,7 +64,6 @@ class AvailabilityResolverTest extends TestCase
         $this->assertEquals('09:00', $result[0]['start']);
         $this->assertEquals('13:00', $result[0]['end']);
         $this->assertFalse($result[0]['next_day']);
-        $this->assertEquals(300.0, $result[0]['price']);
     }
 
     public function test_overnight_period_resolves_with_next_day_flag(): void
@@ -65,7 +74,6 @@ class AvailabilityResolverTest extends TestCase
             'start_time' => '17:00',
             'end_time' => '05:00',
             'crosses_midnight' => true,
-            'price' => 500,
         ]);
 
         $result = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-05'));
@@ -84,7 +92,6 @@ class AvailabilityResolverTest extends TestCase
             'start_time' => '17:00',
             'end_time' => '05:00',
             'crosses_midnight' => true,
-            'price' => 500,
         ]);
 
         $sundayResult = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-06'));
@@ -99,7 +106,6 @@ class AvailabilityResolverTest extends TestCase
             'day_of_week' => 6,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
             'sort_order' => 0,
         ]);
         $activity->schedulePeriods()->create([
@@ -107,7 +113,6 @@ class AvailabilityResolverTest extends TestCase
             'start_time' => '17:00',
             'end_time' => '05:00',
             'crosses_midnight' => true,
-            'price' => 500,
             'sort_order' => 1,
         ]);
 
@@ -123,7 +128,6 @@ class AvailabilityResolverTest extends TestCase
             'day_of_week' => 6,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
             'status' => 'inactive',
         ]);
 
@@ -139,7 +143,6 @@ class AvailabilityResolverTest extends TestCase
             'day_of_week' => 6,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
         ]);
         $activity->availabilityOverrides()->create([
             'date_from' => '2026-09-05',
@@ -160,7 +163,6 @@ class AvailabilityResolverTest extends TestCase
                 'day_of_week' => $d,
                 'start_time' => '09:00',
                 'end_time' => '13:00',
-                'price' => 300,
             ]);
         }
         $activity->availabilityOverrides()->create([
@@ -176,39 +178,37 @@ class AvailabilityResolverTest extends TestCase
         }
     }
 
-    public function test_price_override_replaces_period_price_without_mutating_the_period(): void
-    {
-        $activity = $this->makeActivity();
-        $period = $activity->schedulePeriods()->create([
-            'day_of_week' => 6,
-            'start_time' => '17:00',
-            'end_time' => '05:00',
-            'crosses_midnight' => true,
-            'price' => 500,
-        ]);
-        $activity->availabilityOverrides()->create([
-            'date_from' => '2026-09-12',
-            'date_to' => '2026-09-12',
-            'is_unavailable' => false,
-            'price' => 600,
-        ]);
-
-        $overriddenDate = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-12'));
-        $normalDate = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-05'));
-
-        $this->assertEquals(600.0, $overriddenDate[0]['price']);
-        $this->assertEquals(500.0, $normalDate[0]['price']);
-        $this->assertEquals('500.00', $period->fresh()->price);
-    }
-
-    public function test_override_without_price_inherits_from_weekly_period(): void
+    public function test_override_without_instructions_uses_weekly_period_instructions(): void
     {
         $activity = $this->makeActivity();
         $activity->schedulePeriods()->create([
             'day_of_week' => 6,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
+            'instructions' => 'Weekly default instructions.',
+        ]);
+        // A non-blackout override present on this date, but with no
+        // instructions of its own — the weekly period's instructions
+        // must still surface, not be blanked out by the override's presence.
+        $activity->availabilityOverrides()->create([
+            'date_from' => '2026-09-05',
+            'date_to' => '2026-09-05',
+            'is_unavailable' => false,
+        ]);
+
+        $result = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-05'));
+
+        $this->assertEquals('Weekly default instructions.', $result[0]['instructions']);
+    }
+
+    public function test_override_instructions_take_precedence_over_weekly_period(): void
+    {
+        $activity = $this->makeActivity();
+        $activity->schedulePeriods()->create([
+            'day_of_week' => 6,
+            'start_time' => '09:00',
+            'end_time' => '13:00',
+            'instructions' => 'Weekly default instructions.',
         ]);
         $activity->availabilityOverrides()->create([
             'date_from' => '2026-09-05',
@@ -219,7 +219,6 @@ class AvailabilityResolverTest extends TestCase
 
         $result = $this->service->resolveForDate($activity->id, Carbon::parse('2026-09-05'));
 
-        $this->assertEquals(300.0, $result[0]['price']);
         $this->assertEquals('Bring extra sunscreen.', $result[0]['instructions']);
     }
 
@@ -230,7 +229,6 @@ class AvailabilityResolverTest extends TestCase
             'day_of_week' => 6,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
         ]);
 
         $result = $this->service->resolveForMonth($activity->id, 2026, 9);

@@ -48,7 +48,6 @@ class ScheduleModelTest extends TestCase
             'start_time' => '17:00',
             'end_time' => '05:00',
             'crosses_midnight' => true,
-            'price' => 500,
             'sort_order' => 1,
         ]);
         $activity->schedulePeriods()->create([
@@ -56,7 +55,6 @@ class ScheduleModelTest extends TestCase
             'start_time' => '09:00',
             'end_time' => '13:00',
             'crosses_midnight' => false,
-            'price' => 300,
             'sort_order' => 0,
         ]);
         $activity->schedulePeriods()->create([
@@ -64,7 +62,6 @@ class ScheduleModelTest extends TestCase
             'start_time' => '10:00',
             'end_time' => '14:00',
             'crosses_midnight' => false,
-            'price' => 350,
         ]);
 
         $periods = $activity->schedulePeriods;
@@ -85,7 +82,6 @@ class ScheduleModelTest extends TestCase
             'day_of_week' => 1,
             'start_time' => '09:00',
             'end_time' => '13:00',
-            'price' => 300,
             'status' => 'inactive',
         ]);
 
@@ -138,7 +134,7 @@ class ScheduleModelTest extends TestCase
     public function test_deleting_activity_cascades_to_schedule_periods_and_overrides(): void
     {
         $activity = $this->makeActivity();
-        $activity->schedulePeriods()->create(['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $activity->schedulePeriods()->create(['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '13:00']);
         $activity->availabilityOverrides()->create(['date_from' => '2026-09-12', 'date_to' => '2026-09-12']);
 
         $activity->forceDelete();

@@ -19,7 +19,6 @@ class UpdateSchedulePeriodRequest extends FormRequest
             'day_of_week' => ['sometimes', 'string', Rule::in(array_values(ActivitySchedulePeriod::dayNames()))],
             'start_time' => ['sometimes', 'date_format:H:i'],
             'end_time' => ['sometimes', 'date_format:H:i'],
-            'price' => ['sometimes', 'numeric', 'min:0'],
             'instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
@@ -28,7 +27,7 @@ class UpdateSchedulePeriodRequest extends FormRequest
 
     public function payload(): array
     {
-        $data = $this->only(['day_of_week', 'start_time', 'end_time', 'price', 'instructions', 'status', 'sort_order']);
+        $data = $this->only(['day_of_week', 'start_time', 'end_time', 'instructions', 'status', 'sort_order']);
 
         if (isset($data['day_of_week'])) {
             $data['day_of_week'] = ActivitySchedulePeriod::dayNumberFromName($data['day_of_week']);

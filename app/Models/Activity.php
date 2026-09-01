@@ -94,4 +94,9 @@ class Activity extends Model
     {
         return $this->hasMany(ActivityAvailabilityOverride::class);
     }
+
+    public function bookingOptions()
+    {
+        return $this->hasMany(ActivityBookingOption::class)->orderBy('sort_order');
+    }
 }

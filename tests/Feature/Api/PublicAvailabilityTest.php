@@ -26,7 +26,7 @@ class PublicAvailabilityTest extends TestCase
             'status' => 'published',
         ]);
 
-        $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         return $activity;
     }

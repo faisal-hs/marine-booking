@@ -29,7 +29,7 @@ class AvailabilityEagerLoadingTest extends TestCase
         ]);
 
         for ($d = 0; $d <= 6; $d++) {
-            $activity->schedulePeriods()->create(['day_of_week' => $d, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+            $activity->schedulePeriods()->create(['day_of_week' => $d, 'start_time' => '09:00', 'end_time' => '13:00']);
         }
         $activity->availabilityOverrides()->create(['date_from' => '2026-09-12', 'date_to' => '2026-09-15', 'price' => 350]);
 

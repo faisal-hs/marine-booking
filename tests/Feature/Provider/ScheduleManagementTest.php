@@ -38,7 +38,6 @@ class ScheduleManagementTest extends TestCase
                 'day_of_week' => 'saturday',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
-                'price' => 300,
             ]);
 
         $response->assertCreated()
@@ -57,7 +56,6 @@ class ScheduleManagementTest extends TestCase
                 'day_of_week' => 'saturday',
                 'start_time' => '17:00',
                 'end_time' => '05:00',
-                'price' => 500,
             ]);
 
         $response->assertCreated()->assertJsonPath('data.crosses_midnight', true);
@@ -72,7 +70,6 @@ class ScheduleManagementTest extends TestCase
                 'day_of_week' => 'saturday',
                 'start_time' => '17:00',
                 'end_time' => '17:00',
-                'price' => 500,
             ]);
 
         $response->assertStatus(422);
@@ -87,43 +84,27 @@ class ScheduleManagementTest extends TestCase
                 'day_of_week' => 'not_a_real_day',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
-                'price' => 300,
             ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors('day_of_week');
     }
 
-    public function test_negative_price_is_rejected(): void
-    {
-        [$user, $provider, $token, $activity] = $this->makeProviderActivity();
-
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 'saturday',
-                'start_time' => '09:00',
-                'end_time' => '13:00',
-                'price' => -10,
-            ]);
-
-        $response->assertStatus(422)->assertJsonValidationErrors('price');
-    }
-
     public function test_provider_can_update_period(): void
     {
         [$user, $provider, $token, $activity] = $this->makeProviderActivity();
-        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->putJson("/api/v1/provider/activities/{$activity->uuid}/schedule/{$period->uuid}", ['price' => 350]);
+            ->putJson("/api/v1/provider/activities/{$activity->uuid}/schedule/{$period->uuid}", ['instructions' => 'Updated instructions.']);
 
         $response->assertOk();
-        $this->assertEquals(350.0, $response->json('data.price'));
+        $this->assertEquals('Updated instructions.', $response->json('data.instructions'));
     }
 
     public function test_updating_time_recomputes_crosses_midnight(): void
     {
         [$user, $provider, $token, $activity] = $this->makeProviderActivity();
-        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->putJson("/api/v1/provider/activities/{$activity->uuid}/schedule/{$period->uuid}", [
@@ -137,7 +118,7 @@ class ScheduleManagementTest extends TestCase
     public function test_provider_can_deactivate_period(): void
     {
         [$user, $provider, $token, $activity] = $this->makeProviderActivity();
-        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->putJson("/api/v1/provider/activities/{$activity->uuid}/schedule/{$period->uuid}", ['status' => 'inactive']);
@@ -148,7 +129,7 @@ class ScheduleManagementTest extends TestCase
     public function test_provider_can_delete_period(): void
     {
         [$user, $provider, $token, $activity] = $this->makeProviderActivity();
-        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $period = $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->deleteJson("/api/v1/provider/activities/{$activity->uuid}/schedule/{$period->uuid}");
@@ -169,7 +150,6 @@ class ScheduleManagementTest extends TestCase
                 'day_of_week' => 'saturday',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
-                'price' => 300,
             ]);
 
         $response->assertStatus(403);
@@ -185,13 +165,13 @@ class ScheduleManagementTest extends TestCase
             'title' => 'Second Activity',
             'slug' => 'second-activity-' . uniqid(),
         ]);
-        $periodBelongingToB = $activityB->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $periodBelongingToB = $activityB->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->putJson("/api/v1/provider/activities/{$activityA->uuid}/schedule/{$periodBelongingToB->uuid}", ['price' => 999]);
+            ->putJson("/api/v1/provider/activities/{$activityA->uuid}/schedule/{$periodBelongingToB->uuid}", ['instructions' => 'Hacked instructions.']);
 
         $response->assertStatus(404);
-        $this->assertDatabaseHas('activity_schedule_periods', ['id' => $periodBelongingToB->id, 'price' => 300.00]);
+        $this->assertDatabaseHas('activity_schedule_periods', ['id' => $periodBelongingToB->id, 'instructions' => null]);
     }
 
     public function test_customer_token_cannot_access_provider_schedule_endpoints(): void

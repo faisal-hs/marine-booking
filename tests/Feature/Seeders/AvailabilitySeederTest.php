@@ -57,7 +57,7 @@ class AvailabilitySeederTest extends TestCase
         $this->assertGreaterThan(0, $dateRange);
     }
 
-    public function test_resolver_returns_weekly_price_when_no_override_applies(): void
+    public function test_resolver_returns_the_correct_period_when_no_blackout_applies(): void
     {
         $this->seedFullChain();
 
@@ -79,7 +79,7 @@ class AvailabilitySeederTest extends TestCase
         $this->assertNotEmpty($result);
         $matching = collect($result)->firstWhere('start', Carbon::parse($period->start_time)->format('H:i'));
         $this->assertNotNull($matching);
-        $this->assertEquals((float) $period->price, $matching['price']);
+        $this->assertEquals(Carbon::parse($period->end_time)->format('H:i'), $matching['end']);
     }
 
     public function test_blackout_override_removes_periods_on_seeded_published_activity(): void

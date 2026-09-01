@@ -20,7 +20,6 @@
                         <tr class="text-slate-400 border-b border-slate-100">
                             <th class="py-2 font-medium">{{ __('admin.activities.day') }}</th>
                             <th class="py-2 font-medium">{{ __('admin.activities.time') }}</th>
-                            <th class="py-2 font-medium">{{ __('admin.activities.price') }}</th>
                             <th class="py-2 font-medium">{{ __('admin.activities.status') }}</th>
                         </tr>
                     </thead>
@@ -36,7 +35,6 @@
                                         <span class="text-xs text-slate-400">({{ __('admin.activities.next_day') }})</span>
                                     @endif
                                 </td>
-                                <td class="py-2.5 text-slate-500">{{ number_format((float) $period->price, 2) }}</td>
                                 <td class="py-2.5">
                                     <x-admin.status-badge
                                         :variant="$period->status === 'active' ? 'success' : 'neutral'"
@@ -45,7 +43,7 @@
                             </tr>
                             @if ($period->instructions)
                                 <tr class="border-b border-slate-50">
-                                    <td colspan="4" class="pb-2.5 text-xs text-slate-400">{{ $period->instructions }}</td>
+                                    <td colspan="3" class="pb-2.5 text-xs text-slate-400">{{ $period->instructions }}</td>
                                 </tr>
                             @endif
                         @endforeach

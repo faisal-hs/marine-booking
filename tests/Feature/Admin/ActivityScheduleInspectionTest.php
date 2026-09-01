@@ -41,7 +41,7 @@ class ActivityScheduleInspectionTest extends TestCase
             'title' => 'Test Activity',
             'slug' => 'test-activity-' . uniqid(),
         ]);
-        $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00', 'price' => 300]);
+        $activity->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00']);
         $activity->availabilityOverrides()->create(['date_from' => '2026-09-12', 'date_to' => '2026-09-12', 'is_unavailable' => true]);
 
         return $activity;
@@ -55,7 +55,7 @@ class ActivityScheduleInspectionTest extends TestCase
         $response = $this->actingAs($admin, 'web')->get(route('admin.activities.show', $activity));
 
         $response->assertOk()
-            ->assertSee('300.00')
+            ->assertSee('09:00')
             ->assertSee('2026-09-12');
     }
 
@@ -79,6 +79,6 @@ class ActivityScheduleInspectionTest extends TestCase
 
         // Admin inspection must show inactive periods too — only the
         // PUBLIC availability endpoint hides them from bookability.
-        $response->assertOk()->assertSee('300.00');
+        $response->assertOk()->assertSee('09:00');
     }
 }

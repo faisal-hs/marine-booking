@@ -81,15 +81,6 @@ class ActivityScheduleSeederTest extends TestCase
         $this->assertGreaterThan($inactiveCount, $activeCount, 'Most periods should remain active, not inactive.');
     }
 
-    public function test_schedule_periods_have_varied_prices_not_one_global_price(): void
-    {
-        $this->seedFullChain();
-
-        $distinctPrices = \App\Models\ActivitySchedulePeriod::distinct()->pluck('price')->count();
-
-        $this->assertGreaterThan(5, $distinctPrices);
-    }
-
     public function test_schedule_periods_have_instructions_populated(): void
     {
         $this->seedFullChain();

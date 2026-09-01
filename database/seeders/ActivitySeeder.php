@@ -486,7 +486,6 @@ class ActivitySeeder extends Seeder
                     'start_time' => $period['start'],
                     'end_time' => $period['end'],
                     'crosses_midnight' => $period['start'] > $period['end'],
-                    'price' => $period['price'],
                     'instructions' => $periodIndex === 0
                         ? 'Please arrive 30 minutes before departure.'
                         : 'Bring valid identification and appropriate clothing.',

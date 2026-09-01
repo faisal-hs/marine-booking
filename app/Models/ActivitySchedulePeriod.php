@@ -22,7 +22,6 @@ class ActivitySchedulePeriod extends Model
         'start_time',
         'end_time',
         'crosses_midnight',
-        'price',
         'instructions',
         'status',
         'sort_order',
@@ -31,7 +30,6 @@ class ActivitySchedulePeriod extends Model
     protected $casts = [
         'day_of_week' => 'integer',
         'crosses_midnight' => 'boolean',
-        'price' => 'decimal:2',
     ];
 
     public function activity()
