@@ -53,4 +53,9 @@ class ActivityPolicy
     {
         return $user->can('activities.view');
     }
+
+    public function viewAsAdmin(User $user): bool
+    {
+        return $user->can('activities.view');
+    }
 }

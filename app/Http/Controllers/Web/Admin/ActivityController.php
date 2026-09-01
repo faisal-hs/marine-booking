@@ -34,6 +34,15 @@ class ActivityController extends Controller
         ]);
     }
 
+    public function show(Activity $activity): View
+    {
+        $this->authorize('viewAsAdmin', Activity::class);
+
+        $activity->load(['category', 'provider', 'schedulePeriods', 'availabilityOverrides']);
+
+        return view('admin.activities.show', ['activity' => $activity]);
+    }
+
     public function approve(Activity $activity): RedirectResponse
     {
         $this->authorize('approve', $activity);

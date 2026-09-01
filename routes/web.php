@@ -54,5 +54,6 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::post('/activities/{activity}/reject', [ActivityController::class, 'reject'])->name('activities.reject');
         Route::post('/activities/{activity}/publish', [ActivityController::class, 'publish'])->name('activities.publish');
         Route::post('/activities/{activity}/deactivate', [ActivityController::class, 'deactivate'])->name('activities.deactivate');
+        Route::get('/activities/{activity}', [ActivityController::class, 'show'])->name('activities.show');
     });
 });
