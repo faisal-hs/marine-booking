@@ -29,6 +29,14 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!--
+            Step 26 hardening: forces the LogSmsGateway binding (see
+            SmsServiceProvider) during every test run instead of the real
+            TaqnyatSmsGateway. Without this, OTP-related tests were
+            resolving the real gateway and attempting genuine outbound
+            HTTP calls to Taqnyat's API on every run (audit CRITICAL-3).
+        -->
+        <env name="SMS_DRIVER" value="log"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
