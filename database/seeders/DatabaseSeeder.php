@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             AdminRoleUsersSeeder::class,
             DemoUsersSeeder::class,
+            ProviderSeeder::class,
+            CustomerSeeder::class,
             CategorySeeder::class,
             FeatureDefinitionSeeder::class,
             ActivitySeeder::class,

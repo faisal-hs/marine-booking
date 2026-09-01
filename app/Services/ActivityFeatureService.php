@@ -17,12 +17,15 @@ class ActivityFeatureService
     ) {}
 
     /**
-     * Builds validation rules dynamically from the activity's category's
-     * active feature definitions — one query, not one per field.
+     * Builds validation rules dynamically from a category's active feature
+     * definitions — one query, not one per field. Accepts a raw category
+     * id (not an Activity) so it can be used both for an existing
+     * activity's feature sync AND for the combined create-activity
+     * endpoint, where no Activity row exists yet at validation time.
      */
-    public function buildValidationRules(Activity $activity): array
+    public function buildValidationRulesForCategory(int $categoryId): array
     {
-        $definitions = $this->definitionRepository->forCategory($activity->category_id);
+        $definitions = $this->definitionRepository->forCategory($categoryId);
 
         $rules = [];
 
@@ -44,6 +47,15 @@ class ActivityFeatureService
         }
 
         return $rules;
+    }
+
+    /**
+     * @deprecated kept for the standalone SyncActivityFeaturesRequest;
+     * new call sites should use buildValidationRulesForCategory() directly.
+     */
+    public function buildValidationRules(Activity $activity): array
+    {
+        return $this->buildValidationRulesForCategory($activity->category_id);
     }
 
     /**

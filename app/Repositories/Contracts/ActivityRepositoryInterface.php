@@ -9,6 +9,9 @@ interface ActivityRepositoryInterface extends BaseRepositoryInterface
 {
     public function findBySlug(string $slug): ?Activity;
 
+
+    public function findByIdOrUuidOrSlug(string $value): ?Activity;
+
     public function slugExists(string $slug, ?int $ignoreId = null): bool;
 
     public function paginateForProvider(int $providerId, array $filters, int $perPage = 15): LengthAwarePaginator;

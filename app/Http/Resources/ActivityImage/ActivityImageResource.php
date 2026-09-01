@@ -11,6 +11,7 @@ class ActivityImageResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'uuid' => $this->uuid,
             'url' => Storage::disk('public')->url($this->path),
             'is_cover' => $this->is_cover,

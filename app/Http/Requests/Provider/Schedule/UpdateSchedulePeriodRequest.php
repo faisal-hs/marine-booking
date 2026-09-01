@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Provider\Schedule;
 
+use App\Models\ActivitySchedulePeriod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class UpdateSchedulePeriodRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'day_of_week' => ['sometimes', 'integer', 'between:0,6'],
+            'day_of_week' => ['sometimes', 'string', Rule::in(array_values(ActivitySchedulePeriod::dayNames()))],
             'start_time' => ['sometimes', 'date_format:H:i'],
             'end_time' => ['sometimes', 'date_format:H:i'],
             'price' => ['sometimes', 'numeric', 'min:0'],
@@ -27,6 +28,12 @@ class UpdateSchedulePeriodRequest extends FormRequest
 
     public function payload(): array
     {
-        return $this->only(['day_of_week', 'start_time', 'end_time', 'price', 'instructions', 'status', 'sort_order']);
+        $data = $this->only(['day_of_week', 'start_time', 'end_time', 'price', 'instructions', 'status', 'sort_order']);
+
+        if (isset($data['day_of_week'])) {
+            $data['day_of_week'] = ActivitySchedulePeriod::dayNumberFromName($data['day_of_week']);
+        }
+
+        return $data;
     }
 }

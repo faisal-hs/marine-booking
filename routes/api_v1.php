@@ -104,8 +104,9 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
 
 Route::prefix('public')->name('public.')->group(function () {
     Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
+    Route::get('/categories/{category}', [PublicCategoryController::class, 'show'])->name('categories.show');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');
-    Route::get('/activities/{slug}', [PublicActivityController::class, 'show'])->name('activities.show');
-    Route::get('/activities/{slug}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
+    Route::get('/activities/{activity}', [PublicActivityController::class, 'show'])->name('activities.show');
+    Route::get('/activities/{activity}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
         ->name('activities.availability');
 });

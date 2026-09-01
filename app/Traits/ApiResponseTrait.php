@@ -12,6 +12,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  *     "success": true|false,
  *     "message": "human readable message",
  *     "data": {}|[]|null,
+ *     "pagination": { "current_page", "total_pages", "per_page", "total_items" },  // only present for paginated collections
  *     "errors": {}   // only present on validation-style failures
  * }
  */
@@ -31,10 +32,14 @@ trait ApiResponseTrait
         if ($data instanceof ResourceCollection) {
             $response = $data->response()->getData(true);
 
-            if (isset($response['meta']) || isset($response['links'])) {
+            if (isset($response['meta'])) {
                 $payload['data'] = $response['data'];
-                $payload['meta'] = $response['meta'] ?? null;
-                $payload['links'] = $response['links'] ?? null;
+                $payload['pagination'] = [
+                    'current_page' => $response['meta']['current_page'],
+                    'total_pages' => $response['meta']['last_page'],
+                    'per_page' => $response['meta']['per_page'],
+                    'total_items' => $response['meta']['total'],
+                ];
             }
         }
 

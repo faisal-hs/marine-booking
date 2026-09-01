@@ -10,6 +10,7 @@ class AvailabilityOverrideResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'uuid' => $this->uuid,
             'date_from' => $this->date_from->toDateString(),
             'date_to' => $this->date_to->toDateString(),

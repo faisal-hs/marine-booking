@@ -38,7 +38,7 @@ class CustomerOtpAuthTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.profile.type', 'customer')
+            ->assertJsonPath('data.user.type', 'customer')
             ->assertJsonPath('data.user.phone', '0544444499');
 
         $this->assertDatabaseHas('users', [

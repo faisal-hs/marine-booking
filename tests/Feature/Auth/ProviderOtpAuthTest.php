@@ -50,10 +50,10 @@ class ProviderOtpAuthTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.profile.type', 'provider')
-            ->assertJsonPath('data.profile.business_name', 'Coral Bay Diving')
-            ->assertJsonPath('data.profile.slug', 'coral-bay-diving')
-            ->assertJsonStructure(['data' => ['user', 'profile', 'token']]);
+            ->assertJsonPath('data.user.type', 'provider')
+            ->assertJsonPath('data.user.business_name', 'Coral Bay Diving')
+            ->assertJsonPath('data.user.slug', 'coral-bay-diving')
+            ->assertJsonStructure(['data' => ['user', 'token']]);
 
         $this->assertDatabaseHas('users', [
             'phone' => '0511111199',

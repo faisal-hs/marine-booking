@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\Activity;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 class ActivityRepository extends BaseRepository implements ActivityRepositoryInterface
 {
@@ -16,6 +17,19 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
     public function findBySlug(string $slug): ?Activity
     {
         return $this->model->newQuery()->where('slug', $slug)->first();
+    }
+
+    public function findByIdOrUuidOrSlug(string $value): ?Activity
+    {
+        if (is_numeric($value)) {
+            return $this->model->newQuery()->find((int) $value);
+        }
+
+        if (Str::isUuid($value)) {
+            return $this->findByUuid($value);
+        }
+
+        return $this->findBySlug($value);
     }
 
     public function slugExists(string $slug, ?int $ignoreId = null): bool
@@ -30,13 +44,13 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
     {
         $query = $this->model->newQuery()
             ->where('provider_id', $providerId)
-            ->with(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions']);
+            ->with(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'schedulePeriods', 'availabilityOverrides']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        return $query->latest()->paginate($perPage)->withQueryString();
+        return $query->latest()->paginate($perPage, ['*'], 'current_page')->withQueryString();
     }
 
     public function paginatePublished(array $filters, int $perPage = 15): LengthAwarePaginator
@@ -53,7 +67,7 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             $query->where('title', 'like', '%' . $filters['search'] . '%');
         }
 
-        return $query->latest()->paginate($perPage)->withQueryString();
+        return $query->latest()->paginate($perPage, ['*'], 'current_page')->withQueryString();
     }
 
     public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator

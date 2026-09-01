@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Requests\PaginationRequest;
 use App\Http\Requests\Public\AvailabilityQueryRequest;
 use App\Http\Resources\Activity\ActivityListResource;
 use App\Http\Resources\Activity\ActivityResource;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Services\AvailabilityService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class ActivityController extends BaseApiController
@@ -18,36 +18,39 @@ class ActivityController extends BaseApiController
         protected AvailabilityService $availabilityService,
     ) {}
 
-    public function index(Request $request)
+    public function index(PaginationRequest $request)
     {
-        $activities = $this->repository->paginatePublished($request->only(['category_id', 'search']));
+        $activities = $this->repository->paginatePublished(
+            $request->only(['category_id', 'search']),
+            $request->perPage()
+        );
 
         return $this->success(ActivityListResource::collection($activities));
     }
 
-    public function show(string $slug)
+    public function show(string $activity)
     {
-        $activity = $this->repository->findBySlug($slug);
+        $activityModel = $this->repository->findByIdOrUuidOrSlug($activity);
 
-        if (! $activity || $activity->status !== 'published') {
+        if (! $activityModel || $activityModel->status !== 'published') {
             return $this->error('Activity not found.', 404);
         }
 
-        return $this->success(new ActivityResource($activity));
+        return $this->success(new ActivityResource($activityModel));
     }
 
-    public function availability(AvailabilityQueryRequest $request, string $slug)
+    public function availability(AvailabilityQueryRequest $request, string $activity)
     {
-        $activity = $this->repository->findBySlug($slug);
+        $activityModel = $this->repository->findByIdOrUuidOrSlug($activity);
 
-        if (! $activity || $activity->status !== 'published') {
+        if (! $activityModel || $activityModel->status !== 'published') {
             return $this->error('Activity not found.', 404);
         }
 
         return match ($request->mode()) {
-            'range' => $this->resolveRange($request, $activity->id),
-            'month' => $this->resolveMonth($request, $activity->id),
-            default => $this->resolveSingleDate($request, $activity->id),
+            'range' => $this->resolveRange($request, $activityModel->id),
+            'month' => $this->resolveMonth($request, $activityModel->id),
+            default => $this->resolveSingleDate($request, $activityModel->id),
         };
     }
 

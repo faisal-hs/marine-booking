@@ -35,14 +35,14 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 6,
+                'day_of_week' => 'saturday',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
                 'price' => 300,
             ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.day_of_week', 6)
+            ->assertJsonPath('data.day_of_week', 'saturday')
             ->assertJsonPath('data.crosses_midnight', false);
 
         $this->assertDatabaseHas('activity_schedule_periods', ['activity_id' => $activity->id, 'day_of_week' => 6]);
@@ -54,7 +54,7 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 6,
+                'day_of_week' => 'saturday',
                 'start_time' => '17:00',
                 'end_time' => '05:00',
                 'price' => 500,
@@ -69,7 +69,7 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 6,
+                'day_of_week' => 'saturday',
                 'start_time' => '17:00',
                 'end_time' => '17:00',
                 'price' => 500,
@@ -84,7 +84,7 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 7,
+                'day_of_week' => 'not_a_real_day',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
                 'price' => 300,
@@ -99,7 +99,7 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson("/api/v1/provider/activities/{$activity->uuid}/schedule", [
-                'day_of_week' => 6,
+                'day_of_week' => 'saturday',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
                 'price' => -10,
@@ -166,7 +166,7 @@ class ScheduleManagementTest extends TestCase
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $tokenB)
             ->postJson("/api/v1/provider/activities/{$activityA->uuid}/schedule", [
-                'day_of_week' => 6,
+                'day_of_week' => 'saturday',
                 'start_time' => '09:00',
                 'end_time' => '13:00',
                 'price' => 300,

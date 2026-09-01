@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Repositories\Contracts\CategoryRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 class CategoryRepository extends BaseRepository implements CategoryRepositoryInterface
 {
@@ -17,6 +18,19 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
     public function findBySlug(string $slug): ?Category
     {
         return $this->model->newQuery()->where('slug', $slug)->first();
+    }
+
+    public function findByIdOrUuidOrSlug(string $value): ?Category
+    {
+        if (is_numeric($value)) {
+            return $this->model->newQuery()->find((int) $value);
+        }
+
+        if (Str::isUuid($value)) {
+            return $this->findByUuid($value);
+        }
+
+        return $this->findBySlug($value);
     }
 
     public function slugExists(string $slug, ?int $ignoreId = null): bool
