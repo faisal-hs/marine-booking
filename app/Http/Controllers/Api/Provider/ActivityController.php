@@ -9,10 +9,12 @@ use App\Http\Requests\Provider\Activity\UpdateActivityRequest;
 use App\Http\Resources\Activity\ActivityResource;
 use App\Models\Activity;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
+use App\Services\ActivityBookingOptionService;
 use App\Services\ActivityFeatureService;
 use App\Services\ActivityImageService;
 use App\Services\ActivityInclusionService;
 use App\Services\ActivityOptionService;
+use App\Services\ActivityPricingRuleService;
 use App\Services\ActivityRequirementService;
 use App\Services\ActivityService;
 use App\Services\ScheduleService;
@@ -24,6 +26,18 @@ class ActivityController extends BaseApiController
 {
     use AuthorizesRequests;
 
+    protected const EAGER_LOAD = [
+        'category',
+        'images',
+        'featureValues.featureDefinition',
+        'options',
+        'requirements',
+        'inclusions',
+        'schedulePeriods',
+        'availabilityOverrides',
+        'bookingOptions.pricingRules.schedulePeriod',
+    ];
+
     public function __construct(
         protected ActivityService $service,
         protected ActivityRepositoryInterface $repository,
@@ -33,6 +47,8 @@ class ActivityController extends BaseApiController
         protected ActivityRequirementService $requirementService,
         protected ActivityInclusionService $inclusionService,
         protected ScheduleService $scheduleService,
+        protected ActivityBookingOptionService $bookingOptionService,
+        protected ActivityPricingRuleService $pricingRuleService,
     ) {}
 
     public function index(PaginationRequest $request)
@@ -48,11 +64,10 @@ class ActivityController extends BaseApiController
 
     /**
      * Combined create: base activity fields plus optional images, features,
-     * options, requirements, inclusions, and schedule — all in one request,
-     * one transaction. Every sub-resource is optional; omitting one simply
-     * means that part isn't touched (e.g. create the activity with no
-     * schedule yet, add it later via the dedicated schedule endpoints, or
-     * via a subsequent combined update carrying just 'schedule').
+     * options, requirements, inclusions, schedule, and booking_options
+     * (with nested pricing_rules) — all in one request, one transaction.
+     * Every sub-resource is optional; omitting one simply means that part
+     * isn't touched.
      */
     public function store(StoreActivityRequest $request)
     {
@@ -64,7 +79,7 @@ class ActivityController extends BaseApiController
             return $activity;
         });
 
-        $activity->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'schedulePeriods', 'availabilityOverrides']);
+        $activity->load(self::EAGER_LOAD);
 
         return $this->created(new ActivityResource($activity), 'Activity created successfully.');
     }
@@ -73,7 +88,7 @@ class ActivityController extends BaseApiController
     {
         $this->authorize('view', $activity);
 
-        $activity->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'schedulePeriods', 'availabilityOverrides']);
+        $activity->load(self::EAGER_LOAD);
 
         return $this->success(new ActivityResource($activity));
     }
@@ -81,9 +96,9 @@ class ActivityController extends BaseApiController
     /**
      * Combined update: identical shape to store(), but every field
      * (including every sub-resource) is optional — a client may send only
-     * the single value that's changing (e.g. just {"title": "New Title"}),
-     * or a fuller payload replacing images/options/requirements/inclusions/
-     * schedule in the same call as base field changes.
+     * the single value that's changing, or a fuller payload replacing
+     * images/options/requirements/inclusions/schedule/booking_options in
+     * the same call as base field changes.
      */
     public function update(UpdateActivityRequest $request, Activity $activity)
     {
@@ -97,7 +112,7 @@ class ActivityController extends BaseApiController
             return $activity;
         });
 
-        $activity->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'schedulePeriods', 'availabilityOverrides']);
+        $activity->load(self::EAGER_LOAD);
 
         return $this->success(new ActivityResource($activity), 'Activity updated successfully.');
     }
@@ -126,11 +141,10 @@ class ActivityController extends BaseApiController
      * of these, it just orchestrates which existing Services run, inside
      * the single outer transaction store()/update() already opened.
      *
-     * 'schedule' REPLACES the activity's entire schedule when present
-     * (matching ActivityOptionService/etc.'s existing full-replace
-     * semantics for options/requirements/inclusions) — it is not a partial
-     * per-period patch. Omitting 'schedule' entirely leaves the existing
-     * schedule untouched.
+     * 'schedule' and 'booking_options' both REPLACE the activity's entire
+     * set when present (matching ActivityOptionService/etc.'s existing
+     * full-replace semantics) — never a partial per-item patch. Omitting
+     * either key entirely leaves the existing data untouched.
      */
     protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity): void
     {
@@ -159,6 +173,35 @@ class ActivityController extends BaseApiController
 
             foreach ($request->scheduleItems() as $item) {
                 $this->scheduleService->create($activity, $item);
+            }
+        }
+
+        if ($request->has('booking_options')) {
+            $this->replaceBookingOptions($activity, $request->bookingOptionItems());
+        }
+    }
+
+    /**
+     * Full replace of booking options + their pricing rules. Pricing
+     * rules are hard-deleted first (ActivityPricingRule has no soft
+     * deletes) before the options themselves are soft-deleted — soft-
+     * deleting an option does NOT cascade to its pricing rules at the DB
+     * level (cascadeOnDelete only fires on a real delete), so skipping
+     * this order would leave orphaned pricing-rule rows pointing at a
+     * hidden option.
+     */
+    protected function replaceBookingOptions(Activity $activity, array $items): void
+    {
+        foreach ($activity->bookingOptions as $existingOption) {
+            $existingOption->pricingRules()->delete();
+        }
+        $activity->bookingOptions()->delete();
+
+        foreach ($items as $item) {
+            $option = $this->bookingOptionService->create($activity, $item['data']);
+
+            foreach ($item['pricing_rules'] as $ruleData) {
+                $this->pricingRuleService->create($option, $ruleData);
             }
         }
     }

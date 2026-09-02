@@ -82,6 +82,84 @@
                 </table>
             @endif
         </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+            <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.activities.booking_options_title') }}</h2>
+
+            @if ($activity->bookingOptions->isEmpty())
+                <p class="text-sm text-slate-400">{{ __('admin.activities.no_booking_options') }}</p>
+            @else
+                <div class="space-y-5">
+                    @foreach ($activity->bookingOptions as $option)
+                        <div class="border border-slate-100 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-slate-800">{{ $option->name }}</span>
+                                    <span class="text-xs text-slate-400">({{ $option->booking_model->value }})</span>
+                                    @if ($option->is_default)
+                                        <x-admin.status-badge variant="info" :label="__('admin.activities.default')" />
+                                    @endif
+                                </div>
+                                <x-admin.status-badge
+                                    :variant="$option->is_active ? 'success' : 'neutral'"
+                                    :label="__('admin.activities.'.($option->is_active ? 'active' : 'inactive'))" />
+                            </div>
+
+                            @if ($option->description)
+                                <p class="text-xs text-slate-400 mb-2">{{ $option->description }}</p>
+                            @endif
+
+                            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mb-3">
+                                @if ($option->min_participants || $option->max_participants)
+                                    <span>{{ __('admin.activities.capacity') }}: {{ $option->min_participants ?? '—' }}–{{ $option->max_participants ?? '—' }}</span>
+                                @endif
+                                @if ($option->min_quantity || $option->max_quantity)
+                                    <span>{{ __('admin.activities.quantity_range') }}: {{ $option->min_quantity ?? '—' }}–{{ $option->max_quantity ?? '—' }}</span>
+                                @endif
+                                @if ($option->min_duration || $option->max_duration)
+                                    <span>{{ __('admin.activities.duration_range') }}: {{ $option->min_duration ?? '—' }}–{{ $option->max_duration ?? '—' }} {{ $option->duration_unit }}</span>
+                                @endif
+                            </div>
+
+                            @if ($option->pricingRules->isEmpty())
+                                <p class="text-xs text-slate-400">{{ __('admin.activities.no_pricing_rules') }}</p>
+                            @else
+                                <table class="w-full text-xs">
+                                    <thead>
+                                        <tr class="text-slate-400 border-b border-slate-100">
+                                            <th class="py-1.5 text-left font-medium">{{ __('admin.activities.participant_type') }}</th>
+                                            <th class="py-1.5 text-left font-medium">{{ __('admin.activities.applies_to') }}</th>
+                                            <th class="py-1.5 text-left font-medium">{{ __('admin.activities.price') }}</th>
+                                            <th class="py-1.5 text-left font-medium">{{ __('admin.activities.status') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($option->pricingRules as $rule)
+                                            <tr class="border-b border-slate-50">
+                                                <td class="py-1.5">{{ $rule->participant_type?->value ?? __('admin.activities.general') }}</td>
+                                                <td class="py-1.5 text-slate-500">
+                                                    @if ($rule->schedulePeriod)
+                                                        {{ __('admin.activities.weekdays.'.$weekdayKeys[$rule->schedulePeriod->day_of_week]) }}
+                                                        {{ \Illuminate\Support\Carbon::parse($rule->schedulePeriod->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($rule->schedulePeriod->end_time)->format('H:i') }}
+                                                    @else
+                                                        {{ __('admin.activities.general') }}
+                                                    @endif
+                                                </td>
+                                                <td class="py-1.5 text-slate-500">{{ number_format((float) $rule->price, 2) }} {{ $rule->currency }}</td>
+                                                <td class="py-1.5">
+                                                    <x-admin.status-badge
+                                                        :variant="$rule->is_active ? 'success' : 'neutral'"
+                                                        :label="__('admin.activities.'.($rule->is_active ? 'active' : 'inactive'))" />
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-6 h-fit">

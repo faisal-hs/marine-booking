@@ -38,7 +38,7 @@ class ActivityController extends Controller
     {
         $this->authorize('viewAsAdmin', Activity::class);
 
-        $activity->load(['category', 'provider', 'schedulePeriods', 'availabilityOverrides']);
+        $activity->load(['category', 'provider', 'schedulePeriods', 'availabilityOverrides', 'bookingOptions.pricingRules.schedulePeriod']);
 
         return view('admin.activities.show', ['activity' => $activity]);
     }

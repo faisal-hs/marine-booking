@@ -95,6 +95,14 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
     Route::apiResource('activities.overrides', \App\Http\Controllers\Api\Provider\AvailabilityOverrideController::class)
         ->parameters(['overrides' => 'override'])
         ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::apiResource('activities.booking-options', \App\Http\Controllers\Api\Provider\ActivityBookingOptionController::class)
+        ->parameters(['booking-options' => 'bookingOption'])
+        ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+    Route::apiResource('activities.booking-options.pricing-rules', \App\Http\Controllers\Api\Provider\ActivityPricingRuleController::class)
+        ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
+        ->only(['index', 'store', 'update', 'destroy']);
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {

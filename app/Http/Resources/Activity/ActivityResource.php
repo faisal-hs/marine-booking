@@ -7,6 +7,7 @@ use App\Http\Resources\ActivityImage\ActivityImageResource;
 use App\Http\Resources\ActivityInclusion\ActivityInclusionResource;
 use App\Http\Resources\ActivityOption\ActivityOptionResource;
 use App\Http\Resources\ActivityRequirement\ActivityRequirementResource;
+use App\Http\Resources\BookingOption\ActivityBookingOptionResource;
 use App\Http\Resources\Override\AvailabilityOverrideResource;
 use App\Http\Resources\Schedule\SchedulePeriodResource;
 use Illuminate\Http\Request;
@@ -44,6 +45,7 @@ class ActivityResource extends JsonResource
             'inclusions' => ActivityInclusionResource::collection($this->inclusions),
             'schedule' => SchedulePeriodResource::collection($this->schedulePeriods),
             'overrides' => AvailabilityOverrideResource::collection($this->availabilityOverrides),
+            'booking_options' => ActivityBookingOptionResource::collection($this->bookingOptions),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

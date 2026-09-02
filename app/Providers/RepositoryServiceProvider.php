@@ -58,6 +58,14 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\AvailabilityOverrideRepositoryInterface::class,
             \App\Repositories\Eloquent\AvailabilityOverrideRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\ActivityBookingOptionRepositoryInterface::class,
+            \App\Repositories\Eloquent\ActivityBookingOptionRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\ActivityPricingRuleRepositoryInterface::class,
+            \App\Repositories\Eloquent\ActivityPricingRuleRepository::class
+        );
     }
 
     public function boot(): void

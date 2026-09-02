@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\PaginationRequest;
 use App\Http\Requests\Public\AvailabilityQueryRequest;
 use App\Http\Resources\Activity\ActivityListResource;
-use App\Http\Resources\Activity\ActivityResource;
+use App\Http\Resources\Activity\PublicActivityResource;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Services\AvailabilityService;
 use Illuminate\Support\Carbon;
@@ -36,7 +36,9 @@ class ActivityController extends BaseApiController
             return $this->error('Activity not found.', 404);
         }
 
-        return $this->success(new ActivityResource($activityModel));
+        $activityModel->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'bookingOptions.pricingRules']);
+
+        return $this->success(new PublicActivityResource($activityModel));
     }
 
     public function availability(AvailabilityQueryRequest $request, string $activity)

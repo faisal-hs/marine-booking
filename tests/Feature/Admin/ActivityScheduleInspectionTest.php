@@ -59,6 +59,24 @@ class ActivityScheduleInspectionTest extends TestCase
             ->assertSee('2026-09-12');
     }
 
+    public function test_weekday_name_renders_correctly_not_as_a_raw_translation_key(): void
+    {
+        // Regression test for a real bug: the lang file originally had
+        // 'weekdays' as a TOP-LEVEL key (admin.weekdays.*) while the view
+        // looked up 'admin.activities.weekdays.*' — a missing Laravel
+        // translation key doesn't throw, it just prints the raw key
+        // string, so this rendered as literal text and no prior test
+        // caught it since none asserted on the actual weekday label.
+        $admin = $this->makeAdmin('super_admin');
+        $activity = $this->makeActivityWithSchedule(); // day_of_week => 6 => Saturday
+
+        $response = $this->actingAs($admin, 'web')->get(route('admin.activities.show', $activity));
+
+        $response->assertOk()
+            ->assertSee('Saturday')
+            ->assertDontSee('admin.activities.weekdays.saturday');
+    }
+
     public function test_admin_without_activities_permission_cannot_view_schedule(): void
     {
         $admin = $this->makeAdmin('support_admin');
@@ -80,5 +98,50 @@ class ActivityScheduleInspectionTest extends TestCase
         // Admin inspection must show inactive periods too — only the
         // PUBLIC availability endpoint hides them from bookability.
         $response->assertOk()->assertSee('09:00');
+    }
+
+    public function test_admin_can_see_booking_options_and_pricing_rules(): void
+    {
+        $admin = $this->makeAdmin('super_admin');
+        $activity = $this->makeActivityWithSchedule();
+        $option = $activity->bookingOptions()->create([
+            'name' => 'Standard Snorkeling',
+            'slug' => 'standard-snorkeling',
+            'booking_model' => 'per_person',
+            'is_default' => true,
+        ]);
+        $option->pricingRules()->create(['participant_type' => 'adult', 'price' => 1500]);
+        $option->pricingRules()->create(['participant_type' => 'child', 'price' => 750]);
+
+        $response = $this->actingAs($admin, 'web')->get(route('admin.activities.show', $activity));
+
+        $response->assertOk()
+            ->assertSee('Standard Snorkeling')
+            ->assertSee('per_person')
+            ->assertSee('1,500.00')
+            ->assertSee('750.00');
+    }
+
+    public function test_admin_can_see_period_specific_pricing_rule_with_its_schedule(): void
+    {
+        $admin = $this->makeAdmin('super_admin');
+        $activity = $this->makeActivityWithSchedule();
+        $period = $activity->schedulePeriods()->first(); // Saturday 09:00-13:00
+        $option = $activity->bookingOptions()->create(['name' => 'Private Boat', 'slug' => 'private-boat', 'booking_model' => 'per_trip']);
+        $option->pricingRules()->create(['price' => 8000, 'schedule_period_id' => $period->id]);
+
+        $response = $this->actingAs($admin, 'web')->get(route('admin.activities.show', $activity));
+
+        $response->assertOk()->assertSee('8,000.00');
+    }
+
+    public function test_activity_with_no_booking_options_shows_empty_state(): void
+    {
+        $admin = $this->makeAdmin('super_admin');
+        $activity = $this->makeActivityWithSchedule();
+
+        $response = $this->actingAs($admin, 'web')->get(route('admin.activities.show', $activity));
+
+        $response->assertOk()->assertSee('No booking options defined yet.');
     }
 }

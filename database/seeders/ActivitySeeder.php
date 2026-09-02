@@ -242,7 +242,7 @@ class ActivitySeeder extends Seeder
 
         $statusPlan = ['draft', 'draft', 'pending_review', 'pending_review', 'approved', 'approved', 'rejected', 'rejected', 'published', 'published', 'published', 'inactive'];
 
-        $counts = ['activities' => 0, 'images' => 0, 'features' => 0, 'options' => 0, 'requirements' => 0, 'inclusions' => 0, 'exclusions' => 0, 'periods' => 0, 'overrides' => 0];
+        $counts = ['activities' => 0, 'images' => 0, 'features' => 0, 'options' => 0, 'requirements' => 0, 'inclusions' => 0, 'exclusions' => 0, 'periods' => 0, 'overrides' => 0, 'booking_options' => 0, 'pricing_rules' => 0];
         $statusTally = [];
         $categoryTally = [];
 
@@ -316,6 +316,9 @@ class ActivitySeeder extends Seeder
                 $counts['inclusions'] += $inclusions;
                 $counts['exclusions'] += $exclusions;
                 $counts['periods'] += $this->attachSchedule($activity, $template, $planIndex);
+                [$bookingOptions, $pricingRules] = $this->attachBookingOptions($activity, $slug, $template['price_range'], $planIndex);
+                $counts['booking_options'] += $bookingOptions;
+                $counts['pricing_rules'] += $pricingRules;
 
                 if ($planIndex % 5 === 0) {
                     $counts['overrides'] += $this->attachOverrides($activity, $planIndex);
@@ -330,6 +333,7 @@ class ActivitySeeder extends Seeder
         $this->command->info('Images: ' . $counts['images'] . ' | Feature values: ' . $counts['features'] . ' | Options: ' . $counts['options']);
         $this->command->info('Requirements: ' . $counts['requirements'] . ' | Inclusions: ' . $counts['inclusions'] . ' | Exclusions: ' . $counts['exclusions']);
         $this->command->info('Schedule periods: ' . $counts['periods'] . ' | Overrides: ' . $counts['overrides']);
+        $this->command->info('Booking options: ' . $counts['booking_options'] . ' | Pricing rules: ' . $counts['pricing_rules']);
     }
 
     /**
@@ -520,5 +524,122 @@ class ActivitySeeder extends Seeder
         $activity->availabilityOverrides()->create($override);
 
         return 1;
+    }
+
+    /**
+     * Category-appropriate booking-option recipes (spec §36 examples):
+     * Diving/Snorkeling/Fishing/Boat Trips/Kayaking/Sea Safari/Island
+     * Trips/Dolphin Watching center on per_person adult+child pricing;
+     * Yacht/Sailing offer per_hour+per_trip(+package); Jet Ski is
+     * per_unit; Parasailing is fixed. Each recipe's price is derived from
+     * the category's own price_range (the same $priceLow/$priceHigh data
+     * that sat dormant in schedule-period generation since Module 08
+     * Step 2 removed price from schedule periods).
+     */
+    protected function bookingOptionRecipes(): array
+    {
+        return [
+            'diving' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+            ],
+            'snorkeling' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+                ['name' => 'Private Trip', 'model' => 'per_trip', 'multiplier' => 3.0],
+            ],
+            'fishing' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.6]],
+                ['name' => 'Private Charter', 'model' => 'per_trip', 'multiplier' => 4.0],
+            ],
+            'boat-trips' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+            ],
+            'yacht-trips' => [
+                ['name' => 'Per Hour', 'model' => 'per_hour', 'multiplier' => 1.0, 'min_duration' => 2, 'max_duration' => 8, 'duration_unit' => 'hour'],
+                ['name' => 'Per Trip', 'model' => 'per_trip', 'multiplier' => 4.0],
+                ['name' => '4 Hour Package', 'model' => 'package', 'multiplier' => 3.5, 'min_duration' => 4, 'duration_unit' => 'hour'],
+            ],
+            'parasailing' => [
+                ['name' => 'Standard Flight', 'model' => 'fixed', 'multiplier' => 1.0],
+            ],
+            'jet-ski' => [
+                ['name' => 'Per Unit', 'model' => 'per_unit', 'multiplier' => 1.0, 'min_quantity' => 1, 'max_quantity' => 4],
+            ],
+            'kayaking' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.6]],
+            ],
+            'sea-safari' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.6]],
+                ['name' => 'Private Group', 'model' => 'per_group', 'multiplier' => 3.0, 'min_participants' => 2, 'max_participants' => 6],
+            ],
+            'island-trips' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+            ],
+            'dolphin-watching' => [
+                ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+            ],
+            'sailing' => [
+                ['name' => 'Per Hour', 'model' => 'per_hour', 'multiplier' => 1.0, 'min_duration' => 2, 'max_duration' => 6, 'duration_unit' => 'hour'],
+                ['name' => 'Per Trip', 'model' => 'per_trip', 'multiplier' => 3.0],
+            ],
+        ];
+    }
+
+    /**
+     * Creates every booking option (and its pricing rule(s)) for one
+     * activity, per its category's recipe list. Every activity gets
+     * these regardless of moderation status, matching the same reasoning
+     * as attachSchedule() — a provider configures pricing before/
+     * independent of admin moderation.
+     *
+     * @return array{0: int, 1: int} [booking option count, pricing rule count]
+     */
+    protected function attachBookingOptions(Activity $activity, string $categorySlug, array $priceRange, int $planIndex): array
+    {
+        $recipes = $this->bookingOptionRecipes()[$categorySlug] ?? [
+            ['name' => 'Standard', 'model' => 'per_person', 'participants' => ['adult' => 1.0, 'child' => 0.5]],
+        ];
+
+        [$priceLow, $priceHigh] = $priceRange;
+        $spread = max(1, $priceHigh - $priceLow);
+        $basePrice = $priceLow + (($activity->id * 37) % $spread);
+
+        $optionCount = 0;
+        $ruleCount = 0;
+
+        foreach ($recipes as $index => $recipe) {
+            $optionData = [
+                'name' => $recipe['name'],
+                'slug' => \Illuminate\Support\Str::slug($recipe['name']),
+                'booking_model' => $recipe['model'],
+                'is_default' => $index === 0,
+                'sort_order' => $index,
+            ];
+
+            foreach (['min_duration', 'max_duration', 'duration_unit', 'min_quantity', 'max_quantity', 'min_participants', 'max_participants'] as $field) {
+                if (isset($recipe[$field])) {
+                    $optionData[$field] = $recipe[$field];
+                }
+            }
+
+            $option = $activity->bookingOptions()->create($optionData);
+            $optionCount++;
+
+            if (isset($recipe['participants'])) {
+                foreach ($recipe['participants'] as $participantType => $ratio) {
+                    $option->pricingRules()->create([
+                        'participant_type' => $participantType,
+                        'price' => round($basePrice * $ratio, 2),
+                    ]);
+                    $ruleCount++;
+                }
+            } else {
+                $option->pricingRules()->create([
+                    'price' => round($basePrice * ($recipe['multiplier'] ?? 1.0), 2),
+                ]);
+                $ruleCount++;
+            }
+        }
+
+        return [$optionCount, $ruleCount];
     }
 }
