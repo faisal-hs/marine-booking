@@ -103,11 +103,20 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
     Route::apiResource('activities.booking-options.pricing-rules', \App\Http\Controllers\Api\Provider\ActivityPricingRuleController::class)
         ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
         ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::get('/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'index'])
+        ->name('reservations.index');
+    Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])
+        ->name('activities.reservations.index');
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+    Route::apiResource('reservations', \App\Http\Controllers\Api\Customer\ReservationController::class)
+        ->only(['index', 'store', 'show']);
+    Route::post('/reservations/{reservation}/cancel', [\App\Http\Controllers\Api\Customer\ReservationController::class, 'cancel'])
+        ->name('reservations.cancel');
 });
 
 Route::prefix('public')->name('public.')->group(function () {

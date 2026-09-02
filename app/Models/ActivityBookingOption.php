@@ -56,4 +56,9 @@ class ActivityBookingOption extends Model
     {
         return $this->pricingRules()->where('is_active', true);
     }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class, 'activity_booking_option_id');
+    }
 }

@@ -66,6 +66,10 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\ActivityPricingRuleRepositoryInterface::class,
             \App\Repositories\Eloquent\ActivityPricingRuleRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\ReservationRepositoryInterface::class,
+            \App\Repositories\Eloquent\ReservationRepository::class
+        );
     }
 
     public function boot(): void

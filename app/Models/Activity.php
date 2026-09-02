@@ -99,4 +99,9 @@ class Activity extends Model
     {
         return $this->hasMany(ActivityBookingOption::class)->orderBy('sort_order');
     }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
 }
