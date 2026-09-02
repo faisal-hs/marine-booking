@@ -108,15 +108,62 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         ->name('reservations.index');
     Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])
         ->name('activities.reservations.index');
+
+    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+        ->name('devices.store');
+    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+        ->name('devices.destroy');
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+
     Route::apiResource('reservations', \App\Http\Controllers\Api\Customer\ReservationController::class)
         ->only(['index', 'store', 'show']);
     Route::post('/reservations/{reservation}/cancel', [\App\Http\Controllers\Api\Customer\ReservationController::class, 'cancel'])
         ->name('reservations.cancel');
+
+    Route::post('/reservations/{reservation}/payments', [\App\Http\Controllers\Api\Customer\PaymentController::class, 'store'])
+        ->name('payments.store');
+    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Customer\PaymentController::class, 'show'])
+        ->name('payments.show');
+
+    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+        ->name('devices.store');
+    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+        ->name('devices.destroy');
+});
+
+/*
+| Admin API — read-only. Uses the 'auth:web' session guard (the SAME
+| guard the Blade admin panel already authenticates with; admins never
+| receive Sanctum tokens in this project), deliberately NOT the
+| 'admin.access' middleware alias used by routes/web.php's Blade
+| routes — that alias redirects to the login page on failure, which is
+| wrong for a JSON API. Being under /api/* is enough for this project's
+| existing exception handler (bootstrap/app.php) to render
+| Authentication/AuthorizationException as JSON automatically.
+| Permission enforcement happens via ReservationPolicy inside the
+| Controller, matching ActivityPolicy's existing admin-method pattern.
+*/
+Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/reservations', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
+        ->name('reservations.index');
+    Route::get('/reservations/{reservation}', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])
+        ->name('reservations.show');
+
+    Route::get('/payments', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'index'])
+        ->name('payments.index');
+    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'show'])
+        ->name('payments.show');
+    Route::post('/payments/{payment}/refund', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'refund'])
+        ->name('payments.refund');
+
+    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+        ->name('devices.store');
+    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+        ->name('devices.destroy');
 });
 
 Route::prefix('public')->name('public.')->group(function () {
@@ -127,3 +174,12 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::get('/activities/{activity}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
         ->name('activities.availability');
 });
+
+/*
+| Public webhook endpoint — deliberately outside every auth middleware
+| group. Trust comes entirely from PaymentGatewayInterface::handleWebhook()'s
+| own signature verification inside the bound driver, never from route
+| middleware — see PaymentWebhookController's own doc comment.
+*/
+Route::post('/webhooks/payments/{gateway}', [\App\Http\Controllers\Api\Webhooks\PaymentWebhookController::class, 'handle'])
+    ->name('webhooks.payments');

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReservationStatus;
+use App\Models\Payment;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -72,6 +73,11 @@ class Reservation extends Model
     public function schedulePeriod()
     {
         return $this->belongsTo(ActivitySchedulePeriod::class, 'schedule_period_id');
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 
     /**

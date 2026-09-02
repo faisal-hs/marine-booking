@@ -2,8 +2,20 @@
 
 namespace App\Providers;
 
+use App\Events\ReservationCancelled;
+use App\Events\ReservationConfirmed;
+use App\Events\ReservationCreated;
+use App\Events\ReservationExpired;
+use App\Listeners\Notifications\SendReservationCancelledNotifications;
+use App\Listeners\Notifications\SendReservationConfirmedNotifications;
+use App\Listeners\Notifications\SendReservationCreatedNotifications;
+use App\Listeners\Notifications\SendReservationExpiredNotifications;
+use App\Notifications\Channels\FcmChannel;
+use App\Notifications\Channels\SmsChannel;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,6 +35,25 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+        $this->registerNotificationChannels();
+        $this->registerNotificationListeners();
+    }
+
+    /**
+     * Laravel's Notification system requires every custom channel string
+     * used in a Notification's via() array to be explicitly registered
+     * with the ChannelManager — simply having a class named FcmChannel/
+     * SmsChannel is NOT enough on its own. Missing this step throws
+     * "Driver [fcm] not supported." the moment any real notification
+     * tries to use it, even though the channel classes themselves are
+     * correct (confirmed by their own passing unit tests, which
+     * instantiate the channels directly and never exercise this
+     * registration step at all).
+     */
+    protected function registerNotificationChannels(): void
+    {
+        Notification::extend('sms', fn($app) => $app->make(SmsChannel::class));
+        Notification::extend('fcm', fn($app) => $app->make(FcmChannel::class));
     }
 
     protected function configureRateLimiting(): void
@@ -55,5 +86,21 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(3)->by($key);
         });
+    }
+
+    /**
+     * Explicit registration rather than relying on Laravel's
+     * auto-discovery convention (Listener classes in app/Listeners with
+     * a type-hinted handle() method) — this project has no
+     * EventServiceProvider (removed by default in Laravel 11+), so
+     * making every event->listener mapping visible here in one place is
+     * clearer than depending on discovery working silently.
+     */
+    protected function registerNotificationListeners(): void
+    {
+        Event::listen(ReservationCreated::class, SendReservationCreatedNotifications::class);
+        Event::listen(ReservationConfirmed::class, SendReservationConfirmedNotifications::class);
+        Event::listen(ReservationCancelled::class, SendReservationCancelledNotifications::class);
+        Event::listen(ReservationExpired::class, SendReservationExpiredNotifications::class);
     }
 }

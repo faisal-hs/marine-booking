@@ -43,4 +43,13 @@ return [
         'sender' => env('TAQNYAT_SENDER', 'MarineBooking'),
         'base_url' => env('TAQNYAT_BASE_URL', 'https://api.taqnyat.sa/v1'),
     ],
+
+    'fcm' => [
+        'driver' => env('FCM_DRIVER', 'log'),
+        'project_id' => env('FCM_PROJECT_ID'),
+        // See HttpFcmGateway's own doc comment: this must be refreshed
+        // periodically until real OAuth2 service-account token exchange
+        // is implemented (or a proper Firebase SDK package is installed).
+        'access_token' => env('FCM_ACCESS_TOKEN'),
+    ],
 ];

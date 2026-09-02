@@ -18,21 +18,21 @@
 
             <nav class="flex-1 py-4 space-y-1 overflow-y-auto">
                 @php
-                    $navItems = [
-                        ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
-                        ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
-                        ['key' => 'providers', 'route' => null, 'permission' => 'providers.view', 'icon' => 'building'],
-                        ['key' => 'customers', 'route' => null, 'permission' => 'customers.view', 'icon' => 'user'],
-                        ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],
-                        ['key' => 'activities', 'route' => 'admin.activities.index', 'permission' => 'activities.view', 'icon' => 'map'],
-                        ['key' => 'feature_definitions', 'route' => 'admin.feature-definitions.index', 'permission' => 'feature_definitions.view', 'icon' => 'tag'],
-                        ['key' => 'reservations', 'route' => null, 'permission' => 'reservations.view', 'icon' => 'calendar'],
-                        ['key' => 'payments', 'route' => null, 'permission' => 'payments.view', 'icon' => 'card'],
-                        ['key' => 'notifications', 'route' => null, 'permission' => 'notifications.view', 'icon' => 'bell'],
-                        ['key' => 'reports', 'route' => null, 'permission' => 'reports.view', 'icon' => 'chart'],
-                        ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],
-                        ['key' => 'settings', 'route' => null, 'permission' => 'settings.view', 'icon' => 'cog'],
-                    ];
+                                    $navItems = [
+                                        ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
+                                        ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
+                                        ['key' => 'providers', 'route' => null, 'permission' => 'providers.view', 'icon' => 'building'],
+                                        ['key' => 'customers', 'route' => null, 'permission' => 'customers.view', 'icon' => 'user'],
+                                        ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],
+                                        ['key' => 'activities', 'route' => 'admin.activities.index', 'permission' => 'activities.view', 'icon' => 'map'],
+                                        ['key' => 'feature_definitions', 'route' => 'admin.feature-definitions.index', 'permission' => 'feature_definitions.view', 'icon' => 'tag'],
+                                        ['key' => 'reservations', 'route' => 'admin.reservations.index', 'permission' => 'reservations.view', 'icon' => 'calendar'],
+                                        ['key' => 'payments', 'route' => 'admin.payments.index', 'permission' => 'payments.view', 'icon' => 'card'],
+                                        ['key' => 'notifications', 'route' => null, 'permission' => 'notifications.view', 'icon' => 'bell'],
+                                        ['key' => 'reports', 'route' => null, 'permission' => 'reports.view', 'icon' => 'chart'],
+                                        ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],
+                                        ['key' => 'settings', 'route' => null, 'permission' => 'settings.view', 'icon' => 'cog'],
+                                    ];
                 @endphp
 
                 @foreach ($navItems as $item)

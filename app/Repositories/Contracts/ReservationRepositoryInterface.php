@@ -23,4 +23,11 @@ interface ReservationRepositoryInterface extends BaseRepositoryInterface
     public function forActivity(int $activityId, array $filters, int $perPage = 15): LengthAwarePaginator;
 
     public function forProviderActivities(array $activityIds, array $filters, int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * Unrestricted admin listing across every reservation, with the full
+     * filter set: status, activity, booking option, customer, date/date
+     * range, free-text search (uuid or numeric id), and sort order.
+     */
+    public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator;
 }

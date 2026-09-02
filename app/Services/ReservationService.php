@@ -3,6 +3,10 @@
 namespace App\Services;
 
 use App\Enums\ReservationStatus;
+use App\Events\ReservationCancelled;
+use App\Events\ReservationConfirmed;
+use App\Events\ReservationCreated;
+use App\Events\ReservationExpired;
 use App\Models\Activity;
 use App\Models\ActivityBookingOption;
 use App\Models\ActivitySchedulePeriod;
@@ -21,6 +25,12 @@ use Illuminate\Validation\ValidationException;
  * ownership/cross-entity validation, the capacity race-condition guard,
  * and persisting the frozen price snapshot. It never recalculates price
  * after creation (spec §32).
+ *
+ * Notification dispatch is entirely decoupled — this class only ever
+ * fires plain domain events (event(new ReservationCreated($reservation)))
+ * and has zero knowledge of channels, recipients, or Notification
+ * classes. See app/Listeners/Notifications for what actually happens
+ * when each event fires.
  */
 class ReservationService
 {
@@ -68,7 +78,7 @@ class ReservationService
         // (missing rule, inactive option, etc.) should never hold a lock.
         $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration);
 
-        return DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote) {
+        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote) {
             // Guarantees a lockable row exists even for the very first
             // reservation attempt on this exact slot — see
             // ReservationCapacityLock's class doc comment for why a plain
@@ -103,6 +113,10 @@ class ReservationService
                 'pricing_breakdown' => $quote['breakdown'],
             ]);
         });
+
+        event(new ReservationCreated($reservation));
+
+        return $reservation;
     }
 
     /**
@@ -162,7 +176,11 @@ class ReservationService
             'confirmed_at' => now(),
         ]);
 
-        return $reservation->fresh();
+        $reservation = $reservation->fresh();
+
+        event(new ReservationConfirmed($reservation));
+
+        return $reservation;
     }
 
     public function cancel(Reservation $reservation, ?string $reason = null): Reservation
@@ -179,7 +197,11 @@ class ReservationService
             'cancellation_reason' => $reason,
         ]);
 
-        return $reservation->fresh();
+        $reservation = $reservation->fresh();
+
+        event(new ReservationCancelled($reservation));
+
+        return $reservation;
     }
 
     /**
@@ -188,11 +210,23 @@ class ReservationService
      * ignores an expired pending hold the instant it expires, regardless
      * of whether this has run. This just makes the stored status honest
      * for reporting/admin visibility.
+     *
+     * Restructured from a single bulk UPDATE to fetch-then-update-each:
+     * firing a per-reservation ReservationExpired event (so the customer
+     * and admins actually get notified) requires knowing WHICH rows were
+     * affected, which a bulk UPDATE alone cannot provide.
      */
     public function expireStaleHolds(): int
     {
-        return Reservation::where('status', ReservationStatus::Pending->value)
+        $staleReservations = Reservation::where('status', ReservationStatus::Pending->value)
             ->where('hold_expires_at', '<=', now())
-            ->update(['status' => ReservationStatus::Expired->value]);
+            ->get();
+
+        foreach ($staleReservations as $reservation) {
+            $reservation->update(['status' => ReservationStatus::Expired->value]);
+            event(new ReservationExpired($reservation->fresh()));
+        }
+
+        return $staleReservations->count();
     }
 }

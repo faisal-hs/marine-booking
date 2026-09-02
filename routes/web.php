@@ -5,6 +5,8 @@ use App\Http\Controllers\Web\Admin\AuthController;
 use App\Http\Controllers\Web\Admin\CategoryController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
+use App\Http\Controllers\Web\Admin\PaymentController;
+use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -55,5 +57,12 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::post('/activities/{activity}/publish', [ActivityController::class, 'publish'])->name('activities.publish');
         Route::post('/activities/{activity}/deactivate', [ActivityController::class, 'deactivate'])->name('activities.deactivate');
         Route::get('/activities/{activity}', [ActivityController::class, 'show'])->name('activities.show');
+
+        Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+        Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+
+        Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+        Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
+        Route::post('/payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
     });
 });
