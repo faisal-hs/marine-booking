@@ -6,6 +6,7 @@ use App\Http\Controllers\Web\Admin\CategoryController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
 use App\Http\Controllers\Web\Admin\PaymentController;
+use App\Http\Controllers\Web\Admin\ProviderController;
 use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\UserController;
 use Illuminate\Support\Facades\Route;
@@ -64,5 +65,10 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
         Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
         Route::post('/payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
+
+        Route::get('/providers', [ProviderController::class, 'index'])->name('providers.index');
+        Route::get('/providers/{provider}', [ProviderController::class, 'show'])->name('providers.show');
+        Route::post('/providers/{provider}/verify', [ProviderController::class, 'verify'])->name('providers.verify');
+        Route::post('/providers/{provider}/reject', [ProviderController::class, 'reject'])->name('providers.reject');
     });
 });

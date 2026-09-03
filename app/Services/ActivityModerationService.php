@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\ActivityApproved;
+use App\Events\ActivityPublished;
+use App\Events\ActivityRejected;
 use App\Models\Activity;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use Illuminate\Validation\ValidationException;
@@ -18,11 +21,15 @@ class ActivityModerationService
             ]);
         }
 
-        return $this->repository->update($activity, [
+        $activity = $this->repository->update($activity, [
             'status' => 'published',
             'published_at' => now(),
             'rejection_reason' => null,
         ]);
+
+        event(new ActivityApproved($activity));
+
+        return $activity;
     }
 
     public function reject(Activity $activity, string $reason): Activity
@@ -33,10 +40,14 @@ class ActivityModerationService
             ]);
         }
 
-        return $this->repository->update($activity, [
+        $activity = $this->repository->update($activity, [
             'status' => 'rejected',
             'rejection_reason' => $reason,
         ]);
+
+        event(new ActivityRejected($activity));
+
+        return $activity;
     }
 
     /**
@@ -52,7 +63,11 @@ class ActivityModerationService
             ]);
         }
 
-        return $this->repository->update($activity, ['status' => 'published']);
+        $activity = $this->repository->update($activity, ['status' => 'published']);
+
+        event(new ActivityPublished($activity));
+
+        return $activity;
     }
 
     public function deactivate(Activity $activity): Activity

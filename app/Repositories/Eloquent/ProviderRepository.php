@@ -4,6 +4,7 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\Provider;
 use App\Repositories\Contracts\ProviderRepositoryInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProviderRepository extends BaseRepository implements ProviderRepositoryInterface
 {
@@ -25,5 +26,20 @@ class ProviderRepository extends BaseRepository implements ProviderRepositoryInt
     public function slugExists(string $slug): bool
     {
         return $this->model->newQuery()->where('slug', $slug)->exists();
+    }
+
+    public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->model->newQuery()->with('user');
+
+        if (! empty($filters['status'])) {
+            $query->where('verification_status', $filters['status']);
+        }
+
+        if (! empty($filters['search'])) {
+            $query->where('business_name', 'like', '%' . $filters['search'] . '%');
+        }
+
+        return $query->latest()->paginate($perPage)->withQueryString();
     }
 }

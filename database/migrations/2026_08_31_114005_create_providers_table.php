@@ -21,6 +21,7 @@ return new class extends Migration
             $table->decimal('lat', 10, 7)->nullable();
             $table->decimal('lng', 10, 7)->nullable();
             $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending');
+            $table->string('rejection_reason')->nullable();
             $table->decimal('commission_rate', 5, 2)->default(0);
             $table->timestamps();
             $table->softDeletes();

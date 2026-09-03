@@ -31,6 +31,7 @@ class Provider extends Model
         'lat',
         'lng',
         'verification_status',
+        'rejection_reason',
         'commission_rate',
     ];
 

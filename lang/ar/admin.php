@@ -282,4 +282,26 @@ return [
         'refund_amount_hint' => 'اتركه فارغاً لاسترداد المبلغ بالكامل.',
         'full_amount' => 'المبلغ الكامل',
     ],
+
+    'providers' => [
+        'title' => 'مزودو الخدمة',
+        'search_placeholder' => 'ابحث باسم النشاط التجاري',
+        'all_statuses' => 'كل الحالات',
+        'no_providers' => 'لا يوجد مزودو خدمة.',
+        'business_name' => 'اسم النشاط التجاري',
+        'bio' => 'نبذة',
+        'details_title' => 'تفاصيل مزود الخدمة',
+        'statuses' => [
+            'pending' => 'قيد الانتظار',
+            'verified' => 'موثق',
+            'rejected' => 'مرفوض',
+        ],
+        'verify' => 'توثيق مزود الخدمة',
+        'reject' => 'رفض مزود الخدمة',
+        'verified' => 'تم توثيق مزود الخدمة بنجاح.',
+        'rejected' => 'تم رفض مزود الخدمة.',
+        'confirm_reject' => 'هل تريد رفض مزود الخدمة هذا؟ سيتم إشعاره.',
+        'rejection_reason' => 'سبب الرفض',
+        'rejection_reason_placeholder' => 'سبب الرفض',
+    ],
 ];

@@ -5,18 +5,15 @@ namespace App\Services;
 use App\Contracts\Payments\PaymentGatewayInterface;
 use App\Enums\PaymentStatus;
 use App\Enums\ReservationStatus;
+use App\Events\PaymentFailed;
+use App\Events\PaymentRefunded;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Repositories\Contracts\PaymentRepositoryInterface;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-/**
- * The single orchestrator for the payment lifecycle. Never duplicates
- * ReservationService's own logic — markSucceeded() calls
- * ReservationService::confirmPayment() (the exact seam Module 09 built
- * for this), it never sets reservation status directly.
- */
+
 class PaymentService
 {
     public function __construct(
@@ -113,7 +110,11 @@ class PaymentService
             'failure_reason' => $reason,
         ]);
 
-        return $payment->fresh();
+        $payment = $payment->fresh();
+
+        event(new PaymentFailed($payment));
+
+        return $payment;
     }
 
     public function refund(Payment $payment, ?float $amount = null): Payment
@@ -134,7 +135,11 @@ class PaymentService
             'refunded_amount' => $newRefundedTotal,
         ]);
 
-        return $payment->fresh();
+        $payment = $payment->fresh();
+
+        event(new PaymentRefunded($payment));
+
+        return $payment;
     }
 
     /**

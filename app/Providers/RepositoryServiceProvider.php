@@ -6,12 +6,14 @@ use App\Models\Activity;
 use App\Models\Category;
 use App\Models\FeatureDefinition;
 use App\Models\Payment;
+use App\Models\Provider;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\FeatureDefinitionPolicy;
 use App\Policies\PaymentPolicy;
+use App\Policies\ProviderPolicy;
 use App\Policies\ReservationPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -88,5 +90,6 @@ class RepositoryServiceProvider extends ServiceProvider
         Gate::policy(FeatureDefinition::class, FeatureDefinitionPolicy::class);
         Gate::policy(Reservation::class, ReservationPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
+        Gate::policy(Provider::class, ProviderPolicy::class);
     }
 }
