@@ -18,6 +18,8 @@ class ActivityListResource extends JsonResource
             'provider' => $this->provider->business_name,
             'location' => $this->location,
             'duration_minutes' => $this->duration_minutes,
+            'average_rating' => (float) $this->average_rating,
+            'reviews_count' => $this->reviews_count,
         ];
     }
 }

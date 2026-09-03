@@ -32,12 +32,15 @@ class Activity extends Model
         'status',
         'rejection_reason',
         'published_at',
+        'average_rating',
+        'reviews_count',
     ];
 
     protected $casts = [
         'lat' => 'decimal:7',
         'lng' => 'decimal:7',
         'published_at' => 'datetime',
+        'average_rating' => 'decimal:2',
     ];
 
     public function provider()
@@ -48,6 +51,21 @@ class Activity extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function visibleReviews()
+    {
+        return $this->reviews()->where('is_hidden', false);
     }
 
     public function scopePublished($query)
@@ -103,20 +121,5 @@ class Activity extends Model
     public function reservations()
     {
         return $this->hasMany(Reservation::class);
-    }
-
-    public function favorites()
-    {
-        return $this->hasMany(Favorite::class);
-    }
-
-    public function reviews()
-    {
-        return $this->hasMany(Review::class);
-    }
-
-    public function visibleReviews()
-    {
-        return $this->reviews()->where('is_hidden', false);
     }
 }

@@ -47,6 +47,8 @@ class PublicActivityResource extends JsonResource
             'min_participants' => $this->min_participants,
             'max_participants' => $this->max_participants,
             'min_age' => $this->min_age,
+            'average_rating' => (float) $this->average_rating,
+            'reviews_count' => $this->reviews_count,
             'images' => ActivityImageResource::collection($this->images),
             'features' => ActivityFeatureResource::collection($this->featureValues),
             'options' => ActivityOptionResource::collection($this->options),

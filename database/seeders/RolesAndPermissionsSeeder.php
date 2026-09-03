@@ -46,6 +46,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'payments.view',
         'payments.refund',
         'notifications.view',
+        'reviews.view',
+        'reviews.moderate',
         'reports.view',
         'roles.view',
         'roles.create',
@@ -101,6 +103,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'payments.view',
             'payments.refund',
             'notifications.view',
+            'reviews.view',
+            'reviews.moderate',
             'reports.view',
             'activities.approve',
             'activities.reject',
@@ -117,6 +121,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'reservations.cancel',
             'payments.view',
             'notifications.view',
+            'reviews.view',
         ]);
 
         $contentAdmin = Role::firstOrCreate(['name' => 'content_admin', 'guard_name' => 'web']);

@@ -301,4 +301,22 @@ return [
         'rejection_reason' => 'Rejection Reason',
         'rejection_reason_placeholder' => 'Reason for rejection',
     ],
+
+    'reviews' => [
+        'title' => 'Reviews',
+        'all_statuses' => 'All statuses',
+        'visible' => 'Visible',
+        'hidden' => 'Hidden',
+        'no_reviews' => 'No reviews found.',
+        'rating' => 'Rating',
+        'comment' => 'Comment',
+        'details_title' => 'Review Details',
+        'hide' => 'Hide Review',
+        'unhide' => 'Unhide Review',
+        'hidden_reason' => 'Hidden Reason',
+        'hide_reason_placeholder' => 'Reason for hiding (optional)',
+        'confirm_hide' => 'Hide this review? It will no longer be publicly visible.',
+        'hide_success' => 'Review hidden successfully.',
+        'unhide_success' => 'Review unhidden successfully.',
+    ],
 ];

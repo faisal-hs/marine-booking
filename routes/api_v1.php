@@ -158,6 +158,9 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
         ->name('favorites.store');
     Route::delete('/favorites/{activity}', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'destroy'])
         ->name('favorites.destroy');
+
+    Route::apiResource('reviews', \App\Http\Controllers\Api\Customer\ReviewController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
 });
 
 /*
@@ -198,6 +201,15 @@ Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function
         ->name('notifications.read');
     Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
+
+    Route::get('/reviews', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'index'])
+        ->name('reviews.index');
+    Route::get('/reviews/{review}', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'show'])
+        ->name('reviews.show');
+    Route::post('/reviews/{review}/hide', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'hide'])
+        ->name('reviews.hide');
+    Route::post('/reviews/{review}/unhide', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'unhide'])
+        ->name('reviews.unhide');
 });
 
 Route::prefix('public')->name('public.')->group(function () {
@@ -207,6 +219,8 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::get('/activities/{activity}', [PublicActivityController::class, 'show'])->name('activities.show');
     Route::get('/activities/{activity}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
         ->name('activities.availability');
+    Route::get('/activities/{activity}/reviews', [\App\Http\Controllers\Api\Public\ActivityController::class, 'reviews'])
+        ->name('activities.reviews');
 });
 
 /*

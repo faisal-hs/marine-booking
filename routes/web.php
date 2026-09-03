@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
 use App\Http\Controllers\Web\Admin\PaymentController;
 use App\Http\Controllers\Web\Admin\ProviderController;
 use App\Http\Controllers\Web\Admin\ReservationController;
+use App\Http\Controllers\Web\Admin\ReviewController;
 use App\Http\Controllers\Web\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -70,5 +71,10 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::get('/providers/{provider}', [ProviderController::class, 'show'])->name('providers.show');
         Route::post('/providers/{provider}/verify', [ProviderController::class, 'verify'])->name('providers.verify');
         Route::post('/providers/{provider}/reject', [ProviderController::class, 'reject'])->name('providers.reject');
+
+        Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
+        Route::get('/reviews/{review}', [ReviewController::class, 'show'])->name('reviews.show');
+        Route::post('/reviews/{review}/hide', [ReviewController::class, 'hide'])->name('reviews.hide');
+        Route::post('/reviews/{review}/unhide', [ReviewController::class, 'unhide'])->name('reviews.unhide');
     });
 });

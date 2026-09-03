@@ -304,4 +304,22 @@ return [
         'rejection_reason' => 'سبب الرفض',
         'rejection_reason_placeholder' => 'سبب الرفض',
     ],
+
+    'reviews' => [
+        'title' => 'التقييمات',
+        'all_statuses' => 'كل الحالات',
+        'visible' => 'ظاهر',
+        'hidden' => 'مخفي',
+        'no_reviews' => 'لا توجد تقييمات.',
+        'rating' => 'التقييم',
+        'comment' => 'التعليق',
+        'details_title' => 'تفاصيل التقييم',
+        'hide' => 'إخفاء التقييم',
+        'unhide' => 'إظهار التقييم',
+        'hidden_reason' => 'سبب الإخفاء',
+        'hide_reason_placeholder' => 'سبب الإخفاء (اختياري)',
+        'confirm_hide' => 'هل تريد إخفاء هذا التقييم؟ لن يظهر للعامة بعد الآن.',
+        'hide_success' => 'تم إخفاء التقييم بنجاح.',
+        'unhide_success' => 'تم إظهار التقييم بنجاح.',
+    ],
 ];

@@ -7,6 +7,7 @@ use App\Http\Requests\PaginationRequest;
 use App\Http\Requests\Public\AvailabilityQueryRequest;
 use App\Http\Resources\Activity\ActivityListResource;
 use App\Http\Resources\Activity\PublicActivityResource;
+use App\Http\Resources\Review\PublicReviewResource;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Services\AvailabilityService;
 use Illuminate\Support\Carbon;
@@ -39,6 +40,25 @@ class ActivityController extends BaseApiController
         $activityModel->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'bookingOptions.pricingRules']);
 
         return $this->success(new PublicActivityResource($activityModel));
+    }
+
+    /**
+     * Visible (non-hidden) reviews only — ReviewRepository::forActivity()
+     * already filters this at the query level, so no additional
+     * filtering is needed here.
+     */
+    public function reviews(PaginationRequest $request, string $activity)
+    {
+        $activityModel = $this->repository->findByIdOrUuidOrSlug($activity);
+
+        if (! $activityModel || $activityModel->status !== 'published') {
+            return $this->error('Activity not found.', 404);
+        }
+
+        $reviews = app(\App\Repositories\Contracts\ReviewRepositoryInterface::class)
+            ->forActivity($activityModel->id, $request->perPage());
+
+        return $this->success(PublicReviewResource::collection($reviews));
     }
 
     public function availability(AvailabilityQueryRequest $request, string $activity)
