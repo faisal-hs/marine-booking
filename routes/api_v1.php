@@ -113,6 +113,15 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         ->name('devices.store');
     Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
         ->name('devices.destroy');
+
+    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+        ->name('notifications.index');
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+        ->name('notifications.unread-count');
+    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
@@ -133,6 +142,15 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
         ->name('devices.store');
     Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
         ->name('devices.destroy');
+
+    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+        ->name('notifications.index');
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+        ->name('notifications.unread-count');
+    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
 });
 
 /*
@@ -164,6 +182,15 @@ Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function
         ->name('devices.store');
     Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
         ->name('devices.destroy');
+
+    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+        ->name('notifications.index');
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+        ->name('notifications.unread-count');
+    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
 });
 
 Route::prefix('public')->name('public.')->group(function () {
