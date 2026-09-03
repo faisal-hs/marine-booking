@@ -13,3 +13,9 @@ Artisan::command('inspire', function () {
 // "pending" in reporting/admin views for however long between runs,
 // even though it's already correctly ignored by live capacity checks.
 Schedule::command('reservations:expire-stale-holds')->everyFiveMinutes();
+
+// Runs daily — unlike expire-stale-holds, this genuinely IS load-bearing:
+// Module 12's "verified purchase" review requirement depends entirely on
+// reservations actually reaching 'completed' status. See
+// ReservationService::completePastReservations()'s own doc comment.
+Schedule::command('reservations:complete-past')->daily();

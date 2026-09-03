@@ -80,6 +80,14 @@ class RepositoryServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\PaymentRepositoryInterface::class,
             \App\Repositories\Eloquent\PaymentRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\FavoriteRepositoryInterface::class,
+            \App\Repositories\Eloquent\FavoriteRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\ReviewRepositoryInterface::class,
+            \App\Repositories\Eloquent\ReviewRepository::class
+        );
     }
 
     public function boot(): void

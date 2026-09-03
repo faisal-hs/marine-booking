@@ -104,4 +104,19 @@ class Activity extends Model
     {
         return $this->hasMany(Reservation::class);
     }
+
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function visibleReviews()
+    {
+        return $this->reviews()->where('is_hidden', false);
+    }
 }

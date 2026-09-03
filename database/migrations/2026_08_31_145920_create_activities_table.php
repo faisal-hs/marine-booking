@@ -23,6 +23,8 @@ return new class extends Migration
             $table->unsignedInteger('duration_minutes')->nullable();
             $table->unsignedInteger('min_participants')->default(1);
             $table->unsignedInteger('max_participants')->nullable();
+            $table->decimal('average_rating', 3, 2)->default(0);
+            $table->unsignedInteger('reviews_count')->default(0);
             $table->unsignedTinyInteger('min_age')->nullable();
             $table->enum('status', ['draft', 'pending_review', 'approved', 'rejected', 'published', 'inactive'])->default('draft');
             $table->text('rejection_reason')->nullable();

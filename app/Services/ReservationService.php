@@ -229,4 +229,38 @@ class ReservationService
 
         return $staleReservations->count();
     }
+
+    /**
+     * Marks confirmed reservations as completed once their reservation
+     * date has fully passed — the prerequisite Module 12 needs for
+     * "verified purchase" reviews (a customer can only review an
+     * activity they actually completed a reservation for).
+     *
+     * Deliberate simplification: "past" means reservation_date is
+     * strictly before today. This project doesn't store an exact
+     * end-time per reservation (only the activity's duration_minutes and
+     * the WEEKLY schedule period's start/end times, neither denormalized
+     * onto the reservation row itself), so a same-day activity is only
+     * considered complete the day AFTER it occurred, not the moment its
+     * scheduled time window ends. Acceptable for now; a more precise
+     * same-day cutoff would require joining through to the schedule
+     * period on every run.
+     *
+     * No event fires here deliberately — "reservation completed" was not
+     * one of Module 11's four notification event groups, and adding a
+     * new notification type wasn't requested. A "please leave a review"
+     * prompt is a reasonable future enhancement, not built here.
+     */
+    public function completePastReservations(): int
+    {
+        $pastReservations = Reservation::where('status', ReservationStatus::Confirmed->value)
+            ->where('reservation_date', '<', now()->toDateString())
+            ->get();
+
+        foreach ($pastReservations as $reservation) {
+            $reservation->update(['status' => ReservationStatus::Completed->value]);
+        }
+
+        return $pastReservations->count();
+    }
 }
