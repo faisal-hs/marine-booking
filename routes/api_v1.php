@@ -151,6 +151,13 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
         ->name('notifications.read');
     Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
+
+    Route::get('/favorites', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'index'])
+        ->name('favorites.index');
+    Route::post('/favorites', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'store'])
+        ->name('favorites.store');
+    Route::delete('/favorites/{activity}', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'destroy'])
+        ->name('favorites.destroy');
 });
 
 /*
