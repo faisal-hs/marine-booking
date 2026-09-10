@@ -36,6 +36,17 @@ return [
         'verification_queue' => 'Verification queue',
         'waiting_review' => 'providers waiting for review',
         'review_providers' => 'Review providers',
+        'needs_attention' => 'Needs Attention',
+        'overview' => 'Overview',
+        'pending_activities' => 'Activities pending review',
+        'pending_payments' => 'Pending payments',
+        'failed_payments_7d' => 'Failed payments (7 days)',
+        'reservations_today' => "Reservations today",
+        'net_revenue' => 'Net revenue',
+        'average_rating' => 'Average rating',
+        'recent_reservations' => 'Recent Reservations',
+        'recent_payments' => 'Recent Payments',
+        'view_all' => 'View all',
     ],
 
     'users' => [

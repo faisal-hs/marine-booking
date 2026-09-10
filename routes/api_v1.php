@@ -210,6 +210,9 @@ Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function
         ->name('reviews.hide');
     Route::post('/reviews/{review}/unhide', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'unhide'])
         ->name('reviews.unhide');
+
+    Route::get('/dashboard', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'index'])
+        ->name('dashboard.index');
 });
 
 Route::prefix('public')->name('public.')->group(function () {

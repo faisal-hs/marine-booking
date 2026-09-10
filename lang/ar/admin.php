@@ -36,6 +36,17 @@ return [
         'verification_queue' => 'قائمة انتظار التحقق',
         'waiting_review' => 'مزود خدمة بانتظار المراجعة',
         'review_providers' => 'مراجعة مزودي الخدمة',
+        'needs_attention' => 'يتطلب اهتماماً',
+        'overview' => 'نظرة عامة',
+        'pending_activities' => 'أنشطة بانتظار المراجعة',
+        'pending_payments' => 'مدفوعات قيد الانتظار',
+        'failed_payments_7d' => 'مدفوعات فاشلة (٧ أيام)',
+        'reservations_today' => 'حجوزات اليوم',
+        'net_revenue' => 'صافي الإيرادات',
+        'average_rating' => 'متوسط التقييم',
+        'recent_reservations' => 'أحدث الحجوزات',
+        'recent_payments' => 'أحدث المدفوعات',
+        'view_all' => 'عرض الكل',
     ],
 
     'users' => [

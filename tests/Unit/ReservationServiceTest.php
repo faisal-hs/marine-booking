@@ -21,10 +21,21 @@ class ReservationServiceTest extends TestCase
 
     protected ReservationService $service;
 
+    /**
+     * makeBookableActivity() creates a Saturday-only (day_of_week => 6)
+     * schedule period — the original hardcoded '2026-09-05' was chosen
+     * specifically because it fell on a Saturday. This computes the next
+     * Saturday from today instead, so it never goes stale, and preserves
+     * the exact same Saturday/Sunday relationship the one test using two
+     * dates originally relied on.
+     */
+    protected \Illuminate\Support\Carbon $bookableSaturday;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = app(ReservationService::class);
+        $this->bookableSaturday = Carbon::now()->next(Carbon::SATURDAY);
     }
 
     protected function makeBookableActivity(): array
@@ -53,7 +64,7 @@ class ReservationServiceTest extends TestCase
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
 
-        $reservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 2]);
+        $reservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 2]);
 
         $this->assertEquals(3000.0, (float) $reservation->total);
 
@@ -68,7 +79,7 @@ class ReservationServiceTest extends TestCase
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
 
-        $reservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 1]);
 
         $this->assertEquals(ReservationStatus::Pending, $reservation->status);
         $this->assertNotNull($reservation->hold_expires_at);
@@ -78,7 +89,7 @@ class ReservationServiceTest extends TestCase
     public function test_confirm_payment_moves_pending_to_confirmed(): void
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
-        $reservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 1]);
 
         $confirmed = $this->service->confirmPayment($reservation);
 
@@ -89,7 +100,7 @@ class ReservationServiceTest extends TestCase
     public function test_confirm_payment_rejects_an_already_expired_hold(): void
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
-        $reservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 1]);
         $reservation->update(['hold_expires_at' => now()->subMinute()]);
 
         $this->expectException(ValidationException::class);
@@ -100,7 +111,7 @@ class ReservationServiceTest extends TestCase
     public function test_confirm_payment_rejects_a_non_pending_reservation(): void
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
-        $reservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 1]);
         $this->service->confirmPayment($reservation);
 
         $this->expectException(ValidationException::class);
@@ -112,8 +123,8 @@ class ReservationServiceTest extends TestCase
     {
         [$activity, $option, $customer] = $this->makeBookableActivity();
 
-        $stillValid = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
-        $alreadyExpired = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-06'), ['adult' => 1]);
+        $stillValid = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 1]);
+        $alreadyExpired = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy()->addDay(), ['adult' => 1]);
         $alreadyExpired->update(['hold_expires_at' => now()->subMinute()]);
 
         $count = $this->service->expireStaleHolds();
@@ -133,10 +144,10 @@ class ReservationServiceTest extends TestCase
         [$activity, $option, $customer] = $this->makeBookableActivity();
         $option->update(['max_participants' => 2]);
 
-        $firstReservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 2]);
+        $firstReservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 2]);
         $firstReservation->update(['hold_expires_at' => now()->subMinute()]); // still status=pending in the DB
 
-        $secondReservation = $this->service->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 2]);
+        $secondReservation = $this->service->create($customer, $activity, $option, null, $this->bookableSaturday->copy(), ['adult' => 2]);
 
         $this->assertNotNull($secondReservation->id);
     }

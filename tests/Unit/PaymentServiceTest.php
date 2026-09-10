@@ -50,7 +50,11 @@ class PaymentServiceTest extends TestCase
         $customerUser = User::factory()->customer()->create();
         $customer = Customer::create(['user_id' => $customerUser->id]);
 
-        return app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 2]);
+        // The schedule period above is Saturday-only (day_of_week => 6),
+        // so the reservation date must fall on a Saturday too — computed
+        // relative to today rather than hardcoded, so this never goes
+        // stale as real time passes.
+        return app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::now()->next(Carbon::SATURDAY), ['adult' => 2]);
     }
 
     // --- initiate() ---

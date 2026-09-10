@@ -20,10 +20,25 @@ class ReservationCapacityTest extends TestCase
 
     protected ReservationRepositoryInterface $repository;
 
+    /**
+     * This file's date is entirely arbitrary — makeReservation() inserts
+     * directly via Eloquent, bypassing ReservationService::create() and
+     * its AvailabilityService::isBookable() check entirely, so there is
+     * NO day-of-week dependency here (unlike ReservationServiceTest and
+     * PaymentServiceTest, which do go through that check). A relative
+     * offset from today, computed once per test run, is sufficient and
+     * never goes stale.
+     */
+    protected string $testDate;
+
+    protected string $otherTestDate;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->repository = app(ReservationRepositoryInterface::class);
+        $this->testDate = now()->addDays(30)->toDateString();
+        $this->otherTestDate = now()->addDays(31)->toDateString();
     }
 
     protected function makeOption(string $model = 'per_person'): ActivityBookingOption
@@ -54,7 +69,7 @@ class ReservationCapacityTest extends TestCase
             'activity_id' => $option->activity_id,
             'activity_booking_option_id' => $option->id,
             'customer_id' => $customer->id,
-            'reservation_date' => '2026-09-05',
+            'reservation_date' => $this->testDate,
             'participants' => ['adult' => 2],
             'status' => 'confirmed',
             'pricing_model' => 'per_person',
@@ -69,7 +84,7 @@ class ReservationCapacityTest extends TestCase
     {
         $option = $this->makeOption();
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(['participants' => 0, 'quantity' => 0], $result);
     }
@@ -80,7 +95,7 @@ class ReservationCapacityTest extends TestCase
         $customer = $this->makeCustomer();
         $this->makeReservation($option, $customer, ['status' => 'confirmed', 'participants' => ['adult' => 2, 'child' => 1]]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(3, $result['participants']);
     }
@@ -95,7 +110,7 @@ class ReservationCapacityTest extends TestCase
             'participants' => ['adult' => 2],
         ]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(2, $result['participants']);
     }
@@ -113,7 +128,7 @@ class ReservationCapacityTest extends TestCase
             'participants' => ['adult' => 2],
         ]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(0, $result['participants']);
     }
@@ -124,7 +139,7 @@ class ReservationCapacityTest extends TestCase
         $customer = $this->makeCustomer();
         $this->makeReservation($option, $customer, ['status' => 'cancelled', 'participants' => ['adult' => 2]]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(0, $result['participants']);
     }
@@ -135,7 +150,7 @@ class ReservationCapacityTest extends TestCase
         $customer = $this->makeCustomer();
         $this->makeReservation($option, $customer, ['status' => 'expired', 'participants' => ['adult' => 2]]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(0, $result['participants']);
     }
@@ -149,7 +164,7 @@ class ReservationCapacityTest extends TestCase
         $this->makeReservation($option, $customerA, ['status' => 'confirmed', 'participants' => ['adult' => 2]]);
         $this->makeReservation($option, $customerB, ['status' => 'confirmed', 'participants' => ['adult' => 3, 'child' => 1]]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(6, $result['participants']);
     }
@@ -164,8 +179,8 @@ class ReservationCapacityTest extends TestCase
         $this->makeReservation($option, $customer, ['schedule_period_id' => $periodA->id, 'participants' => ['adult' => 2]]);
         $this->makeReservation($option, $customer, ['schedule_period_id' => $periodB->id, 'participants' => ['adult' => 5]]);
 
-        $resultA = $this->repository->consumedCapacity($option->id, $periodA->id, '2026-09-05');
-        $resultB = $this->repository->consumedCapacity($option->id, $periodB->id, '2026-09-05');
+        $resultA = $this->repository->consumedCapacity($option->id, $periodA->id, $this->testDate);
+        $resultB = $this->repository->consumedCapacity($option->id, $periodB->id, $this->testDate);
 
         $this->assertEquals(2, $resultA['participants']);
         $this->assertEquals(5, $resultB['participants']);
@@ -180,8 +195,8 @@ class ReservationCapacityTest extends TestCase
         $this->makeReservation($option, $customer, ['schedule_period_id' => null, 'participants' => ['adult' => 2]]);
         $this->makeReservation($option, $customer, ['schedule_period_id' => $period->id, 'participants' => ['adult' => 9]]);
 
-        $resultGeneral = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
-        $resultPeriod = $this->repository->consumedCapacity($option->id, $period->id, '2026-09-05');
+        $resultGeneral = $this->repository->consumedCapacity($option->id, null, $this->testDate);
+        $resultPeriod = $this->repository->consumedCapacity($option->id, $period->id, $this->testDate);
 
         $this->assertEquals(2, $resultGeneral['participants']);
         $this->assertEquals(9, $resultPeriod['participants']);
@@ -192,11 +207,11 @@ class ReservationCapacityTest extends TestCase
         $option = $this->makeOption();
         $customer = $this->makeCustomer();
 
-        $this->makeReservation($option, $customer, ['reservation_date' => '2026-09-05', 'participants' => ['adult' => 2]]);
-        $this->makeReservation($option, $customer, ['reservation_date' => '2026-09-06', 'participants' => ['adult' => 7]]);
+        $this->makeReservation($option, $customer, ['reservation_date' => $this->testDate, 'participants' => ['adult' => 2]]);
+        $this->makeReservation($option, $customer, ['reservation_date' => $this->otherTestDate, 'participants' => ['adult' => 7]]);
 
-        $resultDay1 = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
-        $resultDay2 = $this->repository->consumedCapacity($option->id, null, '2026-09-06');
+        $resultDay1 = $this->repository->consumedCapacity($option->id, null, $this->testDate);
+        $resultDay2 = $this->repository->consumedCapacity($option->id, null, $this->otherTestDate);
 
         $this->assertEquals(2, $resultDay1['participants']);
         $this->assertEquals(7, $resultDay2['participants']);
@@ -220,7 +235,7 @@ class ReservationCapacityTest extends TestCase
             'pricing_model' => 'per_unit',
         ]);
 
-        $result = $this->repository->consumedCapacity($option->id, null, '2026-09-05');
+        $result = $this->repository->consumedCapacity($option->id, null, $this->testDate);
 
         $this->assertEquals(5, $result['quantity']);
         $this->assertEquals(0, $result['participants']);
@@ -235,8 +250,8 @@ class ReservationCapacityTest extends TestCase
         $this->makeReservation($optionA, $customer, ['participants' => ['adult' => 2]]);
         $this->makeReservation($optionB, $customer, ['participants' => null, 'pricing_model' => 'per_trip']);
 
-        $resultA = $this->repository->consumedCapacity($optionA->id, null, '2026-09-05');
-        $resultB = $this->repository->consumedCapacity($optionB->id, null, '2026-09-05');
+        $resultA = $this->repository->consumedCapacity($optionA->id, null, $this->testDate);
+        $resultB = $this->repository->consumedCapacity($optionB->id, null, $this->testDate);
 
         $this->assertEquals(2, $resultA['participants']);
         $this->assertEquals(0, $resultB['participants']);
