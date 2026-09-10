@@ -22,4 +22,9 @@ class HomeController extends Controller
             'topRatedActivities' => $this->activityRepository->topRated(8),
         ]);
     }
+
+    public function about(): View
+    {
+        return view('public.about');
+    }
 }

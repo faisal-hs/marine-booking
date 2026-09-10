@@ -263,6 +263,8 @@ class PublicWebsiteTest extends TestCase
         $this->assertEquals('ar', session('admin_locale'));
     }
 
+    // --- New capabilities: About page, starting price, location filter ---
+
     public function test_invalid_locale_is_ignored(): void
     {
         $this->get(route('public.locale.switch', 'fr'));
@@ -270,5 +272,59 @@ class PublicWebsiteTest extends TestCase
         $response = $this->get(route('public.home'));
 
         $response->assertOk()->assertSee('lang="en"', false);
+    }
+
+    public function test_about_page_loads_successfully(): void
+    {
+        $response = $this->get(route('public.about'));
+
+        $response->assertOk()->assertSee(__('public.about.title'));
+    }
+
+    public function test_activity_starting_price_is_the_minimum_active_pricing_rule(): void
+    {
+        $category = $this->makeCategory();
+        $activity = $this->makeActivity($category);
+        $option = $activity->bookingOptions()->create(['name' => 'Standard', 'slug' => 'standard-' . uniqid(), 'booking_model' => 'per_person', 'is_active' => true]);
+        $option->pricingRules()->create(['participant_type' => 'adult', 'price' => 2000, 'currency' => 'EGP', 'is_active' => true]);
+        $option->pricingRules()->create(['participant_type' => 'child', 'price' => 1200, 'currency' => 'EGP', 'is_active' => true]);
+        $option->pricingRules()->create(['participant_type' => 'infant', 'price' => 5000, 'currency' => 'EGP', 'is_active' => false]);
+
+        $this->assertEquals(1200.0, $activity->fresh()->starting_price);
+    }
+
+    public function test_activity_with_no_active_pricing_has_a_null_starting_price(): void
+    {
+        $category = $this->makeCategory();
+        $activity = $this->makeActivity($category);
+
+        $this->assertNull($activity->starting_price);
+    }
+
+    public function test_featured_activity_card_shows_starting_price(): void
+    {
+        $category = $this->makeCategory();
+        $activity = $this->makeActivity($category);
+        $option = $activity->bookingOptions()->create(['name' => 'Standard', 'slug' => 'standard-' . uniqid(), 'booking_model' => 'per_person', 'is_active' => true]);
+        $option->pricingRules()->create(['participant_type' => 'adult', 'price' => 1500, 'currency' => 'EGP', 'is_active' => true]);
+
+        $response = $this->get(route('public.home'));
+
+        $response->assertOk()->assertSee('1,500');
+    }
+
+    public function test_activities_can_be_filtered_by_location(): void
+    {
+        $category = $this->makeCategory();
+        $activityA = $this->makeActivity($category);
+        $activityA->update(['location' => 'Hurghada']);
+        $activityB = $this->makeActivity($category);
+        $activityB->update(['title' => 'Sharm Diving Trip', 'location' => 'Sharm El Sheikh']);
+
+        $response = $this->get(route('public.activities.index', ['location' => 'Hurghada']));
+
+        $response->assertOk()
+            ->assertSee('Red Sea Diving Trip')
+            ->assertDontSee('Sharm Diving Trip');
     }
 }

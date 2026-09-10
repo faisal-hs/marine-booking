@@ -122,4 +122,26 @@ class Activity extends Model
     {
         return $this->hasMany(Reservation::class);
     }
+
+    /**
+     * The lowest active price across this activity's active booking
+     * options — used for the "starting from" price shown on public
+     * activity cards. Deliberately a live per-call query rather than a
+     * denormalized column (unlike average_rating/reviews_count): prices
+     * change far more often via admin/provider edits than reviews
+     * accumulate, and the homepage only ever renders a small, bounded
+     * number of cards (8 featured + 8 top-rated), so the extra query per
+     * card is an acceptable N+1 for this scale rather than a genuine
+     * performance concern worth denormalizing for.
+     */
+    public function getStartingPriceAttribute(): ?float
+    {
+        $price = $this->bookingOptions()
+            ->where('activity_booking_options.is_active', true)
+            ->join('activity_pricing_rules', 'activity_pricing_rules.activity_booking_option_id', '=', 'activity_booking_options.id')
+            ->where('activity_pricing_rules.is_active', true)
+            ->min('activity_pricing_rules.price');
+
+        return $price !== null ? (float) $price : null;
+    }
 }

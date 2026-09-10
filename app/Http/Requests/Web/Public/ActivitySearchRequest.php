@@ -16,6 +16,7 @@ class ActivitySearchRequest extends FormRequest
     {
         return [
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'category_id' => ['sometimes', 'nullable', 'integer'],
             'sort' => ['sometimes', 'nullable', 'string', Rule::in(['newest', 'rating'])],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -26,6 +27,7 @@ class ActivitySearchRequest extends FormRequest
     {
         return array_filter([
             'search' => $this->input('search'),
+            'location' => $this->input('location'),
             'category_id' => $this->input('category_id'),
             'sort' => $this->input('sort', 'newest'),
         ]);

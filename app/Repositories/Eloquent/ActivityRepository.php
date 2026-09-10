@@ -67,6 +67,10 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             $query->where('title', 'like', '%' . $filters['search'] . '%');
         }
 
+        if (! empty($filters['location'])) {
+            $query->where('location', 'like', '%' . $filters['location'] . '%');
+        }
+
         match ($filters['sort'] ?? 'newest') {
             'rating' => $query->orderByDesc('average_rating')->orderByDesc('reviews_count'),
             default => $query->latest(),

@@ -34,6 +34,7 @@ Route::middleware('locale:public')->name('public.')->group(function () {
     })->name('locale.switch');
 
     Route::get('/', [PublicHomeController::class, 'index'])->name('home');
+    Route::get('/about', [PublicHomeController::class, 'about'])->name('about');
     Route::get('/categories/{category:slug}', [PublicCategoryController::class, 'show'])->name('categories.show');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');
     Route::get('/activities/{activity}', [PublicActivityController::class, 'show'])->name('activities.show');
