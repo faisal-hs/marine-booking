@@ -31,6 +31,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -51,6 +52,23 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->registerNotificationChannels();
         $this->registerNotificationListeners();
+        $this->registerViewComposers();
+    }
+
+    /**
+     * public.layout's header nav renders the active category list on
+     * every single public page — a View Composer means every Controller
+     * doesn't need to remember to pass 'categories' itself (and a
+     * Controller that explicitly does pass it, like HomeController and
+     * CategoryController for their own page body, simply overrides this
+     * with no conflict — explicit view data always wins over composer
+     * data for the same key).
+     */
+    protected function registerViewComposers(): void
+    {
+        View::composer('public.*', function ($view) {
+            $view->with('categories', $view->getData()['categories'] ?? app(\App\Repositories\Contracts\CategoryRepositoryInterface::class)->activeOrdered());
+        });
     }
 
     /**

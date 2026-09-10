@@ -10,10 +10,33 @@ use App\Http\Controllers\Web\Admin\ProviderController;
 use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\ReviewController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Public\ActivityController as PublicActivityController;
+use App\Http\Controllers\Web\Public\CategoryController as PublicCategoryController;
+use App\Http\Controllers\Web\Public\HomeController as PublicHomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+/*
+| Public website — browse-only per the confirmed design (booking happens
+| via the separate customer mobile app, which consumes the JSON API
+| directly). Uses its OWN 'public_locale' session key (via
+| middleware('locale:public')) so a customer's locale choice here never
+| affects, or is affected by, an admin's own 'admin_locale' session
+| preference — see SetLocale's own doc comment.
+*/
+
+Route::middleware('locale:public')->name('public.')->group(function () {
+    Route::get('/locale/{locale}', function (string $locale) {
+        if (in_array($locale, ['en', 'ar'], true)) {
+            session(['public_locale' => $locale]);
+        }
+
+        return back();
+    })->name('locale.switch');
+
+    Route::get('/', [PublicHomeController::class, 'index'])->name('home');
+    Route::get('/categories/{category:slug}', [PublicCategoryController::class, 'show'])->name('categories.show');
+    Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');
+    Route::get('/activities/{activity}', [PublicActivityController::class, 'show'])->name('activities.show');
 });
 
 Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () {

@@ -67,7 +67,46 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             $query->where('title', 'like', '%' . $filters['search'] . '%');
         }
 
-        return $query->latest()->paginate($perPage, ['*'], 'current_page')->withQueryString();
+        match ($filters['sort'] ?? 'newest') {
+            'rating' => $query->orderByDesc('average_rating')->orderByDesc('reviews_count'),
+            default => $query->latest(),
+        };
+
+        return $query->paginate($perPage, ['*'], 'current_page')->withQueryString();
+    }
+
+    /**
+     * Homepage "Featured Activities" — simply the most recently published,
+     * since there is no dedicated is_featured flag on the schema. A
+     * reasonable, pragmatic choice rather than a schema change for this
+     * first pass.
+     */
+    public function featured(int $limit = 8)
+    {
+        return $this->model->newQuery()
+            ->where('status', 'published')
+            ->with(['category', 'images'])
+            ->latest('published_at')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Homepage "Popular / Top Rated" — highest average_rating among
+     * activities that have at least one visible review, so an unrated
+     * activity (average_rating defaults to 0) never outranks a genuinely
+     * well-reviewed one.
+     */
+    public function topRated(int $limit = 8)
+    {
+        return $this->model->newQuery()
+            ->where('status', 'published')
+            ->where('reviews_count', '>', 0)
+            ->with(['category', 'images'])
+            ->orderByDesc('average_rating')
+            ->orderByDesc('reviews_count')
+            ->limit($limit)
+            ->get();
     }
 
     public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator

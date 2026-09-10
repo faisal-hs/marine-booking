@@ -19,4 +19,8 @@ interface ActivityRepositoryInterface extends BaseRepositoryInterface
     public function paginatePublished(array $filters, int $perPage = 15): LengthAwarePaginator;
 
     public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator;
+
+    public function featured(int $limit = 8);
+
+    public function topRated(int $limit = 8);
 }
