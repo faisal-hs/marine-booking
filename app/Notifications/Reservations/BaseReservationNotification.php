@@ -3,10 +3,14 @@
 namespace App\Notifications\Reservations;
 
 use App\Models\Reservation;
+use App\Notifications\Concerns\QueuedDelivery;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-abstract class BaseReservationNotification extends Notification
+abstract class BaseReservationNotification extends Notification implements ShouldQueue
 {
+    use QueuedDelivery;
+
     public function __construct(protected Reservation $reservation) {}
 
     protected function baseData(string $type, string $message): array
