@@ -30,7 +30,7 @@ class ProviderRepository extends BaseRepository implements ProviderRepositoryInt
 
     public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()->with('user');
+        $query = $this->model->newQuery()->with('user')->withCount('documents');
 
         if (! empty($filters['status'])) {
             $query->where('verification_status', $filters['status']);

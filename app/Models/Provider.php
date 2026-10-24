@@ -51,4 +51,14 @@ class Provider extends Model
     {
         return $this->hasMany(Activity::class);
     }
+
+    public function documents()
+    {
+        return $this->hasMany(ProviderDocument::class)->latest()->latest('id');
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verification_status === 'verified';
+    }
 }

@@ -25,10 +25,10 @@ class SetLocale
     {
         $sessionKey = $area === 'public' ? 'public_locale' : 'admin_locale';
 
-        $locale = $request->session()->get($sessionKey, 'ar');
+        $locale = $request->session()->get($sessionKey, 'en');
 
         if (! in_array($locale, self::SUPPORTED, true)) {
-            $locale = 'ar';
+            $locale = 'en';
         }
 
         App::setLocale($locale);

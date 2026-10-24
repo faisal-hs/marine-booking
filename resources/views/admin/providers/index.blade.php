@@ -28,6 +28,7 @@
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.providers.business_name') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.reservations.customer') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.reservations.status') }}</th>
+                    <th class="py-2.5 px-4 font-medium">{{ __('admin.providers.documents') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.reservations.actions') }}</th>
                 </tr>
             </thead>
@@ -47,6 +48,7 @@
                             @endphp
                             <x-admin.status-badge :variant="$variant" :label="__('admin.providers.statuses.' . $provider->verification_status)" />
                         </td>
+                        <td class="py-2.5 px-4 text-slate-500">{{ $provider->documents_count }}</td>
                         <td class="py-2.5 px-4">
                             <a href="{{ route('admin.providers.show', $provider) }}"
                                 class="text-sm text-[var(--brand-accent,theme(colors.slate.700))] underline">
@@ -56,7 +58,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="py-6 px-4 text-center text-slate-400">{{ __('admin.providers.no_providers') }}
+                        <td colspan="5" class="py-6 px-4 text-center text-slate-400">{{ __('admin.providers.no_providers') }}
                         </td>
                     </tr>
                 @endforelse

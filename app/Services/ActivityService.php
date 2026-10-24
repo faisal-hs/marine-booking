@@ -15,6 +15,7 @@ class ActivityService
     public function __construct(
         protected ActivityRepositoryInterface $repository,
         protected ActivityFeatureValueRepositoryInterface $featureValueRepository,
+        protected ProviderVerificationGate $verificationGate,
     ) {}
 
     public function create(Provider $provider, array $data): Activity
@@ -57,13 +58,23 @@ class ActivityService
 
     public function submitForReview(Activity $activity): Activity
     {
-        if ($activity->status !== 'draft') {
+        // A rejected activity can be edited and sent in again: the rejection
+        // email promises exactly that ("make the necessary changes and resubmit").
+        if (! in_array($activity->status, ['draft', 'rejected'], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Only draft activities can be submitted for review.'],
+                'status' => ['Only draft or rejected activities can be submitted for review.'],
             ]);
         }
 
-        return $this->repository->update($activity, ['status' => 'pending_review']);
+        // Customers are told every provider is verified before an activity goes
+        // live, so an unverified provider cannot even enter the review queue.
+        $this->verificationGate->assertVerifiedForSubmission($activity->provider);
+
+        return $this->repository->update($activity, [
+            'status' => 'pending_review',
+            // The reason belonged to the previous review; this is a new one.
+            'rejection_reason' => null,
+        ]);
     }
 
     protected function generateUniqueSlug(string $title, ?int $ignoreId = null): string

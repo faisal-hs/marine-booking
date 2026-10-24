@@ -98,6 +98,14 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
         ->only(['index', 'store', 'update', 'destroy']);
 
+    Route::get('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'index'])
+        ->name('documents.index');
+    Route::post('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('documents.store');
+    Route::delete('/documents/{document:uuid}', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'destroy'])
+        ->name('documents.destroy');
+
     Route::get('/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'index'])
         ->name('reservations.index');
     Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])

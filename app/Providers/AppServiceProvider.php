@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Events\ActivityApproved;
 use App\Events\ActivityPublished;
 use App\Events\ActivityRejected;
+use App\Events\ActivitySentBackToReview;
 use App\Events\PaymentFailed;
 use App\Events\PaymentRefunded;
 use App\Events\ProviderRejected;
@@ -15,6 +16,7 @@ use App\Events\ReservationCreated;
 use App\Events\ReservationExpired;
 use App\Listeners\Notifications\SendActivityApprovedNotifications;
 use App\Listeners\Notifications\SendActivityPublishedNotifications;
+use App\Listeners\Notifications\SendActivitySentBackToReviewNotifications;
 use App\Listeners\Notifications\SendActivityRejectedNotifications;
 use App\Listeners\Notifications\SendPaymentFailedNotifications;
 use App\Listeners\Notifications\SendPaymentRefundedNotifications;
@@ -141,6 +143,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ActivityApproved::class, SendActivityApprovedNotifications::class);
         Event::listen(ActivityRejected::class, SendActivityRejectedNotifications::class);
         Event::listen(ActivityPublished::class, SendActivityPublishedNotifications::class);
+        Event::listen(ActivitySentBackToReview::class, SendActivitySentBackToReviewNotifications::class);
 
         Event::listen(ProviderVerified::class, SendProviderVerifiedNotifications::class);
         Event::listen(ProviderRejected::class, SendProviderRejectedNotifications::class);

@@ -212,6 +212,8 @@ return [
         'participant_type' => 'Participant',
         'general' => 'General',
         'applies_to' => 'Applies To',
+        'edited_after_publication' => 'Edited after publication: needs re-approval',
+        'verify_provider_first' => 'Verify the provider first',
     ],
 
     'reservations' => [
@@ -311,6 +313,17 @@ return [
         'confirm_reject' => 'Reject this provider? They will be notified.',
         'rejection_reason' => 'Rejection Reason',
         'rejection_reason_placeholder' => 'Reason for rejection',
+        'documents' => 'Documents',
+        'documents_title' => 'Verification documents',
+        'no_documents' => 'This provider has not uploaded any documents yet.',
+        'download' => 'Download',
+        'document_types' => [
+            'business_license' => 'Business licence',
+            'identity_document' => 'Identity document',
+            'professional_certification' => 'Professional certification',
+            'insurance' => 'Insurance',
+            'other' => 'Other',
+        ],
     ],
 
     'reviews' => [

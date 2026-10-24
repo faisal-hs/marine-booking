@@ -33,7 +33,7 @@ class ActivityModerationTest extends TestCase
     protected function makePendingActivity(): Activity
     {
         $providerUser = User::factory()->provider()->create();
-        $provider = Provider::create(['user_id' => $providerUser->id, 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
+        $provider = Provider::create(['user_id' => $providerUser->id, 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid(), 'verification_status' => 'verified']);
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving-' . uniqid(), 'status' => 'active']);
 
         return Activity::create([

@@ -8,15 +8,15 @@ Built with Laravel 12, Sanctum (API tokens) and Spatie Laravel-Permission (admin
 
 ## What is in here
 
-| Surface         | Used by                                                                                                       | Where                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Customer API    | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite                                    | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
-| Provider API    | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, see reservations   | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
-| Public API      | Anyone: published activities, categories, availability, reviews                                               | `/api/v1/public/*`                              |
-| Admin panel     | Staff: users, providers, activity moderation, reservations, payments and refunds, reviews, dashboard, reports | `/admin` (login at `/admin/login`)              |
-| Admin JSON API  | Reservations, payments, reviews and the dashboard as JSON                                                     | `/api/v1/admin/*`                               |
-| Public website  | Visitors, browse only (booking happens in the mobile app)                                                     | `/`                                             |
-| Payment webhook | The payment gateway                                                                                           | `POST /api/v1/webhooks/payments/{gateway}`      |
+| Surface         | Used by                                                                                                                                    | Where                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Customer API    | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite                                                                 | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
+| Provider API    | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, upload verification documents, see reservations | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
+| Public API      | Anyone: published activities, categories, availability, reviews                                                                            | `/api/v1/public/*`                              |
+| Admin panel     | Staff: users, providers and their documents, activity moderation, reservations, payments and refunds, reviews, dashboard, reports          | `/admin` (login at `/admin/login`)              |
+| Admin JSON API  | Reservations, payments, reviews and the dashboard as JSON                                                                                  | `/api/v1/admin/*`                               |
+| Public website  | Visitors, browse only (booking happens in the mobile app)                                                                                  | `/`                                             |
+| Payment webhook | The payment gateway                                                                                                                        | `POST /api/v1/webhooks/payments/{gateway}`      |
 
 `php artisan route:list` shows every route.
 
@@ -134,6 +134,29 @@ A request flows `FormRequest` (validation and authorization) → thin controller
 - **Payments** go through `PaymentGatewayInterface` (`app/Contracts/Payments`); a gateway is
   chosen with `PAYMENT_GATEWAY`. See the limitations below before relying on it.
 
+### Provider onboarding and moderation
+
+1. **Verification.** A provider signs up by OTP with `verification_status: pending` and uploads
+   documents through `/api/v1/provider/documents` (business licence, identity document,
+   professional certification, insurance or other; PDF, JPEG, PNG or WebP, up to 5 MB each, at
+   most 10). An admin reads them on the provider page (`/admin/providers/{provider}`) and verifies
+   or rejects the provider. The files live on the private disk (`storage/app/private`), are never
+   reachable by URL, and can only be downloaded by an admin who may view providers. A verified
+   provider cannot delete the documents they were verified on.
+2. **The gate.** Only a verified provider can submit an activity for review, and only a verified
+   provider's activity can be approved or republished. Drafts are not blocked, so a provider can
+   prepare a listing while waiting.
+3. **Review.** Approving publishes the activity immediately. A rejected activity can be edited and
+   submitted again.
+4. **Editing a live activity.** Changing the title, description, category, location, photos,
+   features, requirements or inclusions of a published activity sends it back to review and takes
+   it off the public site until an admin approves it again. The provider is told, and existing
+   bookings are not affected. Schedules, blackout dates, prices, extras, participant limits,
+   duration and minimum age can be changed freely. Only a real change counts: re-saving an
+   unchanged form does nothing, and a deactivated activity is not guarded because an admin has to
+   republish it deliberately. Every provider endpoint that changes an activity has to be classified
+   in `tests/Feature/Provider/LiveActivityReviewTest.php`, so a new one cannot quietly skip the rule.
+
 ### Notifications
 
 Services only fire events (`app/Events`). Listeners in `app/Listeners/Notifications` hand the
@@ -147,6 +170,12 @@ channels. They are queued, one job per channel, with 3 tries and a 30 s then 120
 failing channel retries on its own without repeating the others. Deliveries that still fail
 end up in `failed_jobs` (`php artisan queue:failed`, `php artisan queue:retry all`). Admin
 notifications are database-only and are not queued.
+
+Providers are notified when an admin approves, rejects or republishes one of their activities,
+when their verification is decided, when an edit sends a live activity back to review, when a
+booking is confirmed, and when a confirmed booking is cancelled (in-app and push). An unpaid
+pending hold does not alert them. These alerts carry no customer name or contact, because the
+provider API does not expose them either.
 
 ### Languages
 
@@ -181,6 +210,8 @@ mention.
    real service.
 6. **Payments cannot go live yet.** In production the mock gateway is refused and payments
    answer `503` (next section).
+7. Back up `storage/app/private` (the verification documents) together with the database, and make
+   sure the web server does not serve it.
 
 ## Known limitations
 
@@ -200,6 +231,12 @@ These are known and deliberately listed, not hidden:
 - **Money is handled as PHP floats and the currency is EGP throughout.**
 - **Revenue in the reports is gross.** Payments have no `refunded_at`, so a refund cannot be
   attributed to a period. The all-time figure on the dashboard is net of refunds.
+- **Providers cannot see who booked.** Their reservation list and booking alerts show the
+  activity, date, party size and total, but no customer name or contact.
+- **Verification documents are not virus-scanned.** They are validated by type and size and kept on
+  the application server's disk.
+- **The `approved` activity status is never used.** Approving publishes straight away; the value
+  exists in the database enum only.
 - **No concurrency tests** for capacity locking or webhook races.
 
 ## For AI coding assistants

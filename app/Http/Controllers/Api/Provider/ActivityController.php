@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
+use App\Http\Controllers\Api\Provider\Concerns\GuardsLiveActivityContent;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\PaginationRequest;
 use App\Http\Requests\Provider\Activity\StoreActivityRequest;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 class ActivityController extends BaseApiController
 {
     use AuthorizesRequests;
+    use GuardsLiveActivityContent;
 
     protected const EAGER_LOAD = [
         'category',
@@ -104,17 +106,19 @@ class ActivityController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        $activity = DB::transaction(function () use ($request, $activity) {
-            $activity = $this->service->update($activity, $request->payload());
+        [$activity, $message] = $this->editWithReviewGuard($activity, function () use ($request, $activity) {
+            return DB::transaction(function () use ($request, $activity) {
+                $activity = $this->service->update($activity, $request->payload());
 
-            $this->applyCombinedExtras($request, $activity);
+                $this->applyCombinedExtras($request, $activity);
 
-            return $activity;
-        });
+                return $activity;
+            });
+        }, 'Activity updated successfully.');
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->success(new ActivityResource($activity), 'Activity updated successfully.');
+        return $this->success(new ActivityResource($activity), $message);
     }
 
     public function destroy(Request $request, Activity $activity)

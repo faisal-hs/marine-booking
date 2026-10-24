@@ -14,6 +14,7 @@ use App\Policies\ActivityPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\FeatureDefinitionPolicy;
 use App\Policies\PaymentPolicy;
+use App\Policies\ProviderDocumentPolicy;
 use App\Policies\ProviderPolicy;
 use App\Policies\ReservationPolicy;
 use App\Policies\ReviewPolicy;
@@ -37,6 +38,10 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             \App\Repositories\Contracts\ProviderRepositoryInterface::class,
             \App\Repositories\Eloquent\ProviderRepository::class
+        );
+        $this->app->bind(
+            \App\Repositories\Contracts\ProviderDocumentRepositoryInterface::class,
+            \App\Repositories\Eloquent\ProviderDocumentRepository::class
         );
         $this->app->bind(
             \App\Repositories\Contracts\CustomerRepositoryInterface::class,
@@ -101,6 +106,7 @@ class RepositoryServiceProvider extends ServiceProvider
         Gate::policy(Reservation::class, ReservationPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(Provider::class, ProviderPolicy::class);
+        Gate::policy(\App\Models\ProviderDocument::class, ProviderDocumentPolicy::class);
         Gate::policy(Review::class, ReviewPolicy::class);
     }
 }

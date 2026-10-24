@@ -83,6 +83,7 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
 
         Route::get('/providers', [ProviderController::class, 'index'])->name('providers.index');
         Route::get('/providers/{provider}', [ProviderController::class, 'show'])->name('providers.show');
+        Route::get('/providers/{provider}/documents/{document:uuid}', [ProviderController::class, 'downloadDocument'])->name('providers.documents.download');
         Route::post('/providers/{provider}/verify', [ProviderController::class, 'verify'])->name('providers.verify');
         Route::post('/providers/{provider}/reject', [ProviderController::class, 'reject'])->name('providers.reject');
 

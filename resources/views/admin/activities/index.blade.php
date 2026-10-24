@@ -40,7 +40,12 @@
                 @foreach ($activities as $activity)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5 px-4">{{ $activity->title }}</td>
-                        <td class="py-2.5 px-4 text-slate-500">{{ $activity->provider->business_name }}</td>
+                        <td class="py-2.5 px-4 text-slate-500">
+                            {{ $activity->provider->business_name }}
+                            @unless ($activity->provider->isVerified())
+                                <x-admin.status-badge variant="warning" :label="__('admin.providers.statuses.' . $activity->provider->verification_status)" />
+                            @endunless
+                        </td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $activity->category->name }}</td>
                         <td class="py-2.5 px-4">
                             @php
@@ -56,15 +61,22 @@
                             @if ($activity->status === 'rejected' && $activity->rejection_reason)
                                 <p class="text-xs text-slate-400 mt-1">{{ $activity->rejection_reason }}</p>
                             @endif
+                            @if ($activity->status === 'pending_review' && $activity->published_at)
+                                <p class="text-xs text-amber-600 mt-1">{{ __('admin.activities.edited_after_publication') }}</p>
+                            @endif
                         </td>
                         <td class="py-2.5 px-4">
                             <div class="flex items-center gap-2">
                                 @can('approve', $activity)
                                     @if ($activity->status === 'pending_review')
-                                        <form method="POST" action="{{ route('admin.activities.approve', $activity) }}">
-                                            @csrf
-                                            <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.approve') }}</x-admin.button>
-                                        </form>
+                                        @if ($activity->provider->isVerified())
+                                            <form method="POST" action="{{ route('admin.activities.approve', $activity) }}">
+                                                @csrf
+                                                <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.approve') }}</x-admin.button>
+                                            </form>
+                                        @else
+                                            <span class="text-xs text-amber-600">{{ __('admin.activities.verify_provider_first') }}</span>
+                                        @endif
                                     @endif
                                 @endcan
                                 @can('reject', $activity)
@@ -79,10 +91,14 @@
                                 @endcan
                                 @can('publish', $activity)
                                     @if ($activity->status === 'inactive')
-                                        <form method="POST" action="{{ route('admin.activities.publish', $activity) }}">
-                                            @csrf
-                                            <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.publish') }}</x-admin.button>
-                                        </form>
+                                        @if ($activity->provider->isVerified())
+                                            <form method="POST" action="{{ route('admin.activities.publish', $activity) }}">
+                                                @csrf
+                                                <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.publish') }}</x-admin.button>
+                                            </form>
+                                        @else
+                                            <span class="text-xs text-amber-600">{{ __('admin.activities.verify_provider_first') }}</span>
+                                        @endif
                                     @elseif ($activity->status === 'published')
                                         <form method="POST" action="{{ route('admin.activities.deactivate', $activity) }}">
                                             @csrf

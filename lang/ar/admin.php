@@ -213,6 +213,8 @@ return [
         'participant_type' => 'نوع المشارك',
         'general' => 'عام',
         'applies_to' => 'ينطبق على',
+        'edited_after_publication' => 'عُدّل بعد النشر: يحتاج إلى موافقة جديدة',
+        'verify_provider_first' => 'تحقق من مزود الخدمة أولاً',
     ],
 
     'reservations' => [
@@ -314,6 +316,17 @@ return [
         'confirm_reject' => 'هل تريد رفض مزود الخدمة هذا؟ سيتم إشعاره.',
         'rejection_reason' => 'سبب الرفض',
         'rejection_reason_placeholder' => 'سبب الرفض',
+        'documents' => 'المستندات',
+        'documents_title' => 'مستندات التحقق',
+        'no_documents' => 'لم يرفع مزود الخدمة أي مستندات بعد.',
+        'download' => 'تنزيل',
+        'document_types' => [
+            'business_license' => 'الرخصة التجارية',
+            'identity_document' => 'وثيقة الهوية',
+            'professional_certification' => 'الشهادة المهنية',
+            'insurance' => 'التأمين',
+            'other' => 'أخرى',
+        ],
     ],
 
     'reviews' => [

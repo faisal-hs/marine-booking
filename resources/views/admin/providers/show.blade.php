@@ -39,6 +39,35 @@
                     @endif
                 </dl>
             </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+                <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.documents_title') }}</h2>
+
+                @if ($provider->documents->isEmpty())
+                    <p class="text-sm {{ $provider->verification_status === 'pending' ? 'text-amber-600' : 'text-slate-400' }}">
+                        {{ __('admin.providers.no_documents') }}
+                    </p>
+                @else
+                    <ul class="text-sm divide-y divide-slate-100">
+                        @foreach ($provider->documents as $document)
+                            <li class="py-2.5 flex items-center justify-between gap-4">
+                                <div>
+                                    <p class="text-slate-800">
+                                        {{ $document->title ?: __('admin.providers.document_types.' . $document->type) }}</p>
+                                    <p class="text-xs text-slate-400">
+                                        {{ __('admin.providers.document_types.' . $document->type) }}
+                                        · {{ $document->original_name }}
+                                        · {{ number_format($document->size_bytes / 1024, 0) }} KB
+                                        · {{ $document->created_at->toFormattedDateString() }}
+                                    </p>
+                                </div>
+                                <a href="{{ route('admin.providers.documents.download', ['provider' => $provider, 'document' => $document->uuid]) }}"
+                                    class="text-xs text-slate-500 underline whitespace-nowrap">{{ __('admin.providers.download') }}</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
         </div>
 
         <div class="space-y-6">

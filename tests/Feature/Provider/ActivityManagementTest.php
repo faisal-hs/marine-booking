@@ -19,6 +19,8 @@ class ActivityManagementTest extends TestCase
             'user_id' => $user->id,
             'business_name' => 'Test Diving',
             'slug' => 'test-diving-' . uniqid(),
+            // Submitting for review requires a verified provider.
+            'verification_status' => 'verified',
         ]);
         $token = $user->createToken('test', ['provider'])->plainTextToken;
 
