@@ -7,11 +7,13 @@ use App\Models\Category;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class ReservationManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function makeCustomerToken(): array
     {
@@ -51,7 +53,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05', // a Saturday
+                'reservation_date' => $this->futureSaturday()->toDateString(), // a Saturday
                 'participants' => ['adult' => 2, 'child' => 1],
             ]);
 
@@ -66,14 +68,14 @@ class ReservationManagementTest extends TestCase
     {
         [$user, $token] = $this->makeCustomerToken();
         [$activity, $option] = $this->makePublishedActivityWithPerPersonOption();
-        // 2026-09-06 is a Sunday — the activity only has a Saturday period.
+        // The day after a Saturday is a Sunday — the activity only has a Saturday period.
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
                 'schedule_period' => $activity->schedulePeriods()->first()->uuid,
-                'reservation_date' => '2026-09-06',
+                'reservation_date' => $this->futureSunday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
 
@@ -84,13 +86,13 @@ class ReservationManagementTest extends TestCase
     {
         [$user, $token] = $this->makeCustomerToken();
         [$activity, $option] = $this->makePublishedActivityWithPerPersonOption();
-        $activity->availabilityOverrides()->create(['date_from' => '2026-09-05', 'date_to' => '2026-09-05', 'is_unavailable' => true]);
+        $activity->availabilityOverrides()->create(['date_from' => $this->futureSaturday()->toDateString(), 'date_to' => $this->futureSaturday()->toDateString(), 'is_unavailable' => true]);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
 
@@ -107,7 +109,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['infant' => 1],
             ]);
 
@@ -125,7 +127,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 5],
             ]);
 
@@ -145,7 +147,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 3],
             ]);
         $firstResponse->assertCreated();
@@ -156,7 +158,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 2],
             ]);
 
@@ -172,7 +174,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
 
@@ -193,7 +195,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
         $reservationUuid = $createResponse->json('data.uuid');
@@ -215,7 +217,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
         $reservationUuid = $createResponse->json('data.uuid');
@@ -235,7 +237,7 @@ class ReservationManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 1],
             ]);
         $reservationUuid = $createResponse->json('data.uuid');

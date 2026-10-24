@@ -64,9 +64,10 @@ class AvailabilitySeederTest extends TestCase
         $activity = Activity::where('status', 'published')->has('schedulePeriods')->first();
         $this->assertNotNull($activity);
 
-        // A date far outside any seeded override window, on a weekday the
-        // activity has a period for.
-        $date = Carbon::parse('2026-08-01');
+        // A date far outside any seeded override window (which spans
+        // roughly now()+30 .. now()+47 days — see ActivitySeeder::
+        // attachOverrides()), on a weekday the activity has a period for.
+        $date = now()->startOfDay();
         $weekday = $date->dayOfWeek;
         $period = $activity->schedulePeriods()->where('day_of_week', $weekday)->where('status', 'active')->first();
 
@@ -88,7 +89,8 @@ class AvailabilitySeederTest extends TestCase
 
         // planIndex 10 (the third 'published' slot in the status plan)
         // deterministically receives override pattern 10 % 4 = 2: a
-        // single-day blackout on 2026-09-22 — see ActivitySeeder::attachOverrides().
+        // single-day blackout at the seeder's anchor +12 days (now()+30, then
+        // +12 for pattern 2) — see ActivitySeeder::attachOverrides().
         $activity = Activity::where('slug', 'like', '%-11')
             ->where('status', 'published')
             ->has('availabilityOverrides')
@@ -96,7 +98,9 @@ class AvailabilitySeederTest extends TestCase
 
         $this->assertNotNull($activity, 'Expected to find a published activity at planIndex 10 (slug suffix -11) with a seeded override.');
 
-        $result = app(AvailabilityService::class)->resolveForDate($activity->id, Carbon::parse('2026-09-22'));
+        $blackoutDate = now()->addDays(30)->addDays(12)->startOfDay();
+
+        $result = app(AvailabilityService::class)->resolveForDate($activity->id, $blackoutDate);
 
         $this->assertEmpty($result, 'Blackout date should resolve to zero bookable periods.');
     }
@@ -108,14 +112,18 @@ class AvailabilitySeederTest extends TestCase
         $activity = Activity::where('status', 'published')->has('schedulePeriods')->first();
         $this->assertNotNull($activity);
 
-        $dateResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?date=2026-09-05");
+        $from = now()->addDays(5);
+        $to = now()->addDays(20);
+        $month = now()->addMonthNoOverflow();
+
+        $dateResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?date={$from->toDateString()}");
         $dateResponse->assertOk();
 
-        $rangeResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?from_date=2026-09-05&to_date=2026-09-20");
+        $rangeResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?from_date={$from->toDateString()}&to_date={$to->toDateString()}");
         $rangeResponse->assertOk();
 
-        $monthResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?month=2026-09");
-        $monthResponse->assertOk()->assertJsonCount(30, 'data');
+        $monthResponse = $this->getJson("/api/v1/public/activities/{$activity->slug}/availability?month={$month->format('Y-m')}");
+        $monthResponse->assertOk()->assertJsonCount($month->daysInMonth, 'data');
     }
 
     public function test_non_published_activities_are_not_publicly_visible(): void

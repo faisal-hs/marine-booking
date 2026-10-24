@@ -9,11 +9,13 @@ use App\Models\Provider;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class PaymentManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function makeCustomerWithReservation(): array
     {
@@ -39,7 +41,7 @@ class PaymentManagementTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 2],
             ]);
 
@@ -150,7 +152,7 @@ class PaymentManagementTest extends TestCase
             $activity,
             $option,
             null,
-            \Illuminate\Support\Carbon::parse('2026-09-05'),
+            $this->futureSaturday(),
             ['adult' => 2]
         );
 

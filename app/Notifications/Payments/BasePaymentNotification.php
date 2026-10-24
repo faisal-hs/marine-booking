@@ -3,10 +3,14 @@
 namespace App\Notifications\Payments;
 
 use App\Models\Payment;
+use App\Notifications\Concerns\QueuedDelivery;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-abstract class BasePaymentNotification extends Notification
+abstract class BasePaymentNotification extends Notification implements ShouldQueue
 {
+    use QueuedDelivery;
+
     public function __construct(protected Payment $payment) {}
 
     protected function baseData(string $type, string $message): array

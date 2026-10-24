@@ -7,11 +7,13 @@ use App\Models\Category;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class ReservationVisibilityTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function makeProviderWithActivityAndReservation(): array
     {
@@ -39,7 +41,7 @@ class ReservationVisibilityTest extends TestCase
             ->postJson('/api/v1/customer/reservations', [
                 'activity' => $activity->uuid,
                 'booking_option' => $option->uuid,
-                'reservation_date' => '2026-09-05',
+                'reservation_date' => $this->futureSaturday()->toDateString(),
                 'participants' => ['adult' => 2],
             ]);
 

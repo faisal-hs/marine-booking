@@ -13,12 +13,13 @@ use App\Services\PaymentService;
 use App\Services\ReservationService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class PaymentBladeTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function setUp(): void
     {
@@ -53,7 +54,7 @@ class PaymentBladeTest extends TestCase
         $customerUser = User::factory()->customer()->create(['name' => 'Jane Customer']);
         $customer = Customer::create(['user_id' => $customerUser->id]);
 
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
         $result = app(PaymentService::class)->initiate($reservation, ['simulate' => 'sync_success']);
 
         return $result['payment'];

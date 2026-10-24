@@ -16,13 +16,14 @@ use App\Services\PaymentService;
 use App\Services\ReservationService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class PaymentNotificationsTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function setUp(): void
     {
@@ -57,7 +58,7 @@ class PaymentNotificationsTest extends TestCase
         $customerUser = User::factory()->customer()->create();
         $customer = Customer::create(['user_id' => $customerUser->id]);
 
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         return [$reservation, $customerUser];
     }

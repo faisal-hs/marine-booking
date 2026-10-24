@@ -21,13 +21,14 @@ use App\Notifications\Reservations\ReservationExpiredNotification;
 use App\Services\ReservationService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class ReservationNotificationsTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function setUp(): void
     {
@@ -74,7 +75,7 @@ class ReservationNotificationsTest extends TestCase
         $contentAdmin = $this->makeAdmin('content_admin'); // does NOT have reservations.view
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
 
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         NotificationFacade::assertSentTo($customerUser, ReservationCreatedNotification::class);
         NotificationFacade::assertSentTo($superAdmin, \App\Notifications\Reservations\Admin\NewReservationAdminNotification::class);
@@ -84,7 +85,7 @@ class ReservationNotificationsTest extends TestCase
     public function test_reservation_created_notification_uses_the_correct_channel_matrix(): void
     {
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         $notification = new ReservationCreatedNotification($reservation);
 
@@ -95,7 +96,7 @@ class ReservationNotificationsTest extends TestCase
     {
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
 
-        app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         $this->assertDatabaseHas('notifications', [
             'notifiable_type' => User::class,
@@ -111,7 +112,7 @@ class ReservationNotificationsTest extends TestCase
         NotificationFacade::fake();
         $superAdmin = $this->makeAdmin('super_admin');
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         app(ReservationService::class)->confirmPayment($reservation);
 
@@ -122,7 +123,7 @@ class ReservationNotificationsTest extends TestCase
     public function test_reservation_confirmed_notification_uses_the_full_channel_matrix(): void
     {
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         $notification = new ReservationConfirmedNotification($reservation);
 
@@ -136,7 +137,7 @@ class ReservationNotificationsTest extends TestCase
         NotificationFacade::fake();
         $superAdmin = $this->makeAdmin('super_admin');
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         app(ReservationService::class)->cancel($reservation, 'Change of plans');
 
@@ -151,7 +152,7 @@ class ReservationNotificationsTest extends TestCase
         NotificationFacade::fake();
         $superAdmin = $this->makeAdmin('super_admin');
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
         $reservation->update(['hold_expires_at' => now()->subMinute()]);
 
         $count = app(ReservationService::class)->expireStaleHolds();
@@ -167,8 +168,8 @@ class ReservationNotificationsTest extends TestCase
         [$activity, $option, $customerA, $customerUserA] = $this->makeBookableSetup();
         [$activity2, $option2, $customerB, $customerUserB] = $this->makeBookableSetup();
 
-        $reservationA = app(ReservationService::class)->create($customerA, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
-        $reservationB = app(ReservationService::class)->create($customerB, $activity2, $option2, null, Carbon::parse('2026-09-06'), ['adult' => 1]);
+        $reservationA = app(ReservationService::class)->create($customerA, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
+        $reservationB = app(ReservationService::class)->create($customerB, $activity2, $option2, null, $this->futureSunday(), ['adult' => 1]);
         $reservationA->update(['hold_expires_at' => now()->subMinute()]);
         $reservationB->update(['hold_expires_at' => now()->subMinute()]);
 
@@ -184,7 +185,7 @@ class ReservationNotificationsTest extends TestCase
     public function test_notification_dispatch_for_the_same_reservation_event_is_idempotent(): void
     {
         [$activity, $option, $customer, $customerUser] = $this->makeBookableSetup();
-        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        $reservation = app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         // No admin exists in this test (RolesAndPermissionsSeeder only
         // seeds roles/permissions, never actual User accounts), so the

@@ -3,6 +3,8 @@
 namespace App\Notifications\Activities;
 
 use App\Models\Activity;
+use App\Notifications\Concerns\QueuedDelivery;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -12,8 +14,10 @@ use Illuminate\Notifications\Notification;
  * own action, unlike reservation/payment events where admins are
  * genuinely monitoring something a customer did.
  */
-abstract class BaseActivityNotification extends Notification
+abstract class BaseActivityNotification extends Notification implements ShouldQueue
 {
+    use QueuedDelivery;
+
     public function __construct(protected Activity $activity) {}
 
     protected function baseData(string $type, string $message): array

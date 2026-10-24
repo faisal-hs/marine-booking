@@ -509,16 +509,24 @@ class ActivitySeeder extends Seeder
      * check) gets one of the four override patterns, cycled by planIndex,
      * covering: single-day price override, date-range price override,
      * single-day blackout, and date-range blackout.
+     *
+     * Anchored to now()+30 days rather than fixed calendar dates: the
+     * original hardcoded 2026-09-* dates meant that seeding after that
+     * month planted overrides entirely in the past, making the demo
+     * availability data meaningless. The original relative offsets
+     * (09-10 -> 09-15..09-20 -> 09-22 -> 09-25..09-27) are preserved as
+     * +0, +5..+10, +12 and +15..+17 days from the anchor.
      */
     protected function attachOverrides(Activity $activity, int $planIndex): int
     {
+        $anchor = now()->addDays(30)->startOfDay();
         $pattern = $planIndex % 4;
 
         $override = match ($pattern) {
-            0 => ['date_from' => '2026-09-10', 'date_to' => '2026-09-10', 'is_unavailable' => false, 'price' => 1500],
-            1 => ['date_from' => '2026-09-15', 'date_to' => '2026-09-20', 'is_unavailable' => false, 'price' => 1800],
-            2 => ['date_from' => '2026-09-22', 'date_to' => '2026-09-22', 'is_unavailable' => true],
-            default => ['date_from' => '2026-09-25', 'date_to' => '2026-09-27', 'is_unavailable' => true],
+            0 => ['date_from' => $anchor->toDateString(), 'date_to' => $anchor->toDateString(), 'is_unavailable' => false, 'price' => 1500],
+            1 => ['date_from' => $anchor->copy()->addDays(5)->toDateString(), 'date_to' => $anchor->copy()->addDays(10)->toDateString(), 'is_unavailable' => false, 'price' => 1800],
+            2 => ['date_from' => $anchor->copy()->addDays(12)->toDateString(), 'date_to' => $anchor->copy()->addDays(12)->toDateString(), 'is_unavailable' => true],
+            default => ['date_from' => $anchor->copy()->addDays(15)->toDateString(), 'date_to' => $anchor->copy()->addDays(17)->toDateString(), 'is_unavailable' => true],
         };
 
         $activity->availabilityOverrides()->create($override);

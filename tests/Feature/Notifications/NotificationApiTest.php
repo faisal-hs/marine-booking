@@ -9,12 +9,13 @@ use App\Models\Provider;
 use App\Models\User;
 use App\Services\ReservationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
+use Tests\Concerns\RelativeDates;
 use Tests\TestCase;
 
 class NotificationApiTest extends TestCase
 {
     use RefreshDatabase;
+    use RelativeDates;
 
     protected function makeCustomerWithNotification(): array
     {
@@ -39,7 +40,7 @@ class NotificationApiTest extends TestCase
         // channel notification for this customer via the existing
         // ReservationCreated event/listener wiring — no need for a
         // separate notification-creation helper.
-        app(ReservationService::class)->create($customer, $activity, $option, null, Carbon::parse('2026-09-05'), ['adult' => 1]);
+        app(ReservationService::class)->create($customer, $activity, $option, null, $this->futureSaturday(), ['adult' => 1]);
 
         return [$customerUser, $token];
     }
