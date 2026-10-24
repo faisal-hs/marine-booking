@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: PHPUnit (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: today
+            clock: ""
+          # The same suite with the clock set 400 days ahead. A test that books
+          # a hardcoded calendar date passes on the day it is written and fails
+          # once that date is in the past (this broke 51 tests before). Running
+          # the suite in the future turns that class of bug into a failing check
+          # today instead of a surprise months later.
+          - label: clock +400 days
+            clock: "+400d"
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      # composer.lock pins Symfony 8 packages, which need PHP 8.4.1 or newer.
+      # gd is needed by the image-upload tests (UploadedFile::fake()->image()).
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, dom, curl, fileinfo, openssl, pdo_sqlite, sqlite3, gd, bcmath, iconv, xml, tokenizer
+          coverage: none
+
+      - name: Find the Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Built from .env.example only, exactly what a new developer has, so the
+      # example file is part of what this job proves.
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Install faketime
+        if: matrix.clock != ''
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq faketime
+
+      # The test files are discovered from the tests/ directory, and
+      # tests/Unit/TestFileNamingTest.php fails if one is saved under a name
+      # PHPUnit would skip.
+      - name: Run the test suite
+        env:
+          CLOCK: ${{ matrix.clock }}
+        run: |
+          if [ -n "$CLOCK" ]; then
+            faketime -f "$CLOCK" php vendor/bin/phpunit --fail-on-warning --fail-on-risky
+          else
+            php vendor/bin/phpunit --fail-on-warning --fail-on-risky
+          fi

@@ -1,58 +1,203 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Marine Booking
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend for booking marine activities: diving, snorkeling, boat trips, fishing and more.
+Customers and providers use a mobile app that talks to a JSON API, staff run the platform
+from an admin panel, and a bilingual (English / Arabic) public website lets visitors browse.
 
-## About Laravel
+Built with Laravel 12, Sanctum (API tokens) and Spatie Laravel-Permission (admin roles).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What is in here
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Surface | Used by | Where |
+|---|---|---|
+| Customer API | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
+| Provider API | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, see reservations | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
+| Public API | Anyone: published activities, categories, availability, reviews | `/api/v1/public/*` |
+| Admin panel | Staff: users, providers, activity moderation, reservations, payments and refunds, reviews, dashboard, reports | `/admin` (login at `/admin/login`) |
+| Admin JSON API | Reservations, payments, reviews and the dashboard as JSON | `/api/v1/admin/*` |
+| Public website | Visitors, browse only (booking happens in the mobile app) | `/` |
+| Payment webhook | The payment gateway | `POST /api/v1/webhooks/payments/{gateway}` |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+`php artisan route:list` shows every route.
 
-## Learning Laravel
+## Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **PHP 8.4 or newer.** `composer.json` says `^8.3`, but the committed `composer.lock` pins
+  Symfony 8 packages that need PHP 8.4.1+, so 8.3 cannot install it.
+- Composer 2.8 or newer. Older versions cannot run `composer test`: its script uses the
+  `@no_additional_args` placeholder, which Composer only understands from 2.8.0. `php artisan test`
+  works on any version.
+- PHP extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, tokenizer, xml and
+  **gd** (image uploads and the tests that exercise them)
+- SQLite (the default; any database Laravel supports works by editing `.env`)
+- Node.js, only for `composer dev` (it uses `concurrently`). The pages style themselves with
+  Tailwind from a CDN, so there is no front-end build step.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Quick start
 
 ```bash
-composer require laravel/boost --dev
+git clone https://github.com/faisal-hs/marine-booking.git
+cd marine-booking
 
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite  # the default SQLite database (or answer yes when migrate offers to create it)
+php artisan migrate --seed
+php artisan storage:link        # makes uploaded images reachable from the web
+
+npm install                     # once, for composer dev
+composer dev                    # web server + queue worker + scheduler
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Then open <http://127.0.0.1:8000> (public site) or <http://127.0.0.1:8000/admin/login> (admin).
 
-## Contributing
+## Demo accounts
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+`php artisan migrate --seed` creates these. **They are for local development only: see
+[Deploying](#deploying).**
 
-## Code of Conduct
+| Role | Email | Password |
+|---|---|---|
+| super_admin | `admin@marine-booking.test` | `password` |
+| admin | `admin-manager@marine-booking.test` | `password` |
+| support_admin | `admin-support@marine-booking.test` | `password` |
+| content_admin | `admin-content@marine-booking.test` | `password` |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Customers and providers have no password; they sign in by phone and a one-time code. In the
+`local` and `testing` environments the code is always `OTP_DEFAULT_CODE` (`1234` in
+`.env.example`). The seeded customer is `0522222222` and the seeded provider is `0511111111`:
 
-## Security Vulnerabilities
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/request -H 'Accept: application/json' -d phone=0522222222
+curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/verify  -H 'Accept: application/json' -d phone=0522222222 -d code=1234
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The second call returns a bearer token for the other `/api/v1/customer/*` endpoints. Providers
+use the same calls under `/api/v1/auth/provider/`.
 
-## License
+## Running the app
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Three processes need to be running. `composer dev` starts all of them; or use three terminals:
+
+```bash
+php artisan serve         # web server
+php artisan queue:work    # REQUIRED: push, SMS, e-mail and in-app notifications are queued
+php artisan schedule:work # REQUIRED: scheduled maintenance, below
+```
+
+Scheduled commands (`routes/console.php`):
+
+- `reservations:expire-stale-holds` every five minutes: a pending reservation holds capacity
+  for `RESERVATION_HOLD_MINUTES` while waiting for payment, then is marked expired.
+- `reservations:complete-past` daily: marks confirmed reservations completed once their date
+  has passed. Customers can only review an activity after a reservation is completed.
+
+In production, run the worker under Supervisor or systemd and trigger the scheduler from cron:
+`* * * * * cd /path/to/app && php artisan schedule:run`.
+
+## Tests
+
+```bash
+composer test        # or: php artisan test
+```
+
+The suite is self-contained: in-memory SQLite, log/mock drivers for SMS, push and payments,
+no network, and the OTP code is set in `phpunit.xml`, so it does not depend on your `.env`.
+GitHub Actions (`.github/workflows/tests.yml`) runs it on every push and pull request, twice:
+once with today's date and once with the clock set 400 days ahead.
+
+Three rules keep the suite honest, and each is enforced by a test in the suite:
+
+1. **No hardcoded calendar dates in tests.** The reservation flow rejects past dates, so a test
+   that books `2026-09-05` fails once that day has passed. Use `Tests\Concerns\RelativeDates`
+   (`futureSaturday()`, `futureSunday()`, `daysFromNow()`).
+2. **Test files must be named `<ClassName>Test.php`.** PHPUnit silently skips any other name,
+   so the tests in it would never run (`tests/Unit/TestFileNamingTest.php`).
+3. **New project environment variables go in `.env.example`**
+   (`tests/Unit/EnvExampleCoverageTest.php`).
+
+## How the code is organised
+
+A request flows `FormRequest` (validation and authorization) → thin controller → **service**
+(business rules) → **repository** (interfaces in `app/Repositories/Contracts`, bound in
+`RepositoryServiceProvider`) → Eloquent model. Responses go through API resources.
+
+- `app/Http/Controllers/Api/{Auth,Customer,Provider,Public,Admin,Shared,Webhooks}` are the JSON
+  API; `app/Http/Controllers/Web/{Admin,Public}` are the Blade pages.
+- **Authentication.** Customers and providers use Sanctum bearer tokens with the abilities
+  `customer` / `provider`. Admins use the `web` session guard plus permissions such as
+  `activities.approve`, `payments.refund` and `reports.view`, grouped into the roles
+  `super_admin`, `admin`, `support_admin` and `content_admin`.
+- **Availability and pricing are separate services** (`AvailabilityService`,
+  `ActivityPricingService`) and are meant to stay that way.
+- **Payments** go through `PaymentGatewayInterface` (`app/Contracts/Payments`); a gateway is
+  chosen with `PAYMENT_GATEWAY`. See the limitations below before relying on it.
+
+### Notifications
+
+Services only fire events (`app/Events`). Listeners in `app/Listeners/Notifications` hand the
+result to `NotificationDispatchService::dispatchOnce()`, the single place notifications are sent.
+It is idempotent (a database unique constraint on `notification_dispatch_log`) and
+failure-isolated: a broken push or SMS provider is reported and never breaks a reservation or a
+payment.
+
+Customer and provider notifications go out through the database, FCM push, SMS and e-mail
+channels. They are queued, one job per channel, with 3 tries and a 30 s then 120 s backoff, so a
+failing channel retries on its own without repeating the others. Deliveries that still fail
+end up in `failed_jobs` (`php artisan queue:failed`, `php artisan queue:retry all`). Admin
+notifications are database-only and are not queued.
+
+### Languages
+
+`lang/en` and `lang/ar`, with right-to-left layout for Arabic. The admin panel and the public
+site each remember their own language in the session (`admin_locale` and `public_locale`).
+
+## Configuration
+
+Everything configurable is in `.env.example`, with a comment on each project-specific
+variable: OTP length, expiry and cooldown, reservation hold time, payment gateway, SMS and push
+drivers, and branding. A test fails if the code starts reading a variable the example does not
+mention.
+
+## Deploying
+
+1. `APP_ENV=production`, `APP_DEBUG=false`, a freshly generated `APP_KEY`, and a real database.
+2. `composer install --no-dev --optimize-autoloader`, then `php artisan migrate --force` and
+   `php artisan storage:link`. `php artisan config:cache` is safe. Do not use `route:cache`
+   yet: it fails (see Known limitations).
+3. **Do not run `php artisan db:seed`.** It creates the admin accounts above with the password
+   `password`. Run only `php artisan db:seed --class=RolesAndPermissionsSeeder --force` to
+   create the roles and permissions, then create your first super admin by hand, using
+   `database/seeders/AdminSeeder.php` as the template for the required fields.
+4. Keep a queue worker running under a process manager and the scheduler on cron.
+5. Set `SMS_DRIVER=taqnyat` and `FCM_DRIVER=http` with real credentials. Spell them exactly:
+   any value other than `log` selects the real service.
+6. **Do not go live with the mock payment gateway** (next section).
+
+## Known limitations
+
+These are known and deliberately listed, not hidden:
+
+- **Payments are mock only.** The only gateway is `MockPaymentGateway`. It reports payments as
+  successful without charging anyone, and the customer payment endpoint accepts a client-sent
+  `simulate` option, so with it active any signed-in customer can mark their own reservation
+  as paid. Nothing yet stops it being used in production. The application cannot take real
+  payments until a real gateway is implemented (see `config/payments.php`).
+- **Seeders have no production guard** (see Deploying, step 3).
+- **A mistyped `SMS_DRIVER` or `FCM_DRIVER` selects the real service** instead of failing.
+- **The FCM HTTP gateway needs a hand-refreshed OAuth access token** (`FCM_ACCESS_TOKEN`) until
+  service-account authentication is implemented (`HttpFcmGateway`).
+- **Money is handled as PHP floats and the currency is EGP throughout.**
+- **Revenue in the reports is gross.** Payments have no `refunded_at`, so a refund cannot be
+  attributed to a period. The all-time figure on the dashboard is net of refunds.
+- **`php artisan route:cache` fails.** Twelve route names are registered twice, once for a web
+  page and once for its JSON twin (for example `admin.reservations.index` and
+  `public.activities.index`), and three routes are closures (the two language switchers and
+  `/api/v1/ping`). While the duplicates exist, which URL `route('admin.reservations.index')` returns
+  depends on the order routes are registered; today the web page wins.
+- **No concurrency tests** for capacity locking or webhook races.
+
+## For AI coding assistants
+
+`AGENTS.md` and `CLAUDE.md` hold the Laravel Boost guidelines for AI assistants.
