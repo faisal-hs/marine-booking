@@ -37,6 +37,14 @@
             HTTP calls to Taqnyat's API on every run (audit CRITICAL-3).
         -->
         <env name="SMS_DRIVER" value="log"/>
+        <!--
+            OtpService only honours a fixed code in the "local"/"testing"
+            environments (see config/otp.php), and the auth tests sign in
+            with "1234". Setting it here makes the suite independent of the
+            developer's own .env: without it, a fresh checkout failed these
+            tests until OTP_DEFAULT_CODE was added to .env by hand.
+        -->
+        <env name="OTP_DEFAULT_CODE" value="1234"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
