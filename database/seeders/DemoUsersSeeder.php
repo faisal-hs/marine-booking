@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Customer;
 use App\Models\Provider;
 use App\Models\User;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 
 class DemoUsersSeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     /**
      * Seeds one demo provider and one demo customer for local
      * Postman/manual testing, so login can be exercised immediately
@@ -17,6 +20,8 @@ class DemoUsersSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $providerUser = User::firstOrCreate(
             ['email' => 'provider@marine-booking.test'],
             [

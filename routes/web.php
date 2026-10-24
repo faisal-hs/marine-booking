@@ -11,6 +11,7 @@ use App\Http\Controllers\Web\Admin\ReportController;
 use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\ReviewController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\LocaleController;
 use App\Http\Controllers\Web\Public\ActivityController as PublicActivityController;
 use App\Http\Controllers\Web\Public\CategoryController as PublicCategoryController;
 use App\Http\Controllers\Web\Public\HomeController as PublicHomeController;
@@ -26,13 +27,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('locale:public')->name('public.')->group(function () {
-    Route::get('/locale/{locale}', function (string $locale) {
-        if (in_array($locale, ['en', 'ar'], true)) {
-            session(['public_locale' => $locale]);
-        }
-
-        return back();
-    })->name('locale.switch');
+    Route::get('/locale/{locale}', [LocaleController::class, 'switchPublic'])->name('locale.switch');
 
     Route::get('/', [PublicHomeController::class, 'index'])->name('home');
     Route::get('/about', [PublicHomeController::class, 'about'])->name('about');
@@ -42,13 +37,7 @@ Route::middleware('locale:public')->name('public.')->group(function () {
 });
 
 Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () {
-    Route::get('/locale/{locale}', function (string $locale) {
-        if (in_array($locale, ['en', 'ar'], true)) {
-            session(['admin_locale' => $locale]);
-        }
-
-        return back();
-    })->name('locale.switch');
+    Route::get('/locale/{locale}', [LocaleController::class, 'switchAdmin'])->name('locale.switch');
 
     Route::middleware('guest:web')->group(function () {
         Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');

@@ -25,13 +25,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/ping', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'pong',
-        'data' => ['timestamp' => now()->toIso8601String()],
-    ]);
-})->name('api.v1.ping');
+Route::get('/ping', \App\Http\Controllers\Api\PingController::class)->name('api.v1.ping');
 
 Route::prefix('auth')->name('auth.')->group(function () {
 
@@ -175,7 +169,7 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
 | Permission enforcement happens via ReservationPolicy inside the
 | Controller, matching ActivityPolicy's existing admin-method pattern.
 */
-Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth:web'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/reservations', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
         ->name('reservations.index');
     Route::get('/reservations/{reservation}', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])
@@ -215,7 +209,7 @@ Route::middleware(['auth:web'])->prefix('admin')->name('admin.')->group(function
         ->name('dashboard.index');
 });
 
-Route::prefix('public')->name('public.')->group(function () {
+Route::prefix('public')->name('api.public.')->group(function () {
     Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
     Route::get('/categories/{category}', [PublicCategoryController::class, 'show'])->name('categories.show');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');

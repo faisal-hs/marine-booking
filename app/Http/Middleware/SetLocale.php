@@ -18,14 +18,17 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SetLocale
 {
+    /** The languages the application is translated into (lang/en, lang/ar). */
+    public const SUPPORTED = ['en', 'ar'];
+
     public function handle(Request $request, Closure $next, string $area = 'admin'): Response
     {
         $sessionKey = $area === 'public' ? 'public_locale' : 'admin_locale';
 
-        $locale = $request->session()->get($sessionKey, 'en');
+        $locale = $request->session()->get($sessionKey, 'ar');
 
-        if (! in_array($locale, ['en', 'ar'], true)) {
-            $locale = 'en';
+        if (! in_array($locale, self::SUPPORTED, true)) {
+            $locale = 'ar';
         }
 
         App::setLocale($locale);

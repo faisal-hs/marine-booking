@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Admin;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminRoleUsersSeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     /**
      * Seeds one demo admin per restricted role (beyond Super Admin, which
      * AdminSeeder already creates), so the dashboard's permission-gated
@@ -16,6 +19,8 @@ class AdminRoleUsersSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $accounts = [
             ['email' => 'admin-manager@marine-booking.test', 'name' => 'Manager Admin', 'job_title' => 'Operations Manager', 'role' => 'admin'],
             ['email' => 'admin-support@marine-booking.test', 'name' => 'Support Admin', 'job_title' => 'Support Agent', 'role' => 'support_admin'],

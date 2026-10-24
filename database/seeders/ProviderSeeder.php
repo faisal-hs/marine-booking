@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -9,6 +10,8 @@ use Illuminate\Support\Str;
 
 class ProviderSeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     /**
      * Seeds 22 realistic, distinct providers (business + owner pairs) so
      * ActivitySeeder has a real pool to distribute activities across
@@ -19,6 +22,8 @@ class ProviderSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $businesses = [
             ['owner' => 'Ahmed Nasser', 'business' => 'Red Sea Diving Pros', 'city' => 'Sharm El Sheikh'],
             ['owner' => 'Sara Youssef', 'business' => 'Blue Reef Diving Center', 'city' => 'Hurghada'],

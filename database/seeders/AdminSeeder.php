@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Admin;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -9,8 +10,12 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminSeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $user = User::firstOrCreate(
             ['email' => 'admin@marine-booking.test'],
             [

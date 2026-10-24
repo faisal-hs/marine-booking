@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Activity;
 use App\Models\Category;
 use App\Models\FeatureDefinition;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class ActivitySeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     /**
      * Global counter driving deterministic phone-free variation: provider
      * round-robin, location cycling, override placement, etc. Reset per run.
@@ -232,6 +235,8 @@ class ActivitySeeder extends Seeder
 
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $providers = Provider::orderBy('id')->get();
 
         if ($providers->isEmpty()) {

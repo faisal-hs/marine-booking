@@ -2,12 +2,15 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\RefusesToRunInProduction;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class CustomerSeeder extends Seeder
 {
+    use RefusesToRunInProduction;
+
     /**
      * Seeds 22 customers, passwordless per Module 01's phone+OTP model.
      * Mirrors exactly what CustomerAuthService::verifyOtp() produces on a
@@ -18,6 +21,8 @@ class CustomerSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->refuseInProduction();
+
         $names = [
             'John Carter',
             'Emily Watson',

@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\ReservationStatus;
 use App\Events\PaymentFailed;
 use App\Events\PaymentRefunded;
+use App\Exceptions\PaymentGatewayUnavailableException;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Repositories\Contracts\PaymentRepositoryInterface;
@@ -47,7 +48,16 @@ class PaymentService
             'status' => PaymentStatus::Pending->value,
         ]);
 
-        $result = $this->gateway->charge($payment, $params);
+        try {
+            $result = $this->gateway->charge($payment, $params);
+        } catch (PaymentGatewayUnavailableException $e) {
+            // The gateway was refused before anything was sent, so the pending row
+            // created above describes a charge that was never attempted. Remove it
+            // rather than leave an orphan behind for every refused attempt.
+            $this->repository->delete($payment);
+
+            throw $e;
+        }
 
         $payment->update([
             // For the mock gateway these are the same value; a real

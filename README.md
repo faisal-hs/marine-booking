@@ -8,15 +8,15 @@ Built with Laravel 12, Sanctum (API tokens) and Spatie Laravel-Permission (admin
 
 ## What is in here
 
-| Surface | Used by | Where |
-|---|---|---|
-| Customer API | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
-| Provider API | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, see reservations | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
-| Public API | Anyone: published activities, categories, availability, reviews | `/api/v1/public/*` |
-| Admin panel | Staff: users, providers, activity moderation, reservations, payments and refunds, reviews, dashboard, reports | `/admin` (login at `/admin/login`) |
-| Admin JSON API | Reservations, payments, reviews and the dashboard as JSON | `/api/v1/admin/*` |
-| Public website | Visitors, browse only (booking happens in the mobile app) | `/` |
-| Payment webhook | The payment gateway | `POST /api/v1/webhooks/payments/{gateway}` |
+| Surface         | Used by                                                                                                       | Where                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Customer API    | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite                                    | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
+| Provider API    | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, see reservations   | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
+| Public API      | Anyone: published activities, categories, availability, reviews                                               | `/api/v1/public/*`                              |
+| Admin panel     | Staff: users, providers, activity moderation, reservations, payments and refunds, reviews, dashboard, reports | `/admin` (login at `/admin/login`)              |
+| Admin JSON API  | Reservations, payments, reviews and the dashboard as JSON                                                     | `/api/v1/admin/*`                               |
+| Public website  | Visitors, browse only (booking happens in the mobile app)                                                     | `/`                                             |
+| Payment webhook | The payment gateway                                                                                           | `POST /api/v1/webhooks/payments/{gateway}`      |
 
 `php artisan route:list` shows every route.
 
@@ -57,10 +57,10 @@ Then open <http://127.0.0.1:8000> (public site) or <http://127.0.0.1:8000/admin/
 `php artisan migrate --seed` creates these. **They are for local development only: see
 [Deploying](#deploying).**
 
-| Role | Email | Password |
-|---|---|---|
-| super_admin | `admin@marine-booking.test` | `password` |
-| admin | `admin-manager@marine-booking.test` | `password` |
+| Role          | Email                               | Password   |
+| ------------- | ----------------------------------- | ---------- |
+| super_admin   | `admin@marine-booking.test`         | `password` |
+| admin         | `admin-manager@marine-booking.test` | `password` |
 | support_admin | `admin-support@marine-booking.test` | `password` |
 | content_admin | `admin-content@marine-booking.test` | `password` |
 
@@ -164,38 +164,42 @@ mention.
 
 1. `APP_ENV=production`, `APP_DEBUG=false`, a freshly generated `APP_KEY`, and a real database.
 2. `composer install --no-dev --optimize-autoloader`, then `php artisan migrate --force` and
-   `php artisan storage:link`. `php artisan config:cache` is safe. Do not use `route:cache`
-   yet: it fails (see Known limitations).
-3. **Do not run `php artisan db:seed`.** It creates the admin accounts above with the password
-   `password`. Run only `php artisan db:seed --class=RolesAndPermissionsSeeder --force` to
-   create the roles and permissions, then create your first super admin by hand, using
-   `database/seeders/AdminSeeder.php` as the template for the required fields.
+   `php artisan storage:link`, then `php artisan config:cache`, `php artisan route:cache` and
+   `php artisan view:cache`. Run the cache commands with `APP_ENV=production` set, because
+   `config:cache` freezes the environment it is run in.
+3. **Seeding is safe in production.** `php artisan db:seed --force` there seeds only the roles
+   and permissions the admin panel needs and skips the demo seeders, and each demo seeder
+   (`AdminSeeder` and the others) refuses to run in production if called directly, because they
+   create accounts with the password `password`. Add the starter categories and feature
+   definitions with `--class=CategorySeeder` and `--class=FeatureDefinitionSeeder` if you want
+   them. There is no command to create the first super admin yet: create it by hand (for
+   example in `php artisan tinker`), using `database/seeders/AdminSeeder.php` as the template
+   for the required fields.
 4. Keep a queue worker running under a process manager and the scheduler on cron.
-5. Set `SMS_DRIVER=taqnyat` and `FCM_DRIVER=http` with real credentials. Spell them exactly:
-   any value other than `log` selects the real service.
-6. **Do not go live with the mock payment gateway** (next section).
+5. Set `SMS_DRIVER=taqnyat` and `FCM_DRIVER=http` with real credentials. A value the
+   application does not recognise is rejected with an error; it is never silently sent to the
+   real service.
+6. **Payments cannot go live yet.** In production the mock gateway is refused and payments
+   answer `503` (next section).
 
 ## Known limitations
 
 These are known and deliberately listed, not hidden:
 
-- **Payments are mock only.** The only gateway is `MockPaymentGateway`. It reports payments as
-  successful without charging anyone, and the customer payment endpoint accepts a client-sent
-  `simulate` option, so with it active any signed-in customer can mark their own reservation
-  as paid. Nothing yet stops it being used in production. The application cannot take real
-  payments until a real gateway is implemented (see `config/payments.php`).
-- **Seeders have no production guard** (see Deploying, step 3).
-- **A mistyped `SMS_DRIVER` or `FCM_DRIVER` selects the real service** instead of failing.
+- **Payments are mock only, so online payments are unavailable in production.** The only
+  gateway is `MockPaymentGateway`, which reports payments as successful without charging anyone
+  (and the customer payment endpoint accepts a client-sent `simulate` option). In production it
+  is refused: paying, refunding and the payment webhook answer `503` and log the reason, so
+  nobody can mark a reservation as paid for free. Local, testing and staging environments use
+  the mock as before. Reservations can still be created in production but cannot be paid until
+  a real gateway is implemented (see `config/payments.php`).
+- **There is no command to create the first admin.** Production seeding deliberately creates
+  no accounts (see Deploying, step 3), so the first super admin has to be created by hand.
 - **The FCM HTTP gateway needs a hand-refreshed OAuth access token** (`FCM_ACCESS_TOKEN`) until
   service-account authentication is implemented (`HttpFcmGateway`).
 - **Money is handled as PHP floats and the currency is EGP throughout.**
 - **Revenue in the reports is gross.** Payments have no `refunded_at`, so a refund cannot be
   attributed to a period. The all-time figure on the dashboard is net of refunds.
-- **`php artisan route:cache` fails.** Twelve route names are registered twice, once for a web
-  page and once for its JSON twin (for example `admin.reservations.index` and
-  `public.activities.index`), and three routes are closures (the two language switchers and
-  `/api/v1/ping`). While the duplicates exist, which URL `route('admin.reservations.index')` returns
-  depends on the order routes are registered; today the web page wins.
 - **No concurrency tests** for capacity locking or webhook races.
 
 ## For AI coding assistants
