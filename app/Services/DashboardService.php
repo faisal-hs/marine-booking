@@ -34,15 +34,17 @@ class DashboardService
     {
         return [
             'total' => User::count(),
-            'customers' => User::where('user_type', 'customer')->count(),
-            'providers' => User::where('user_type', 'provider')->count(),
+            // Accounts, not registrations: one person can hold both a customer and a provider account.
+            'customers' => \App\Models\Customer::whereHas('user')->count(),
+            'providers' => Provider::whereHas('user')->count(),
         ];
     }
 
     protected function providerStats(): array
     {
         return [
-            'pending_verification' => Provider::where('verification_status', 'pending')->count(),
+            // Requests actually waiting for an admin (not providers that merely have not submitted one).
+            'pending_verification' => \App\Models\ProviderRequest::where('status', 'pending')->count(),
             'verified' => Provider::where('verification_status', 'verified')->count(),
             'rejected' => Provider::where('verification_status', 'rejected')->count(),
         ];

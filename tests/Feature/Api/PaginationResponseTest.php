@@ -17,7 +17,7 @@ class PaginationResponseTest extends TestCase
     {
         for ($i = 0; $i < $count; $i++) {
             $user = User::factory()->provider()->create();
-            $provider = Provider::create(['user_id' => $user->id, 'business_name' => "Provider {$i}", 'slug' => 'provider-' . uniqid()]);
+            $provider = Provider::create(['user_id' => $user->id, 'verification_status' => 'verified', 'business_name' => "Provider {$i}", 'slug' => 'provider-' . uniqid()]);
             $category = Category::create(['name' => "Category {$i}", 'slug' => 'category-' . uniqid(), 'status' => 'active']);
             Activity::create([
                 'provider_id' => $provider->id,
@@ -82,7 +82,7 @@ class PaginationResponseTest extends TestCase
     public function test_provider_activities_index_also_uses_pagination_shape(): void
     {
         $user = User::factory()->provider()->create();
-        $provider = Provider::create(['user_id' => $user->id, 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
+        $provider = Provider::create(['user_id' => $user->id, 'verification_status' => 'verified', 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
         $token = $user->createToken('test', ['provider'])->plainTextToken;
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving-' . uniqid(), 'status' => 'active']);
         Activity::create(['provider_id' => $provider->id, 'category_id' => $category->id, 'title' => 'A', 'slug' => 'a-' . uniqid()]);

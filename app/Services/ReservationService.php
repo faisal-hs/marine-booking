@@ -56,6 +56,13 @@ class ReservationService
             ]);
         }
 
+        // One person can be both a customer and a provider; they cannot book their own activity.
+        if ($activity->provider->user_id === $customer->user_id) {
+            throw ValidationException::withMessages([
+                'activity' => ['You cannot book your own activity.'],
+            ]);
+        }
+
         if ($schedulePeriod && $schedulePeriod->activity_id !== $activity->id) {
             throw ValidationException::withMessages([
                 'schedule_period' => ['This schedule period does not belong to the given activity.'],

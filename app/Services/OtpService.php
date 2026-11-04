@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Otp;
 use App\Services\Sms\Contracts\SmsGatewayInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class OtpService
@@ -56,6 +57,26 @@ class OtpService
         return $otp;
     }
 
+    /** Sends a fresh code of the same kind as the last one, unless the cooldown has not passed. */
+    public function resend(string $phone): void
+    {
+        if (! $this->canResend($phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Please wait before requesting another code.'],
+            ]);
+        }
+
+        $last = $this->latest($phone);
+
+        if (! $last) {
+            throw ValidationException::withMessages([
+                'phone' => ['No previous verification request found for this phone.'],
+            ]);
+        }
+
+        $this->issue($phone, $last->type, $last->user_id, $last->payload);
+    }
+
     public function canResend(string $phone): bool
     {
         $last = Otp::where('phone', $phone)->latest('created_at')->first();
@@ -77,13 +98,41 @@ class OtpService
         return Otp::where('phone', $phone)->latest('created_at')->first();
     }
 
+    /**
+     * Is the fixed code in use? See config/otp.php: an explicit OTP_DEFAULT_CODE_ENABLED wins in
+     * any environment; when it is not set at all, only local and testing use the fixed code.
+     */
+    protected function defaultCodeEnabled(): bool
+    {
+        $code = config('otp.default_code');
+        $switch = config('otp.default_code_enabled');
+
+        $enabled = ($switch === null || $switch === '')
+            ? app()->environment(config('otp.default_code_environments', []))
+            : filter_var($switch, FILTER_VALIDATE_BOOLEAN);
+
+        if (! $enabled) {
+            return false;
+        }
+
+        if ($code === null || $code === '') {
+            // Fail closed: a switch that is on with no code behind it must not weaken anything.
+            Log::error('OTP_DEFAULT_CODE_ENABLED is on but OTP_DEFAULT_CODE is empty, so random codes are being used.');
+
+            return false;
+        }
+
+        if (app()->environment('production')) {
+            Log::warning('A FIXED one-time code is being issued in PRODUCTION (OTP_DEFAULT_CODE_ENABLED is on). Anyone who knows a phone number can sign in as that person. Turn it off before real users sign in.');
+        }
+
+        return true;
+    }
+
     protected function generateCode(): string
     {
-        $defaultCode = config('otp.default_code');
-        $allowedEnvironments = config('otp.default_code_environments', []);
-
-        if ($defaultCode && app()->environment($allowedEnvironments) && ! app()->environment('production')) {
-            return (string) $defaultCode;
+        if ($this->defaultCodeEnabled()) {
+            return (string) config('otp.default_code');
         }
 
         $length = config('otp.length', 4);

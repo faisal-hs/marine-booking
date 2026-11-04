@@ -23,6 +23,7 @@ class User extends Authenticatable
         'phone',
         'password',
         'user_type',
+        'default_account',
         'status',
     ];
 
@@ -64,6 +65,16 @@ class User extends Authenticatable
         return $this->hasMany(Otp::class);
     }
 
+    public function providerRequests()
+    {
+        return $this->hasMany(ProviderRequest::class);
+    }
+
+    /**
+     * user_type is the account a person REGISTERED as (customer, provider or admin). It does not say
+     * which accounts they can use now: one phone can hold both a customer and a provider account
+     * (see AccountService). Use AccountService for that, not these helpers.
+     */
     public function isAdmin(): bool
     {
         return $this->user_type === 'admin';

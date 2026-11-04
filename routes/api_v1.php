@@ -28,6 +28,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/ping', \App\Http\Controllers\Api\PingController::class)->name('api.v1.ping');
 
 Route::prefix('auth')->name('auth.')->group(function () {
+    // Sign in to an account that already exists, whichever kind: opens the person's default account.
+    Route::post('/otp/request', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'requestOtp'])->name('otp.request');
+    Route::post('/otp/verify', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'verifyOtp'])
+        ->middleware('throttle:otp-verify')
+        ->name('otp.verify');
+    Route::post('/otp/resend', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'resendOtp'])
+        ->middleware('throttle:otp-resend')
+        ->name('otp.resend');
+
 
     Route::prefix('provider')->name('provider.')->group(function () {
         Route::post('/otp/request', [ProviderAuthController::class, 'requestOtp'])->name('otp.request');
@@ -57,73 +66,78 @@ Route::prefix('auth')->name('auth.')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
+    // The one thing open to a provider account before approval: reading its own profile and status.
     Route::get('/profile', [ProviderProfileController::class, 'show'])->name('profile.show');
-    Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
 
-    Route::apiResource('activities', ActivityController::class);
-    Route::post('/activities/{activity}/submit-for-review', [ActivityController::class, 'submitForReview'])
-        ->name('activities.submit-for-review');
+    // Everything else needs an APPROVED provider (see EnsureProviderApproved).
+    Route::middleware('provider.approved')->group(function () {
+        Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
 
-    Route::post('/activities/{activity}/images', [ActivityImageController::class, 'store'])
-        ->name('activities.images.store');
-    Route::delete('/activities/{activity}/images/{image}', [ActivityImageController::class, 'destroy'])
-        ->name('activities.images.destroy');
-    Route::put('/activities/{activity}/images/{image}/cover', [ActivityImageController::class, 'setCover'])
-        ->name('activities.images.set-cover');
-    Route::put('/activities/{activity}/images/reorder', [ActivityImageController::class, 'reorder'])
-        ->name('activities.images.reorder');
+        Route::apiResource('activities', ActivityController::class);
+        Route::post('/activities/{activity}/submit-for-review', [ActivityController::class, 'submitForReview'])
+            ->name('activities.submit-for-review');
 
-    Route::put('/activities/{activity}/features', [ActivityFeatureController::class, 'sync'])
-        ->name('activities.features.sync');
-    Route::put('/activities/{activity}/options', [ActivityDetailsController::class, 'syncOptions'])
-        ->name('activities.options.sync');
-    Route::put('/activities/{activity}/requirements', [ActivityDetailsController::class, 'syncRequirements'])
-        ->name('activities.requirements.sync');
-    Route::put('/activities/{activity}/inclusions', [ActivityDetailsController::class, 'syncInclusions'])
-        ->name('activities.inclusions.sync');
+        Route::post('/activities/{activity}/images', [ActivityImageController::class, 'store'])
+            ->name('activities.images.store');
+        Route::delete('/activities/{activity}/images/{image}', [ActivityImageController::class, 'destroy'])
+            ->name('activities.images.destroy');
+        Route::put('/activities/{activity}/images/{image}/cover', [ActivityImageController::class, 'setCover'])
+            ->name('activities.images.set-cover');
+        Route::put('/activities/{activity}/images/reorder', [ActivityImageController::class, 'reorder'])
+            ->name('activities.images.reorder');
 
-    Route::apiResource('activities.schedule', \App\Http\Controllers\Api\Provider\ScheduleController::class)
-        ->parameters(['schedule' => 'period'])
-        ->only(['index', 'store', 'update', 'destroy']);
+        Route::put('/activities/{activity}/features', [ActivityFeatureController::class, 'sync'])
+            ->name('activities.features.sync');
+        Route::put('/activities/{activity}/options', [ActivityDetailsController::class, 'syncOptions'])
+            ->name('activities.options.sync');
+        Route::put('/activities/{activity}/requirements', [ActivityDetailsController::class, 'syncRequirements'])
+            ->name('activities.requirements.sync');
+        Route::put('/activities/{activity}/inclusions', [ActivityDetailsController::class, 'syncInclusions'])
+            ->name('activities.inclusions.sync');
 
-    Route::apiResource('activities.overrides', \App\Http\Controllers\Api\Provider\AvailabilityOverrideController::class)
-        ->parameters(['overrides' => 'override'])
-        ->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('activities.schedule', \App\Http\Controllers\Api\Provider\ScheduleController::class)
+            ->parameters(['schedule' => 'period'])
+            ->only(['index', 'store', 'update', 'destroy']);
 
-    Route::apiResource('activities.booking-options', \App\Http\Controllers\Api\Provider\ActivityBookingOptionController::class)
-        ->parameters(['booking-options' => 'bookingOption'])
-        ->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::apiResource('activities.overrides', \App\Http\Controllers\Api\Provider\AvailabilityOverrideController::class)
+            ->parameters(['overrides' => 'override'])
+            ->only(['index', 'store', 'update', 'destroy']);
 
-    Route::apiResource('activities.booking-options.pricing-rules', \App\Http\Controllers\Api\Provider\ActivityPricingRuleController::class)
-        ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
-        ->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('activities.booking-options', \App\Http\Controllers\Api\Provider\ActivityBookingOptionController::class)
+            ->parameters(['booking-options' => 'bookingOption'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
 
-    Route::get('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'index'])
-        ->name('documents.index');
-    Route::post('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'store'])
-        ->middleware('throttle:20,1')
-        ->name('documents.store');
-    Route::delete('/documents/{document:uuid}', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'destroy'])
-        ->name('documents.destroy');
+        Route::apiResource('activities.booking-options.pricing-rules', \App\Http\Controllers\Api\Provider\ActivityPricingRuleController::class)
+            ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
+            ->only(['index', 'store', 'update', 'destroy']);
 
-    Route::get('/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'index'])
-        ->name('reservations.index');
-    Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])
-        ->name('activities.reservations.index');
+        Route::get('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'index'])
+            ->name('documents.index');
+        Route::post('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('documents.store');
+        Route::delete('/documents/{document:uuid}', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'destroy'])
+            ->name('documents.destroy');
 
-    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
-        ->name('devices.store');
-    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
-        ->name('devices.destroy');
+        Route::get('/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'index'])
+            ->name('reservations.index');
+        Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])
+            ->name('activities.reservations.index');
 
-    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
-        ->name('notifications.index');
-    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
-        ->name('notifications.unread-count');
-    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
-        ->name('notifications.read');
-    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
-        ->name('notifications.read-all');
+        Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+            ->name('devices.store');
+        Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+            ->name('devices.destroy');
+
+        Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+            ->name('notifications.index');
+        Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+            ->name('notifications.unread-count');
+        Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+            ->name('notifications.read');
+        Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+            ->name('notifications.read-all');
+    });
 });
 
 Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->name('customer.')->group(function () {
@@ -163,6 +177,20 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
 
     Route::apiResource('reviews', \App\Http\Controllers\Api\Customer\ReviewController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+});
+
+// The signed-in person's accounts. Open to a customer token or a provider token.
+Route::middleware(['auth:sanctum', 'ability:customer,provider'])->prefix('account')->name('account.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Account\AccountController::class, 'show'])->name('show');
+    Route::put('/default', [\App\Http\Controllers\Api\Account\AccountController::class, 'setDefault'])->name('default');
+    Route::post('/switch', [\App\Http\Controllers\Api\Account\AccountController::class, 'switch'])->name('switch');
+    Route::post('/logout', [\App\Http\Controllers\Api\Account\AccountController::class, 'logout'])->name('logout');
+
+    // Becoming a provider: needs an admin's approval, and is the only provider-side thing open before it.
+    Route::get('/provider-request', [\App\Http\Controllers\Api\Account\ProviderRequestController::class, 'show'])->name('provider-request.show');
+    Route::post('/provider-request', [\App\Http\Controllers\Api\Account\ProviderRequestController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('provider-request.store');
 });
 
 /*

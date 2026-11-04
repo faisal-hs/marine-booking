@@ -62,15 +62,25 @@ class CustomerOtpAuthTest extends TestCase
         $response->assertOk()->assertJsonStructure(['data' => ['token']]);
     }
 
-    public function test_provider_phone_cannot_request_customer_otp(): void
+    public function test_a_provider_phone_can_also_sign_in_as_a_customer(): void
     {
-        User::factory()->provider()->create(['phone' => '0566666699']);
+        // One phone can hold both accounts. The customer account needs no approval, so it is created
+        // the first time the provider uses it (see AccountService).
+        $provider = User::factory()->provider()->create(['phone' => '0566666699']);
 
-        $response = $this->postJson('/api/v1/auth/customer/otp/request', [
-            'phone' => '0566666699',
-        ]);
+        $this->postJson('/api/v1/auth/customer/otp/request', ['phone' => '0566666699'])->assertSuccessful();
+        $verify = $this->postJson('/api/v1/auth/customer/otp/verify', ['phone' => '0566666699', 'code' => config('otp.default_code')]);
 
-        $response->assertStatus(422)->assertJson(['success' => false]);
+        $verify->assertSuccessful()->assertJsonPath('data.account.account_type', 'customer');
+        $this->assertNotNull($provider->fresh()->customer, 'The customer account is created on first use.');
+    }
+
+    public function test_a_staff_phone_cannot_request_a_customer_otp(): void
+    {
+        User::factory()->admin()->create(['phone' => '0566666698']);
+
+        $this->postJson('/api/v1/auth/customer/otp/request', ['phone' => '0566666698'])
+            ->assertStatus(422)->assertJson(['success' => false]);
     }
 
     public function test_authenticated_customer_can_logout(): void

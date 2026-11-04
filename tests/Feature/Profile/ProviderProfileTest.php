@@ -16,6 +16,7 @@ class ProviderProfileTest extends TestCase
         $user = User::factory()->provider()->create();
         $provider = Provider::create([
             'user_id' => $user->id,
+            'verification_status' => 'verified',
             'business_name' => 'Original Diving',
             'slug' => 'original-diving',
         ]);

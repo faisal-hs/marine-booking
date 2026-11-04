@@ -22,6 +22,18 @@ return [
         'max_kb' => 5120,
         'max_per_provider' => 10,
         'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-        'types' => ['business_license', 'identity_document', 'professional_certification', 'insurance', 'other'],
+        'types' => [
+            'commercial_registration',
+            'safety_certification',
+            'insurance_certificate',
+            'business_license',
+            'identity_document',
+            'professional_certification',
+            'insurance',
+            'other',
+        ],
+
+        // The three documents every provider request must include. Each is one file.
+        'required_types' => ['commercial_registration', 'safety_certification', 'insurance_certificate'],
     ],
 ];

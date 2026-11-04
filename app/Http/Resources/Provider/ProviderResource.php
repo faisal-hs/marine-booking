@@ -20,9 +20,18 @@ class ProviderResource extends JsonResource
             'bio' => $this->bio,
             'logo' => $this->logo,
             'address' => $this->address,
+            'city' => $this->city,
+            'area' => $this->area,
+            // The three documents a provider request needs: the latest of each, or null.
+            ...collect(config('providers.documents.required_types'))->mapWithKeys(function (string $type) {
+                $document = $this->documentOfType($type);
+
+                return [$type => $document ? (new ProviderDocumentResource($document))->resolve() : null];
+            })->all(),
             'lat' => $this->lat,
             'lng' => $this->lng,
             'verification_status' => $this->verification_status,
+            'rejection_reason' => $this->rejection_reason,
             'status' => $this->user->status,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

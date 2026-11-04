@@ -21,6 +21,7 @@ return new class extends Migration
             $table->timestamp('phone_verified_at')->nullable();
             $table->string('password')->nullable();
             $table->enum('user_type', ['admin', 'provider', 'customer']);
+            $table->string('default_account', 20)->nullable();
             $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->rememberToken();
             $table->timestamps();

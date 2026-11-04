@@ -3,8 +3,10 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use App\Services\Auth\Concerns\RefusesDeletedAccounts;
 use App\Repositories\Contracts\ProviderRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\AccountService;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,10 +14,13 @@ use Illuminate\Validation\ValidationException;
 
 class ProviderAuthService
 {
+    use RefusesDeletedAccounts;
+
     public function __construct(
         protected UserRepositoryInterface $userRepository,
         protected ProviderRepositoryInterface $providerRepository,
         protected OtpService $otpService,
+        protected AccountService $accounts,
     ) {}
 
     /**
@@ -24,12 +29,16 @@ class ProviderAuthService
      */
     public function requestOtp(string $phone, ?string $ownerName, ?string $businessName): void
     {
+        $this->refuseDeletedAccount($phone);
+
         $existingUser = $this->userRepository->findByPhone($phone);
 
         if ($existingUser) {
-            if (! $existingUser->isProvider()) {
+            // A customer has no provider account until an admin approves their request: they
+            // become a provider by submitting one from the customer side (see ProviderRequestService).
+            if (! $existingUser->provider) {
                 throw ValidationException::withMessages([
-                    'phone' => ['This phone number is not registered as a provider.'],
+                    'phone' => ['This phone number has no provider account. Sign in as a customer and submit a provider request.'],
                 ]);
             }
 
@@ -53,21 +62,7 @@ class ProviderAuthService
 
     public function resendOtp(string $phone): void
     {
-        if (! $this->otpService->canResend($phone)) {
-            throw ValidationException::withMessages([
-                'phone' => ['Please wait before requesting another code.'],
-            ]);
-        }
-
-        $last = $this->otpService->latest($phone);
-
-        if (! $last) {
-            throw ValidationException::withMessages([
-                'phone' => ['No previous verification request found for this phone.'],
-            ]);
-        }
-
-        $this->otpService->issue($phone, $last->type, $last->user_id, $last->payload);
+        $this->otpService->resend($phone);
     }
 
     /**
@@ -81,7 +76,7 @@ class ProviderAuthService
             if ($otp->type === 'login') {
                 $user = $this->userRepository->findByPhone($phone);
 
-                if (! $user || ! $user->isProvider()) {
+                if (! $user || ! $user->provider) {
                     throw ValidationException::withMessages([
                         'phone' => ['Provider account not found.'],
                     ]);
@@ -93,12 +88,12 @@ class ProviderAuthService
                     ]);
                 }
 
-                $token = $user->createToken('provider-auth', ['provider'])->plainTextToken;
-
-                return ['user' => $user, 'provider' => $user->provider, 'token' => $token];
+                return $this->accounts->session($user, 'provider', $user->createToken('provider-auth', ['provider'])->plainTextToken);
             }
 
-            // Registration
+            // Registration. A code issued before the account was deleted must not register over it.
+            $this->refuseDeletedAccount($phone);
+
             $payload = $otp->payload;
 
             $user = $this->userRepository->create([
@@ -109,15 +104,13 @@ class ProviderAuthService
                 'phone_verified_at' => now(),
             ]);
 
-            $provider = $this->providerRepository->create([
+            $this->providerRepository->create([
                 'user_id' => $user->id,
                 'business_name' => $payload['business_name'],
                 'slug' => $this->generateUniqueSlug($payload['business_name']),
             ]);
 
-            $token = $user->createToken('provider-auth', ['provider'])->plainTextToken;
-
-            return ['user' => $user, 'provider' => $provider, 'token' => $token];
+            return $this->accounts->session($user, 'provider', $user->createToken('provider-auth', ['provider'])->plainTextToken);
         });
     }
 

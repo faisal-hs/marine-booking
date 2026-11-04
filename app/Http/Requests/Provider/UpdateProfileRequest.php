@@ -21,6 +21,8 @@ class UpdateProfileRequest extends FormRequest
             'business_name' => ['sometimes', 'string', 'max:255'],
             'bio' => ['sometimes', 'nullable', 'string'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'city' => ['sometimes', 'string', 'max:120'],
+            'area' => ['sometimes', 'string', 'max:120'],
             'lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'email' => ['sometimes', 'nullable', 'email', Rule::unique('users', 'email')->ignore($this->user()->id)],
@@ -29,6 +31,6 @@ class UpdateProfileRequest extends FormRequest
 
     public function payload(): array
     {
-        return $this->only(['name', 'business_name', 'bio', 'address', 'lat', 'lng', 'email']);
+        return $this->only(['name', 'business_name', 'bio', 'address', 'city', 'area', 'lat', 'lng', 'email']);
     }
 }

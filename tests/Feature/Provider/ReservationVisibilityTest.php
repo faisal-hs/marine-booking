@@ -18,7 +18,7 @@ class ReservationVisibilityTest extends TestCase
     protected function makeProviderWithActivityAndReservation(): array
     {
         $providerUser = User::factory()->provider()->create();
-        $provider = Provider::create(['user_id' => $providerUser->id, 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
+        $provider = Provider::create(['user_id' => $providerUser->id, 'verification_status' => 'verified', 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
         $providerToken = $providerUser->createToken('test', ['provider'])->plainTextToken;
 
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving-' . uniqid(), 'status' => 'active']);
@@ -79,7 +79,7 @@ class ReservationVisibilityTest extends TestCase
         $this->app['auth']->forgetGuards();
 
         $providerUserB = User::factory()->provider()->create();
-        Provider::create(['user_id' => $providerUserB->id, 'business_name' => 'Other', 'slug' => 'other-' . uniqid()]);
+        Provider::create(['user_id' => $providerUserB->id, 'verification_status' => 'verified', 'business_name' => 'Other', 'slug' => 'other-' . uniqid()]);
         $providerTokenB = $providerUserB->createToken('test', ['provider'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $providerTokenB)

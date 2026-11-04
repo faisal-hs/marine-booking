@@ -10,9 +10,15 @@ use Illuminate\Support\Facades\DB;
 
 class ProfileController extends BaseApiController
 {
+    /** The profile plus which account this is, the default one and which can be switched to. */
+    private function withAccount(\App\Models\User $user, CustomerResource $profile): array
+    {
+        return $profile->resolve(request()) + ['account' => app(\App\Services\AccountService::class)->context($user, 'customer')];
+    }
+
     public function show(Request $request)
     {
-        return $this->success(new CustomerResource($request->user()->customer), 'Profile retrieved.');
+        return $this->success($this->withAccount($request->user(), new CustomerResource($request->user()->customer)), 'Profile retrieved.');
     }
 
     public function update(UpdateProfileRequest $request)
@@ -32,6 +38,6 @@ class ProfileController extends BaseApiController
             ], fn($v) => $v !== null));
         });
 
-        return $this->success(new CustomerResource($user->fresh()->customer), 'Profile updated successfully.');
+        return $this->success($this->withAccount($user, new CustomerResource($user->fresh()->customer)), 'Profile updated successfully.');
     }
 }

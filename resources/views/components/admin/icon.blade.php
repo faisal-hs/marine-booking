@@ -27,6 +27,7 @@ duplicated inline as raw <svg> markup across individual Blade views.
                 'map' => 'M9 20l-6-3V4l6 3m0 13l6-3m-6 3V7m6 10l6 3V6l-6-3m0 17V4',
                 'calendar' => 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
                 'card' => 'M2 7h20M2 11h20M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z',
+                'inbox' => 'M3 13h5l1 3h6l1-3h5M3 13l3-9h12l3 9v7H3v-7z',
                 'bell' => 'M12 22a2 2 0 002-2H10a2 2 0 002 2zm6-6V11a6 6 0 10-12 0v5l-2 2h16l-2-2z',
                 'chart' => 'M3 3v18h18M8 17V9m5 8V5m5 12v-4',
                 'lock' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm2-10V7a4 4 0 118 0v4',

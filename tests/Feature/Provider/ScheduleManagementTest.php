@@ -16,7 +16,7 @@ class ScheduleManagementTest extends TestCase
     protected function makeProviderActivity(): array
     {
         $user = User::factory()->provider()->create();
-        $provider = Provider::create(['user_id' => $user->id, 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
+        $provider = Provider::create(['user_id' => $user->id, 'verification_status' => 'verified', 'business_name' => 'Test Diving', 'slug' => 'test-diving-' . uniqid()]);
         $token = $user->createToken('test', ['provider'])->plainTextToken;
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving-' . uniqid(), 'status' => 'active']);
         $activity = Activity::create([

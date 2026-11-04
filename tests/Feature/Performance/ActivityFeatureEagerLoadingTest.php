@@ -23,7 +23,7 @@ class ActivityFeatureEagerLoadingTest extends TestCase
     public function test_provider_activity_listing_eager_loads_feature_values_in_constant_queries(): void
     {
         $user = User::factory()->provider()->create();
-        $provider = Provider::create(['user_id' => $user->id, 'business_name' => 'Diving Co', 'slug' => 'diving-co-' . uniqid()]);
+        $provider = Provider::create(['user_id' => $user->id, 'verification_status' => 'verified', 'business_name' => 'Diving Co', 'slug' => 'diving-co-' . uniqid()]);
         $token = $user->createToken('test', ['provider'])->plainTextToken;
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving-' . uniqid(), 'status' => 'active']);
         $depth = FeatureDefinition::create(['category_id' => $category->id, 'key' => 'dive_depth', 'label' => 'Dive Depth', 'type' => 'number']);

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Shared;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\PaginationRequest;
 use App\Http\Resources\Notification\NotificationResource;
+use App\Services\AccountService;
+use App\Services\NotificationFeed;
 use Illuminate\Http\Request;
 
 /**
@@ -17,9 +19,17 @@ use Illuminate\Http\Request;
  */
 class NotificationController extends BaseApiController
 {
+    public function __construct(protected AccountService $accounts, protected NotificationFeed $feed) {}
+
+    /** The account the token is signed into: one person's two accounts have separate feeds. */
+    private function account(Request $request): string
+    {
+        return $this->accounts->currentAccount($request->user());
+    }
+
     public function index(PaginationRequest $request)
     {
-        $notifications = $request->user()->notifications()
+        $notifications = $this->feed->scope($request->user()->notifications(), $this->account($request))
             ->paginate($request->perPage(), ['*'], 'current_page');
 
         return $this->success(NotificationResource::collection($notifications));
@@ -27,7 +37,7 @@ class NotificationController extends BaseApiController
 
     public function unreadCount(Request $request)
     {
-        return $this->success(['count' => $request->user()->unreadNotifications()->count()]);
+        return $this->success(['count' => $this->feed->scope($request->user()->unreadNotifications(), $this->account($request))->count()]);
     }
 
     public function markAsRead(Request $request, string $notification)
@@ -40,7 +50,7 @@ class NotificationController extends BaseApiController
 
     public function markAllAsRead(Request $request)
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $this->feed->scope($request->user()->unreadNotifications(), $this->account($request))->update(['read_at' => now()]);
 
         return $this->success(null, 'All notifications marked as read.');
     }

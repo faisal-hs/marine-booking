@@ -3,26 +3,34 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use App\Services\Auth\Concerns\RefusesDeletedAccounts;
 use App\Repositories\Contracts\CustomerRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\AccountService;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CustomerAuthService
 {
+    use RefusesDeletedAccounts;
+
     public function __construct(
         protected UserRepositoryInterface $userRepository,
         protected CustomerRepositoryInterface $customerRepository,
         protected OtpService $otpService,
+        protected AccountService $accounts,
     ) {}
 
     public function requestOtp(string $phone, ?string $name): void
     {
+        $this->refuseDeletedAccount($phone);
+
         $existingUser = $this->userRepository->findByPhone($phone);
 
         if ($existingUser) {
-            if (! $existingUser->isCustomer()) {
+            // A provider can use the customer side too (see AccountService); only staff cannot.
+            if ($existingUser->isAdmin()) {
                 throw ValidationException::withMessages([
                     'phone' => ['This phone number is not registered as a customer.'],
                 ]);
@@ -44,21 +52,7 @@ class CustomerAuthService
 
     public function resendOtp(string $phone): void
     {
-        if (! $this->otpService->canResend($phone)) {
-            throw ValidationException::withMessages([
-                'phone' => ['Please wait before requesting another code.'],
-            ]);
-        }
-
-        $last = $this->otpService->latest($phone);
-
-        if (! $last) {
-            throw ValidationException::withMessages([
-                'phone' => ['No previous verification request found for this phone.'],
-            ]);
-        }
-
-        $this->otpService->issue($phone, $last->type, $last->user_id, $last->payload);
+        $this->otpService->resend($phone);
     }
 
     /**
@@ -72,7 +66,7 @@ class CustomerAuthService
             if ($otp->type === 'login') {
                 $user = $this->userRepository->findByPhone($phone);
 
-                if (! $user || ! $user->isCustomer()) {
+                if (! $user || $user->isAdmin()) {
                     throw ValidationException::withMessages([
                         'phone' => ['Customer account not found.'],
                     ]);
@@ -84,10 +78,13 @@ class CustomerAuthService
                     ]);
                 }
 
-                $token = $user->createToken('customer-auth', ['customer'])->plainTextToken;
+                $this->accounts->ensureCustomerAccount($user);
 
-                return ['user' => $user, 'customer' => $user->customer, 'token' => $token];
+                return $this->accounts->session($user, 'customer', $user->createToken('customer-auth', ['customer'])->plainTextToken);
             }
+
+            // A code issued before the account was deleted must not register over it.
+            $this->refuseDeletedAccount($phone);
 
             $payload = $otp->payload;
 
@@ -99,14 +96,12 @@ class CustomerAuthService
                 'phone_verified_at' => now(),
             ]);
 
-            $customer = $this->customerRepository->create([
+            $this->customerRepository->create([
                 'user_id' => $user->id,
                 'preferred_language' => 'en',
             ]);
 
-            $token = $user->createToken('customer-auth', ['customer'])->plainTextToken;
-
-            return ['user' => $user, 'customer' => $customer, 'token' => $token];
+            return $this->accounts->session($user, 'customer', $user->createToken('customer-auth', ['customer'])->plainTextToken);
         });
     }
 

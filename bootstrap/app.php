@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'provider.approved' => \App\Http\Middleware\EnsureProviderApproved::class,
             'admin.access' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'locale' => \App\Http\Middleware\SetLocale::class,
         ]);

@@ -18,6 +18,8 @@ return new class extends Migration
             $table->text('bio')->nullable();
             $table->string('logo')->nullable();
             $table->string('address')->nullable();
+            $table->string('city', 255)->nullable();
+            $table->string('area', 255)->nullable();
             $table->decimal('lat', 10, 7)->nullable();
             $table->decimal('lng', 10, 7)->nullable();
             $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending');

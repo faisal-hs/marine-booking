@@ -15,7 +15,7 @@
                     </div>
                     <div>
                         <dt class="text-slate-400">{{ __('admin.reservations.customer_name') }}</dt>
-                        <dd>{{ $provider->user->name }}</dd>
+                        <dd><x-admin.account-name :user="$provider->user" /></dd>
                     </div>
                     <div>
                         <dt class="text-slate-400">{{ __('admin.users.email') }}</dt>
@@ -24,6 +24,37 @@
                     <div>
                         <dt class="text-slate-400">{{ __('admin.users.phone') }}</dt>
                         <dd>{{ $provider->user->phone ?? '—' }}</dd>
+                    </div>
+                    @if ($provider->business_license)
+                        <div>
+                            <dt class="text-slate-400">{{ __('admin.providers.business_license') }}</dt>
+                            <dd>{{ $provider->business_license }}</dd>
+                        </div>
+                    @endif
+                    @if ($provider->address)
+                        <div>
+                            <dt class="text-slate-400">{{ __('admin.providers.address') }}</dt>
+                            <dd>{{ $provider->address }}</dd>
+                        </div>
+                    @endif
+                    @if ($provider->city || $provider->area)
+                        <div>
+                            <dt class="text-slate-400">{{ __('admin.providers.city') }} / {{ __('admin.providers.area') }}</dt>
+                            <dd>{{ collect([$provider->city, $provider->area])->filter()->implode(' · ') }}</dd>
+                        </div>
+                    @endif
+                    <div>
+                        <dt class="text-slate-400">{{ __('admin.providers.request_title') }}</dt>
+                        <dd>
+                            @if ($provider->latestRequest)
+                                {{ __('admin.provider_requests.statuses.' . $provider->latestRequest->status) }}
+                                @can('provider_requests.view')
+                                    · <a href="{{ route('admin.provider-requests.show', $provider->latestRequest) }}" class="underline">{{ __('admin.providers.open_request') }}</a>
+                                @endcan
+                            @else
+                                {{ __('admin.providers.request_none') }}
+                            @endif
+                        </dd>
                     </div>
                     @if ($provider->bio)
                         <div>
@@ -67,6 +98,53 @@
                         @endforeach
                     </ul>
                 @endif
+                        </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+                <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.summary_title') }}</h2>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-2xl font-semibold text-slate-800">{{ $summary['bookings_total'] }}</p>
+                        <p class="text-xs text-slate-500">{{ __('admin.providers.bookings_total') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-semibold text-slate-800">{{ $summary['bookings_live'] }}</p>
+                        <p class="text-xs text-slate-500">{{ __('admin.providers.bookings_live') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-semibold text-slate-800">{{ number_format($summary['gross_revenue'], 2) }}</p>
+                        <p class="text-xs text-slate-500">{{ __('admin.providers.gross_revenue') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+                <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.activities_title') }}</h2>
+
+                @forelse ($activities as $activity)
+                    @php
+                        $activityVariant = match ($activity->status) {
+                            'published' => 'success',
+                            'pending_review' => 'warning',
+                            'rejected' => 'danger',
+                            'inactive' => 'neutral',
+                            default => 'info',
+                        };
+                    @endphp
+                    <div class="flex items-center justify-between py-2 border-b border-slate-50 text-sm">
+                        <div>
+                            @can('activities.view')
+                                <a href="{{ route('admin.activities.show', $activity) }}" class="text-slate-800 underline">{{ $activity->title }}</a>
+                            @else
+                                <span class="text-slate-800">{{ $activity->title }}</span>
+                            @endcan
+                            <p class="text-xs text-slate-400">{{ $activity->category?->name }}</p>
+                        </div>
+                        <x-admin.status-badge :variant="$activityVariant" :label="__('admin.activities.statuses.' . $activity->status)" />
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-400">{{ __('admin.providers.no_activities') }}</p>
+                @endforelse
             </div>
         </div>
 
@@ -108,6 +186,44 @@
                         @endcan
                     </div>
                 @endif
+                        </div>
+
+            @php
+                $deleted = $provider->user->trashed();
+            @endphp
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+                <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.account_title') }}</h2>
+
+                @if ($deleted)
+                    <x-admin.status-badge variant="neutral" :label="__('admin.accounts.deleted')" />
+                @else
+                    <x-admin.status-badge :variant="$provider->user->status === 'active' ? 'success' : 'danger'" :label="__('admin.statuses.' . $provider->user->status)" />
+                @endif
+
+                <p class="text-xs text-slate-400 mt-3">
+                    {{ __('admin.providers.joined') }}: {{ $provider->created_at->toFormattedDateString() }}
+                    · {{ __('admin.providers.commission') }}: {{ $provider->commission_rate }}%
+                </p>
+
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @if ($deleted)
+                        @can('restore', $provider)
+                            <x-admin.confirm-form :action="route('admin.providers.restore', $provider)" variant="success">{{ __('admin.providers.restore') }}</x-admin.confirm-form>
+                        @endcan
+                    @else
+                        @can('update', $provider)
+                            <x-admin.button pill variant="info" icon="edit" href="{{ route('admin.providers.edit', $provider) }}">{{ __('admin.providers.edit') }}</x-admin.button>
+                            @if ($provider->user->status === 'active')
+                                <x-admin.confirm-form :action="route('admin.providers.suspend', $provider)" :confirm="__('admin.providers.confirm_suspend')" variant="danger">{{ __('admin.providers.suspend') }}</x-admin.confirm-form>
+                            @else
+                                <x-admin.confirm-form :action="route('admin.providers.reactivate', $provider)" variant="success">{{ __('admin.providers.reactivate') }}</x-admin.confirm-form>
+                            @endif
+                        @endcan
+                        @can('delete', $provider)
+                            <x-admin.confirm-form :action="route('admin.providers.destroy', $provider)" method="DELETE" :confirm="__('admin.providers.confirm_delete')" variant="danger" icon="trash">{{ __('admin.providers.delete') }}</x-admin.confirm-form>
+                        @endcan
+                    @endif
+                </div>
             </div>
         </div>
     </div>

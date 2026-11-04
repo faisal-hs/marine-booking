@@ -22,15 +22,7 @@ class AuthResource extends JsonResource
     {
         $user = $this->resource['user'];
 
-        $userData = [
-            'id' => $user->id,
-            'uuid' => $user->uuid,
-            'name' => $user->name,
-            'email' => $user->email,
-            'phone' => $user->phone,
-            'user_type' => $user->user_type,
-            'status' => $user->status,
-        ];
+        $userData = self::userFields($user);
 
         foreach (['provider', 'customer', 'admin'] as $type) {
             if (isset($this->resource[$type])) {
@@ -40,9 +32,25 @@ class AuthResource extends JsonResource
             }
         }
 
-        return [
+        return array_filter([
             'user' => $userData,
             'token' => $this->resource['token'],
+            // Which account this token is signed into, the default one, and which can be switched to.
+            'account' => $this->resource['account'] ?? null,
+        ], fn($value) => $value !== null);
+    }
+
+    /** The base fields of a signed-in user, shared by the sign-in and account responses. */
+    public static function userFields(\App\Models\User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'uuid' => $user->uuid,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'user_type' => $user->user_type,
+            'status' => $user->status,
         ];
     }
 

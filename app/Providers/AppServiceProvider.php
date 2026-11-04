@@ -9,6 +9,7 @@ use App\Events\ActivitySentBackToReview;
 use App\Events\PaymentFailed;
 use App\Events\PaymentRefunded;
 use App\Events\ProviderRejected;
+use App\Events\ProviderRequestSubmitted;
 use App\Events\ProviderVerified;
 use App\Events\ReservationCancelled;
 use App\Events\ReservationConfirmed;
@@ -21,6 +22,7 @@ use App\Listeners\Notifications\SendActivityRejectedNotifications;
 use App\Listeners\Notifications\SendPaymentFailedNotifications;
 use App\Listeners\Notifications\SendPaymentRefundedNotifications;
 use App\Listeners\Notifications\SendProviderRejectedNotifications;
+use App\Listeners\Notifications\SendProviderRequestSubmittedNotifications;
 use App\Listeners\Notifications\SendProviderVerifiedNotifications;
 use App\Listeners\Notifications\SendReservationCancelledNotifications;
 use App\Listeners\Notifications\SendReservationConfirmedNotifications;
@@ -146,6 +148,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ActivitySentBackToReview::class, SendActivitySentBackToReviewNotifications::class);
 
         Event::listen(ProviderVerified::class, SendProviderVerifiedNotifications::class);
+        Event::listen(ProviderRequestSubmitted::class, SendProviderRequestSubmittedNotifications::class);
         Event::listen(ProviderRejected::class, SendProviderRejectedNotifications::class);
     }
 }

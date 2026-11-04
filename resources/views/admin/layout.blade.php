@@ -21,14 +21,15 @@
                     $navItems = [
                         ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
                         ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
-                        ['key' => 'providers', 'route' => null, 'permission' => 'providers.view', 'icon' => 'building'],
-                        ['key' => 'customers', 'route' => null, 'permission' => 'customers.view', 'icon' => 'user'],
+                        ['key' => 'provider_requests', 'route' => 'admin.provider-requests.index', 'permission' => 'provider_requests.view', 'icon' => 'inbox'],
+                        ['key' => 'providers', 'route' => 'admin.providers.index', 'permission' => 'providers.view', 'icon' => 'building'],
+                        ['key' => 'customers', 'route' => 'admin.customers.index', 'permission' => 'customers.view', 'icon' => 'user'],
                         ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],
                         ['key' => 'activities', 'route' => 'admin.activities.index', 'permission' => 'activities.view', 'icon' => 'map'],
                         ['key' => 'feature_definitions', 'route' => 'admin.feature-definitions.index', 'permission' => 'feature_definitions.view', 'icon' => 'tag'],
                         ['key' => 'reservations', 'route' => 'admin.reservations.index', 'permission' => 'reservations.view', 'icon' => 'calendar'],
                         ['key' => 'payments', 'route' => 'admin.payments.index', 'permission' => 'payments.view', 'icon' => 'card'],
-                        ['key' => 'notifications', 'route' => null, 'permission' => 'notifications.view', 'icon' => 'bell'],
+                        ['key' => 'notifications', 'route' => 'admin.notifications.index', 'permission' => 'notifications.view', 'icon' => 'bell'],
                         ['key' => 'reports', 'route' => 'admin.reports.index', 'permission' => 'reports.view', 'icon' => 'chart'],
                         ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],
                         ['key' => 'settings', 'route' => null, 'permission' => 'settings.view', 'icon' => 'cog'],
@@ -39,9 +40,17 @@
                     @if (is_null($item['permission']) || auth()->user()->can($item['permission']))
                         @if ($item['route'] && \Illuminate\Support\Facades\Route::has($item['route']))
                             <a href="{{ route($item['route']) }}"
-                                class="nav-item flex items-center gap-3 px-6 py-2.5 text-sm {{ request()->routeIs($item['route'] . '*') ? 'nav-active' : '' }}">
+                                class="nav-item flex items-center gap-3 px-6 py-2.5 text-sm {{ request()->routeIs(\Illuminate\Support\Str::beforeLast($item['route'], '.index') . '*') ? 'nav-active' : '' }}">
                                 <x-admin.icon :name="$item['icon']" />
                                 {{ __('admin.nav.' . $item['key']) }}
+                                @if ($item['key'] === 'provider_requests' && ($pendingRequests = \App\Models\ProviderRequest::where('status', 'pending')->count()) > 0)
+                                    <span
+                                        class="ms-auto text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $pendingRequests }}</span>
+                                @endif
+                                @if ($item['key'] === 'notifications' && ($unreadNotifications = auth()->user()->unreadNotifications()->count()) > 0)
+                                    <span
+                                        class="ms-auto text-[10px] bg-sky-500 text-white rounded-full px-1.5 py-0.5">{{ $unreadNotifications }}</span>
+                                @endif
                             </a>
                         @else
                             <div class="flex items-center justify-between px-6 py-2.5 text-sm text-slate-500">
@@ -89,6 +98,11 @@
                         class="mb-6 rounded-lg bg-[var(--brand-success-bg)] border border-[var(--brand-success-border)] text-[var(--brand-success)] text-sm px-4 py-3">
                         {{ session('status') }}
                     </div>
+                @endif
+
+                {{-- Why an action was refused (for example a delete blocked by a live booking). --}}
+                @if (session('error'))
+                    <x-admin.notice variant="danger" role="alert">{{ session('error') }}</x-admin.notice>
                 @endif
 
                 @yield('content')

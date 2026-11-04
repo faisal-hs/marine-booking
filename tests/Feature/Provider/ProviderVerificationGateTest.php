@@ -35,29 +35,33 @@ class ProviderVerificationGateTest extends TestCase
 
     // --- Submitting -------------------------------------------------------
 
-    public function test_a_provider_waiting_for_verification_cannot_submit_an_activity(): void
+    public function test_a_provider_waiting_for_approval_cannot_submit_an_activity(): void
     {
+        // Before approval a provider account can do nothing on the provider side at all, so it is
+        // stopped at the door (403), long before the activity rules are reached.
         [, $provider, $token] = $this->makeProvider('pending');
         $activity = $this->makeActivity($provider, 'draft');
 
         $response = $this->submit($token, $activity);
 
-        $response->assertStatus(422)->assertJsonValidationErrors(['provider']);
-        $this->assertStringContainsString('waiting for verification', $response->json('errors.provider.0'));
+        $response->assertForbidden()->assertJsonPath('data.provider_request_status', 'not_submitted');
+        $this->assertStringContainsString('not approved yet', $response->json('message'));
         $this->assertSame('draft', $activity->fresh()->status);
     }
 
-    public function test_a_provider_whose_verification_was_rejected_cannot_submit_and_is_told_why(): void
+    public function test_a_provider_whose_request_was_rejected_is_stopped_and_can_read_why(): void
     {
         [, $provider, $token] = $this->makeProvider('rejected');
         $activity = $this->makeActivity($provider, 'draft');
 
-        $response = $this->submit($token, $activity);
-
-        $response->assertStatus(422);
-        $this->assertStringContainsString('was rejected', $response->json('errors.provider.0'));
-        $this->assertStringContainsString('Licence photo was unreadable', $response->json('errors.provider.0'));
+        $this->submit($token, $activity)->assertForbidden()->assertJsonPath('data.provider_request_status', 'rejected');
         $this->assertSame('draft', $activity->fresh()->status);
+
+        // The one thing still open is the profile, which says what happened.
+        $this->app['auth']->forgetGuards();
+        $profile = $this->asProvider($token)->getJson('/api/v1/provider/profile')->assertOk();
+        $this->assertSame('rejected', $profile->json('data.verification_status'));
+        $this->assertSame('Licence photo was unreadable', $profile->json('data.rejection_reason'));
     }
 
     public function test_a_verified_provider_can_submit_an_activity(): void
@@ -70,18 +74,18 @@ class ProviderVerificationGateTest extends TestCase
         $this->assertSame('pending_review', $activity->fresh()->status);
     }
 
-    public function test_an_unverified_provider_can_still_build_a_draft(): void
+    public function test_an_unapproved_provider_cannot_build_a_draft_either(): void
     {
-        // Not being verified yet must not stop someone preparing their listing while
-        // their documents are checked: only entering the review queue is gated.
         [, $provider, $token] = $this->makeProvider('pending');
-        $activity = $this->makeActivity($provider, 'draft');
+        $activity = $this->makeActivity($provider, 'draft', ['title' => 'As it was']);
+        $category = $this->makeCategory();
 
-        $this->asProvider($token)
-            ->putJson("/api/v1/provider/activities/{$activity->uuid}", ['title' => 'A better title'])
-            ->assertOk();
+        $this->asProvider($token)->putJson("/api/v1/provider/activities/{$activity->uuid}", ['title' => 'A better title'])->assertForbidden();
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($token)->postJson('/api/v1/provider/activities', ['category_id' => $category->id, 'title' => 'A new one'])->assertForbidden();
 
-        $this->assertSame('A better title', $activity->fresh()->title);
+        $this->assertSame('As it was', $activity->fresh()->title);
+        $this->assertSame(1, \App\Models\Activity::count(), 'Nothing new was created.');
     }
 
     public function test_only_draft_or_rejected_activities_can_be_submitted(): void
@@ -166,13 +170,15 @@ class ProviderVerificationGateTest extends TestCase
         $admin = $this->makeAdmin();
 
         // 1. Blocked while pending.
-        $this->submit($token, $activity)->assertStatus(422);
+        $this->submit($token, $activity)->assertForbidden();
 
         // 2. An admin verifies the provider.
         $this->actingAs($admin, 'web')->post(route('admin.providers.verify', $provider))->assertSessionHasNoErrors();
         $this->assertSame('verified', $provider->fresh()->verification_status);
 
-        // 3. Now the provider can submit, and the admin can approve.
+        // 3. Now the provider can submit, and the admin can approve. (Sanctum looks at the web guard
+        // first, so forget the admin this test just acted as.)
+        $this->app['auth']->forgetGuards();
         $this->submit($token, $activity)->assertOk();
         $this->actingAs($admin, 'web')->post(route('admin.activities.approve', $activity))->assertSessionHasNoErrors();
 

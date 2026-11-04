@@ -13,17 +13,20 @@ class ProviderRejectedNotification extends BaseProviderNotification
 
     public function toArray(object $notifiable): array
     {
+        $reason = $this->provider->rejection_reason;
+
+        // The reason travels with the notification, so the app can show it without another call.
         return $this->baseData(
             'provider.rejected',
-            'Your provider verification was not approved.'
-        );
+            'Your provider verification was not approved.' . ($reason ? " Reason: {$reason}" : '')
+        ) + ['rejection_reason' => $reason];
     }
 
     public function toFcm(object $notifiable): array
     {
         return [
             'title' => 'Verification Not Approved',
-            'body' => 'Your provider verification was not approved. Check your email for details.',
+            'body' => 'Your provider verification was not approved. Open the app to see why.',
             'data' => ['provider_id' => (string) $this->provider->id, 'type' => 'provider.rejected'],
         ];
     }

@@ -4,7 +4,8 @@
 @section('page_title', __('admin.dashboard.title'))
 
 @section('content')
-    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">{{ __('admin.dashboard.needs_attention') }}</h2>
+    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+        {{ __('admin.dashboard.needs_attention') }}</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-[#FEF2F2] rounded-xl p-5">
             <p class="text-2xl font-semibold text-slate-800">{{ $stats['providers']['pending_verification'] }}</p>
@@ -40,7 +41,8 @@
         </div>
         <div class="bg-[#ECFDF5] rounded-xl p-5">
             <p class="text-2xl font-semibold text-slate-800">{{ $stats['reviews']['average_platform_rating'] }} / 5</p>
-            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.average_rating') }} ({{ $stats['reviews']['total'] }})</p>
+            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.average_rating') }}
+                ({{ $stats['reviews']['total'] }})</p>
         </div>
     </div>
 
@@ -58,7 +60,7 @@
                 <tbody>
                     @forelse ($recentReservations as $reservation)
                         <tr class="border-b border-slate-50">
-                            <td class="py-2.5">{{ $reservation->customer->user->name }}</td>
+                            <td class="py-2.5"><x-admin.account-name :user="$reservation->customer->user" /></td>
                             <td class="py-2.5 text-slate-500">{{ $reservation->activity->title }}</td>
                             <td class="py-2.5">
                                 @php
@@ -73,7 +75,10 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="3" class="py-4 text-slate-400 text-center">{{ __('admin.reservations.no_reservations') }}</td></tr>
+                        <tr>
+                            <td colspan="3" class="py-4 text-slate-400 text-center">
+                                {{ __('admin.reservations.no_reservations') }}</td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -112,7 +117,9 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="3" class="py-4 text-slate-400 text-center">{{ __('admin.payments.no_payments') }}</td></tr>
+                        <tr>
+                            <td colspan="3" class="py-4 text-slate-400 text-center">{{ __('admin.payments.no_payments') }}</td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -127,8 +134,8 @@
             <h2 class="text-sm font-semibold mb-2">{{ __('admin.dashboard.verification_queue') }}</h2>
             <p class="text-3xl font-semibold text-teal-300">{{ $stats['providers']['pending_verification'] }}</p>
             <p class="text-xs text-slate-400 mt-1">{{ __('admin.dashboard.waiting_review') }}</p>
-            @can('providers.verify')
-                <a href="{{ route('admin.providers.index', ['status' => 'pending']) }}"
+            @can('provider_requests.view')
+                <a href="{{ route('admin.provider-requests.index') }}"
                     class="inline-block mt-4 text-xs bg-teal-500/20 text-teal-300 rounded px-3 py-2 hover:bg-teal-500/30 transition">
                     {{ __('admin.dashboard.review_providers') }} →
                 </a>

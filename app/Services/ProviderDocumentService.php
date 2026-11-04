@@ -7,6 +7,7 @@ use App\Models\ProviderDocument;
 use App\Repositories\Contracts\ProviderDocumentRepositoryInterface;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -20,11 +21,15 @@ class ProviderDocumentService
 {
     public function __construct(protected ProviderDocumentRepositoryInterface $repository) {}
 
-    public function upload(Provider $provider, UploadedFile $file, string $type, ?string $title): ProviderDocument
+    /**
+     * $replacing is how many existing documents this upload is about to replace, so a provider at the
+     * limit can still swap one document for another.
+     */
+    public function upload(Provider $provider, UploadedFile $file, string $type, ?string $title, int $replacing = 0): ProviderDocument
     {
         $limit = (int) config('providers.documents.max_per_provider');
 
-        if ($this->repository->countForProvider($provider->id) >= $limit) {
+        if ($this->repository->countForProvider($provider->id) - $replacing >= $limit) {
             throw ValidationException::withMessages([
                 'file' => ["You can keep at most {$limit} documents. Delete one before uploading another."],
             ]);
@@ -49,12 +54,35 @@ class ProviderDocumentService
         ]);
     }
 
+    /**
+     * Stores a new document of a type and retires the ones it replaces. The old FILES are deleted only
+     * after the surrounding transaction commits: if anything later fails and the rows roll back, the
+     * old documents are still there to be read.
+     */
+    public function replace(Provider $provider, string $type, UploadedFile $file): ProviderDocument
+    {
+        $old = $provider->documents()->where('type', $type)->get();
+
+        $document = $this->upload($provider, $file, $type, null, $old->count());
+
+        foreach ($old as $previous) {
+            $this->repository->delete($previous);
+        }
+
+        $paths = $old->pluck('path')->all();
+        DB::afterCommit(fn() => $this->disk()->delete($paths));
+
+        return $document;
+    }
+
     public function delete(ProviderDocument $document): void
     {
         // Once verified, the documents are the record that verification was based on.
-        if ($document->provider->isVerified()) {
+        // The three required documents are what the approval was based on, so they stay once the
+        // provider is approved. Anything else a provider added later can be removed.
+        if ($document->provider->isVerified() && in_array($document->type, config('providers.documents.required_types', []), true)) {
             throw ValidationException::withMessages([
-                'document' => ['Documents of a verified provider cannot be removed, because they are the record the verification was based on.'],
+                'document' => ['The commercial registration, safety certification and insurance certificate of an approved provider cannot be removed, because they are the record the approval was based on.'],
             ]);
         }
 

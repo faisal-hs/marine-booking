@@ -11,7 +11,11 @@ use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
+use App\Policies\BroadcastPolicy;
+use App\Policies\NotificationPolicy;
+use App\Policies\ProviderRequestPolicy;
 use App\Policies\CategoryPolicy;
+use App\Policies\CustomerPolicy;
 use App\Policies\FeatureDefinitionPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\ProviderDocumentPolicy;
@@ -106,6 +110,10 @@ class RepositoryServiceProvider extends ServiceProvider
         Gate::policy(Reservation::class, ReservationPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(Provider::class, ProviderPolicy::class);
+        Gate::policy(\App\Models\Customer::class, CustomerPolicy::class);
+        Gate::policy(\App\Models\Broadcast::class, BroadcastPolicy::class);
+        Gate::policy(\App\Models\ProviderRequest::class, ProviderRequestPolicy::class);
+        Gate::policy(\Illuminate\Notifications\DatabaseNotification::class, NotificationPolicy::class);
         Gate::policy(\App\Models\ProviderDocument::class, ProviderDocumentPolicy::class);
         Gate::policy(Review::class, ReviewPolicy::class);
     }

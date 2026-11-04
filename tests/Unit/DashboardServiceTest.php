@@ -78,11 +78,13 @@ class DashboardServiceTest extends TestCase
         ], $overrides));
     }
 
-    public function test_user_stats_counts_by_type(): void
+    public function test_user_stats_counts_accounts(): void
     {
-        User::factory()->customer()->create();
-        User::factory()->customer()->create();
-        User::factory()->provider()->create();
+        foreach ([1, 2] as $i) {
+            \App\Models\Customer::create(['user_id' => User::factory()->customer()->create()->id]);
+        }
+        $providerUser = User::factory()->provider()->create();
+        Provider::create(['user_id' => $providerUser->id, 'business_name' => 'A', 'slug' => 'a-' . uniqid()]);
 
         $stats = $this->service->getStats();
 
@@ -91,16 +93,47 @@ class DashboardServiceTest extends TestCase
         $this->assertEquals(1, $stats['users']['providers']);
     }
 
-    public function test_provider_stats_counts_by_verification_status(): void
+    public function test_a_person_with_both_accounts_is_one_user_and_counts_in_both(): void
+    {
+        $person = User::factory()->customer()->create();
+        \App\Models\Customer::create(['user_id' => $person->id]);
+        Provider::create(['user_id' => $person->id, 'business_name' => 'Both', 'slug' => 'both-' . uniqid(), 'verification_status' => 'verified']);
+
+        $stats = $this->service->getStats();
+
+        $this->assertEquals(1, $stats['users']['total']);
+        $this->assertEquals(1, $stats['users']['customers']);
+        $this->assertEquals(1, $stats['users']['providers']);
+    }
+
+    public function test_a_provider_who_also_has_a_customer_account_counts_as_a_customer(): void
+    {
+        // Registered as a provider, so user_type says "provider"; the customer account is what counts here.
+        $person = User::factory()->provider()->create();
+        Provider::create(['user_id' => $person->id, 'business_name' => 'Both', 'slug' => 'both-' . uniqid(), 'verification_status' => 'verified']);
+        \App\Models\Customer::create(['user_id' => $person->id]);
+
+        $stats = $this->service->getStats();
+
+        $this->assertEquals(1, $stats['users']['total']);
+        $this->assertEquals(1, $stats['users']['customers']);
+        $this->assertEquals(1, $stats['users']['providers']);
+    }
+
+    public function test_provider_stats_count_requests_waiting_and_providers_by_status(): void
     {
         $u1 = User::factory()->provider()->create();
-        Provider::create(['user_id' => $u1->id, 'business_name' => 'A', 'slug' => 'a-' . uniqid(), 'verification_status' => 'pending']);
+        $waiting = Provider::create(['user_id' => $u1->id, 'business_name' => 'A', 'slug' => 'a-' . uniqid(), 'verification_status' => 'pending']);
+        \App\Models\ProviderRequest::create(['user_id' => $u1->id, 'provider_id' => $waiting->id, 'source' => 'registration', 'status' => 'pending', 'submitted_at' => now()]);
+        // Registered but never asked: nobody has anything to review.
+        $u3 = User::factory()->provider()->create();
+        Provider::create(['user_id' => $u3->id, 'business_name' => 'C', 'slug' => 'c-' . uniqid(), 'verification_status' => 'pending']);
         $u2 = User::factory()->provider()->create();
         Provider::create(['user_id' => $u2->id, 'business_name' => 'B', 'slug' => 'b-' . uniqid(), 'verification_status' => 'verified']);
 
         $stats = $this->service->getStats();
 
-        $this->assertEquals(1, $stats['providers']['pending_verification']);
+        $this->assertEquals(1, $stats['providers']['pending_verification'], 'Only the request that is actually waiting.');
         $this->assertEquals(1, $stats['providers']['verified']);
     }
 

@@ -48,7 +48,7 @@ class ProviderDocumentTest extends TestCase
     #[DataProvider('acceptedFiles')]
     public function test_a_provider_can_upload_a_document(string $filename): void
     {
-        [, $provider, $token] = $this->makeProvider('pending');
+        [, $provider, $token] = $this->makeProvider('verified');
 
         $response = $this->upload($token, [], UploadedFile::fake()->create($filename, 100));
 
@@ -64,7 +64,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_the_file_is_kept_on_the_private_disk_and_never_on_the_public_one(): void
     {
-        [, $provider, $token] = $this->makeProvider('pending');
+        [, $provider, $token] = $this->makeProvider('verified');
 
         $this->upload($token)->assertCreated();
 
@@ -76,7 +76,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_the_stored_name_comes_from_the_server_not_from_the_upload(): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
 
         $this->upload($token, [], UploadedFile::fake()->create('../../etc/evil<script>.pdf', 10))->assertCreated();
 
@@ -103,7 +103,7 @@ class ProviderDocumentTest extends TestCase
     #[DataProvider('rejectedFiles')]
     public function test_other_file_types_are_rejected(string $filename, string $content): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
 
         $this->upload($token, [], UploadedFile::fake()->createWithContent($filename, $content))
             ->assertStatus(422)
@@ -114,7 +114,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_the_size_limit_is_enforced(): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
         $limit = config('providers.documents.max_kb');
 
         $this->upload($token, [], UploadedFile::fake()->create('big.pdf', $limit + 1))->assertStatus(422)->assertJsonValidationErrors(['file']);
@@ -123,7 +123,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_the_type_the_title_and_the_file_are_validated(): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
 
         $this->upload($token, ['type' => 'selfie'])->assertStatus(422)->assertJsonValidationErrors(['type']);
         $this->upload($token, ['type' => ''])->assertStatus(422)->assertJsonValidationErrors(['type']);
@@ -137,7 +137,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_a_provider_can_keep_at_most_the_configured_number_of_documents(): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
         $limit = config('providers.documents.max_per_provider');
 
         for ($i = 0; $i < $limit; $i++) {
@@ -149,18 +149,37 @@ class ProviderDocumentTest extends TestCase
         $this->assertCount($limit, Storage::disk('local')->allFiles(), 'A refused upload must not leave a file behind.');
     }
 
-    public function test_uploading_a_document_does_not_verify_the_provider(): void
+    public function test_uploading_a_document_changes_nothing_about_the_providers_approval(): void
     {
-        [, $provider, $token] = $this->makeProvider('pending');
+        // Documents are supporting records. Approval is decided on a provider request, never by an upload.
+        [, $provider, $token] = $this->makeProvider('verified');
 
         $this->upload($token)->assertCreated();
 
-        $this->assertSame('pending', $provider->fresh()->verification_status);
+        $this->assertSame('verified', $provider->fresh()->verification_status);
+        $this->assertSame(0, \App\Models\ProviderRequest::count(), 'An upload is not a request.');
+    }
+
+    public function test_a_provider_that_is_not_approved_cannot_use_the_documents_api_at_all(): void
+    {
+        // Before approval the documents travel WITH the provider request (POST /account/provider-request).
+        foreach (['pending', 'rejected'] as $status) {
+            [,, $token] = $this->makeProvider($status);
+
+            $expected = $status === 'rejected' ? 'rejected' : 'not_submitted';
+
+            $this->upload($token)->assertForbidden()->assertJsonPath('data.provider_request_status', $expected);
+            $this->app['auth']->forgetGuards();
+            $this->asProvider($token)->getJson('/api/v1/provider/documents')->assertForbidden();
+            $this->app['auth']->forgetGuards();
+        }
+
+        $this->assertSame(0, ProviderDocument::count());
     }
 
     public function test_a_verified_provider_can_still_upload_a_renewed_document(): void
     {
-        [, , $token] = $this->makeProvider('verified');
+        [,, $token] = $this->makeProvider('verified');
 
         $this->upload($token, ['type' => 'insurance'])->assertCreated();
     }
@@ -169,8 +188,8 @@ class ProviderDocumentTest extends TestCase
 
     public function test_a_provider_sees_only_their_own_documents(): void
     {
-        [, , $tokenA] = $this->makeProvider('pending');
-        [, , $tokenB] = $this->makeProvider('pending');
+        [,, $tokenA] = $this->makeProvider('verified');
+        [,, $tokenB] = $this->makeProvider('verified');
 
         $this->upload($tokenA, ['title' => 'Mine'])->assertCreated();
 
@@ -186,7 +205,7 @@ class ProviderDocumentTest extends TestCase
 
     public function test_a_provider_can_delete_their_own_document_and_the_file_goes_with_it(): void
     {
-        [, , $token] = $this->makeProvider('pending');
+        [,, $token] = $this->makeProvider('verified');
         $this->upload($token)->assertCreated();
         $document = ProviderDocument::firstOrFail();
 
@@ -196,12 +215,18 @@ class ProviderDocumentTest extends TestCase
         Storage::disk('local')->assertMissing($document->path);
     }
 
-    public function test_a_verified_provider_cannot_delete_the_documents_they_were_verified_on(): void
+    /** @return array<string, array{0: string}> */
+    public static function requiredTypes(): array
     {
-        [, $provider, $token] = $this->makeProvider('pending');
-        $this->upload($token)->assertCreated();
+        return ['the commercial registration' => ['commercial_registration'], 'the safety certification' => ['safety_certification'], 'the insurance certificate' => ['insurance_certificate']];
+    }
+
+    #[DataProvider('requiredTypes')]
+    public function test_an_approved_provider_cannot_delete_the_three_documents_they_were_approved_on(string $type): void
+    {
+        [,, $token] = $this->makeProvider('verified');
+        $this->upload($token, ['type' => $type])->assertCreated();
         $document = ProviderDocument::firstOrFail();
-        $provider->update(['verification_status' => 'verified']);
 
         $this->asProvider($token)->deleteJson("/api/v1/provider/documents/{$document->uuid}")
             ->assertStatus(422)->assertJsonValidationErrors(['document']);
@@ -210,10 +235,22 @@ class ProviderDocumentTest extends TestCase
         Storage::disk('local')->assertExists($document->path);
     }
 
+    public function test_an_approved_provider_can_delete_a_supporting_document_they_added_later(): void
+    {
+        [,, $token] = $this->makeProvider('verified');
+        $this->upload($token, ['type' => 'other', 'title' => 'Boat photo'])->assertCreated();
+        $document = ProviderDocument::firstOrFail();
+
+        $this->asProvider($token)->deleteJson("/api/v1/provider/documents/{$document->uuid}")->assertOk();
+
+        $this->assertSame(0, ProviderDocument::count());
+        Storage::disk('local')->assertMissing($document->path);
+    }
+
     public function test_someone_elses_document_is_not_found_and_stays_untouched(): void
     {
-        [, , $tokenA] = $this->makeProvider('pending');
-        [, , $tokenB] = $this->makeProvider('pending');
+        [,, $tokenA] = $this->makeProvider('verified');
+        [,, $tokenB] = $this->makeProvider('verified');
         $this->upload($tokenA)->assertCreated();
         $document = ProviderDocument::firstOrFail();
 
@@ -237,6 +274,6 @@ class ProviderDocumentTest extends TestCase
         $customer = User::factory()->customer()->create();
         $token = $customer->createToken('test', ['customer'])->plainTextToken;
 
-        $this->withHeader('Authorization', 'Bearer '.$token)->getJson('/api/v1/provider/documents')->assertForbidden();
+        $this->withHeader('Authorization', 'Bearer ' . $token)->getJson('/api/v1/provider/documents')->assertForbidden();
     }
 }

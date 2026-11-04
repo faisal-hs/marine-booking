@@ -47,6 +47,7 @@ class ActivityEagerLoadingTest extends TestCase
         $user = User::factory()->provider()->create();
         $provider = Provider::create([
             'user_id' => $user->id,
+            'verification_status' => 'verified',
             'business_name' => 'Query Count Diving',
             'slug' => 'query-count-diving-' . uniqid(),
         ]);
@@ -83,6 +84,7 @@ class ActivityEagerLoadingTest extends TestCase
             $user = User::factory()->provider()->create();
             $provider = Provider::create([
                 'user_id' => $user->id,
+                'verification_status' => 'verified',
                 'business_name' => "Provider {$i}",
                 'slug' => 'provider-' . uniqid(),
             ]);

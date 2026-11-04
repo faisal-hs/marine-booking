@@ -13,5 +13,9 @@ interface ProviderRepositoryInterface extends BaseRepositoryInterface
 
     public function slugExists(string $slug): bool;
 
+    public function uniqueSlug(string $businessName): string;
+
+    public function forSelect(int $limit = 500): \Illuminate\Support\Collection;
+
     public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator;
 }

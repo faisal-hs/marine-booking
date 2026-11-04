@@ -28,6 +28,8 @@ class Provider extends Model
         'bio',
         'logo',
         'address',
+        'city',
+        'area',
         'lat',
         'lng',
         'verification_status',
@@ -41,9 +43,15 @@ class Provider extends Model
         'commission_rate' => 'decimal:2',
     ];
 
+    /**
+     * Includes a soft-deleted account on purpose. Deleting an account must not make
+     * the pages and API resources that still show "who" (reservations, payments,
+     * reviews, the dashboard) fail with a null error. Anything that SENDS something
+     * to the user must check trashed(); NotificationDispatchService does.
+     */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
 
@@ -55,6 +63,22 @@ class Provider extends Model
     public function documents()
     {
         return $this->hasMany(ProviderDocument::class)->latest()->latest('id');
+    }
+
+    public function requests()
+    {
+        return $this->hasMany(ProviderRequest::class)->latest('submitted_at')->latest('id');
+    }
+
+    public function latestRequest()
+    {
+        return $this->hasOne(ProviderRequest::class)->latestOfMany('id');
+    }
+
+    /** The most recent document of a type (documents() is newest first), or null. */
+    public function documentOfType(string $type): ?ProviderDocument
+    {
+        return $this->documents->firstWhere('type', $type);
     }
 
     public function isVerified(): bool
