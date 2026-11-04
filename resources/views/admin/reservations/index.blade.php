@@ -66,7 +66,7 @@
                 @forelse ($reservations as $reservation)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5 px-4 text-slate-500">#{{ $reservation->id }}</td>
-                        <td class="py-2.5 px-4">{{ $reservation->customer->user->name }}</td>
+                        <td class="py-2.5 px-4"><x-admin.account-name :user="$reservation->customer->user" /></td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $reservation->activity->title }}</td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $reservation->bookingOption->name }}</td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $reservation->reservation_date->toDateString() }}</td>

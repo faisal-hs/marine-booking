@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Bulk;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\Concerns\BulkPools;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -64,7 +65,7 @@ class BulkProviderSeeder extends BulkSeeder
     {
         [$city, $areas, $lat, $lng] = $this->pick($this->cities());
         $business = $this->businessName();
-        $created = \Carbon\Carbon::parse($userCreatedAt)->addDays($this->rand(0, 20));
+        $created = Carbon::parse($userCreatedAt)->addDays($this->rand(0, 20));
         $created = $created->greaterThan($this->now) ? $this->now->copy() : $created;
 
         return [

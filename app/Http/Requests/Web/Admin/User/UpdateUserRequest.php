@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Web\Admin\User;
 
+use App\Services\Admin\UserManagementService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,10 +22,7 @@ class UpdateUserRequest extends FormRequest
             'email' => ['sometimes', 'nullable', 'email', Rule::unique('users', 'email')->ignore($userId)],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($userId)],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'suspended'])],
-            'role' => ['sometimes', 'nullable', 'string', 'exists:roles,name'],
-            'business_name' => ['sometimes', 'string', 'max:255'],
-            'verification_status' => ['sometimes', Rule::in(['pending', 'verified', 'rejected'])],
-            'preferred_language' => ['sometimes', 'string', 'in:en,ar'],
+            'role' => ['sometimes', 'nullable', 'string', Rule::in(app(UserManagementService::class)->assignableRoles($this->user()))],
         ];
     }
 
@@ -36,9 +34,6 @@ class UpdateUserRequest extends FormRequest
             'phone',
             'status',
             'role',
-            'business_name',
-            'verification_status',
-            'preferred_language',
         ]);
     }
 }

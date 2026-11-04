@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  */
 class ReportService
 {
-    protected const SUCCEEDED_STATUSES = ['succeeded', 'partially_refunded', 'refunded'];
+    public const SUCCEEDED_STATUSES = ['succeeded', 'partially_refunded', 'refunded'];
 
     public function revenueOverTime(Carbon $from, Carbon $to): array
     {

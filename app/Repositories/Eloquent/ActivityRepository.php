@@ -32,11 +32,22 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
         return $this->findBySlug($value);
     }
 
-    public function slugExists(string $slug, ?int $ignoreId = null): bool
+    public function deactivatePublishedForProvider(int $providerId): int
     {
         return $this->model->newQuery()
+            ->where('provider_id', $providerId)
+            ->where('status', 'published')
+            ->update(['status' => 'inactive']);
+    }
+
+    public function slugExists(string $slug, ?int $ignoreId = null): bool
+    {
+        // withTrashed(): a deleted row still owns its slug, because the unique index on the column
+        // counts it. Without this, deleting something and then creating another with the same name
+        // collided with the deleted row and failed with a raw SQL error (HTTP 500).
+        return $this->model->newQuery()->withTrashed()
             ->where('slug', $slug)
-            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->exists();
     }
 
@@ -64,11 +75,11 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
         }
 
         if (! empty($filters['search'])) {
-            $query->where('title', 'like', '%' . $filters['search'] . '%');
+            $query->where('title', 'like', '%'.$filters['search'].'%');
         }
 
         if (! empty($filters['location'])) {
-            $query->where('location', 'like', '%' . $filters['location'] . '%');
+            $query->where('location', 'like', '%'.$filters['location'].'%');
         }
 
         match ($filters['sort'] ?? 'newest') {
@@ -122,8 +133,16 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             $query->where('status', $filters['status']);
         }
 
+        // Deleted activities are hidden unless asked for.
+        if (($filters['trashed'] ?? null) === 'only') {
+            $query->onlyTrashed();
+        }
+
         if (! empty($filters['search'])) {
-            $query->where('title', 'like', '%' . $filters['search'] . '%');
+            $term = '%'.$filters['search'].'%';
+
+            $query->where(fn ($q) => $q->where('title', 'like', $term)
+                ->orWhereHas('provider', fn ($p) => $p->where('business_name', 'like', $term)));
         }
 
         return $query->latest()->paginate($perPage)->withQueryString();

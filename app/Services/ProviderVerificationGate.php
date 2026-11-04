@@ -26,7 +26,7 @@ class ProviderVerificationGate
 
         $message = $provider->verification_status === 'rejected'
             ? 'Your account verification was rejected, so you cannot submit activities for review.'
-            . ($provider->rejection_reason ? " Reason: {$provider->rejection_reason}" : '')
+            .($provider->rejection_reason ? " Reason: {$provider->rejection_reason}" : '')
             : 'Your account is still waiting for verification. You can submit activities for review once an admin has verified it.';
 
         throw ValidationException::withMessages(['provider' => [$message]]);
@@ -34,6 +34,19 @@ class ProviderVerificationGate
 
     public function assertVerifiedForApproval(Provider $provider): void
     {
+        // An account that was deleted or suspended must not get a listing in front of customers.
+        if ($provider->user->trashed()) {
+            throw ValidationException::withMessages([
+                'provider' => ["This provider's account has been deleted. Restore it before approving or republishing their activities."],
+            ]);
+        }
+
+        if ($provider->user->status !== 'active') {
+            throw ValidationException::withMessages([
+                'provider' => ["This provider's account is {$provider->user->status}. Reactivate it before approving or republishing their activities."],
+            ]);
+        }
+
         if ($provider->isVerified()) {
             return;
         }

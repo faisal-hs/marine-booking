@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Bulk;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\Concerns\BulkPools;
 use Illuminate\Support\Facades\DB;
 
@@ -39,7 +40,7 @@ class BulkProviderRequestSeeder extends BulkSeeder
                 }
 
                 $source = $provider->user_type === 'provider' ? 'registration' : 'customer_upgrade';
-                $submitted = \Carbon\Carbon::parse($provider->created_at)->addDays($this->rand(0, 3));
+                $submitted = Carbon::parse($provider->created_at)->addDays($this->rand(0, 3));
 
                 $rows = [];
                 if ($provider->verification_status === 'verified') {
@@ -65,7 +66,7 @@ class BulkProviderRequestSeeder extends BulkSeeder
         })());
     }
 
-    private function decided(object $provider, int $n, string $source, string $status, \Carbon\Carbon $submitted, array $reviewers): array
+    private function decided(object $provider, int $n, string $source, string $status, Carbon $submitted, array $reviewers): array
     {
         $submitted = $submitted->greaterThan($this->now) ? $this->now->copy()->subDays(2) : $submitted;
         $reviewed = $submitted->copy()->addDays($this->rand(1, 5));

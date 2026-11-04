@@ -16,6 +16,7 @@ class ActivityService
         protected ActivityRepositoryInterface $repository,
         protected ActivityFeatureValueRepositoryInterface $featureValueRepository,
         protected ProviderVerificationGate $verificationGate,
+        protected ActiveBookingsGuard $bookingsGuard,
     ) {}
 
     public function create(Provider $provider, array $data): Activity
@@ -51,9 +52,29 @@ class ActivityService
         });
     }
 
+    /**
+     * Soft delete. Refused while somebody is mid-booking (confirmed and still ahead, or
+     * a hold being paid): deleting would strand a customer who has paid. Shared by the
+     * provider API and the admin panel, so both obey the same rule.
+     */
     public function delete(Activity $activity): void
     {
-        $this->repository->delete($activity);
+        $this->bookingsGuard->assertNoneForActivity($activity);
+
+        DB::transaction(function () use ($activity) {
+            // A published activity is deactivated first, so restoring it later never
+            // silently puts it back on the public site: an admin republishes it on purpose.
+            if ($activity->status === 'published') {
+                $this->repository->update($activity, ['status' => 'inactive']);
+            }
+
+            $this->repository->delete($activity);
+        });
+    }
+
+    public function restore(Activity $activity): void
+    {
+        $activity->restore();
     }
 
     public function submitForReview(Activity $activity): Activity
@@ -84,7 +105,7 @@ class ActivityService
         $suffix = 1;
 
         while ($this->repository->slugExists($slug, $ignoreId)) {
-            $slug = $base . '-' . $suffix;
+            $slug = $base.'-'.$suffix;
             $suffix++;
         }
 

@@ -47,7 +47,7 @@
                 @forelse ($payments as $payment)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5 px-4 text-slate-500">{{ $payment->reference_id }}</td>
-                        <td class="py-2.5 px-4">{{ $payment->reservation->customer->user->name }}</td>
+                        <td class="py-2.5 px-4"><x-admin.account-name :user="$payment->reservation->customer->user" /></td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $payment->reservation->activity->title }}</td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $payment->gateway }}</td>
                         <td class="py-2.5 px-4 text-slate-500">{{ number_format((float) $payment->amount, 2) }} {{ $payment->currency }}</td>

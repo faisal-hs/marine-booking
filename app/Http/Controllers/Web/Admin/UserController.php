@@ -10,8 +10,8 @@ use App\Services\Admin\UserManagementService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -30,6 +30,7 @@ class UserController extends Controller
 
     public function show(User $user): View
     {
+        $this->staffOnly($user);
         $this->authorize('view', $user);
 
         return view('admin.users.show', ['user' => $user]);
@@ -39,7 +40,7 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        return view('admin.users.create', ['roles' => Role::pluck('name')]);
+        return view('admin.users.create', ['roles' => $this->service->assignableRoles(auth()->user())]);
     }
 
     public function store(StoreUserRequest $request): RedirectResponse
@@ -51,24 +52,47 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
+        $this->staffOnly($user);
         $this->authorize('update', $user);
 
-        return view('admin.users.edit', ['user' => $user, 'roles' => Role::pluck('name')]);
+        return view('admin.users.edit', ['user' => $user, 'roles' => $this->service->assignableRoles(auth()->user())]);
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $this->service->update($user, $request->payload());
+        $this->staffOnly($user);
+        $this->authorize('update', $user);
+
+        try {
+            $this->service->update($user, $request->payload());
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
 
         return redirect()->route('admin.users.show', $user)->with('status', 'User updated successfully.');
     }
 
     public function destroy(User $user): RedirectResponse
     {
+        $this->staffOnly($user);
         $this->authorize('delete', $user);
 
-        $this->service->delete($user);
+        try {
+            $this->service->delete($user);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
 
         return redirect()->route('admin.users.index')->with('status', 'User deleted successfully.');
+    }
+
+    /**
+     * This screen is for staff. A provider or customer id typed into the URL is "not
+     * found" here: those accounts are managed (and safely deleted or suspended) in the
+     * Providers and Customers modules.
+     */
+    protected function staffOnly(User $user): void
+    {
+        abort_unless($user->isAdmin(), 404);
     }
 }

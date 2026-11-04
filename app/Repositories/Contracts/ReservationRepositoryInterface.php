@@ -18,6 +18,17 @@ interface ReservationRepositoryInterface extends BaseRepositoryInterface
      */
     public function consumedCapacity(int $bookingOptionId, ?int $schedulePeriodId, string $date): array;
 
+    /**
+     * Bookings that still matter to somebody: CONFIRMED and still ahead (the date has not
+     * passed), or PENDING with a hold that has not expired (a customer may be paying right
+     * now). Cancelled, expired and completed ones, and confirmed ones already in the past,
+     * are history. Used to refuse deleting an account or activity that is mid-booking.
+     *
+     * @param  int[]|null  $activityIds  only bookings for these activities
+     * @param  int|null  $customerId  only this customer's bookings
+     */
+    public function countLiveBookings(?array $activityIds = null, ?int $customerId = null): int;
+
     public function forCustomer(int $customerId, array $filters, int $perPage = 15): LengthAwarePaginator;
 
     public function forActivity(int $activityId, array $filters, int $perPage = 15): LengthAwarePaginator;

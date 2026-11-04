@@ -46,23 +46,6 @@
                 </div>
             @endif
 
-            @if ($user->isProvider())
-                <div>
-                    <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.business') }}</label>
-                    <input type="text" name="business_name" value="{{ old('business_name', $user->provider?->business_name) }}"
-                        class="w-full border border-slate-200 rounded-lg px-3 py-2">
-                </div>
-                <div>
-                    <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.verification') }}</label>
-                    <select name="verification_status" class="w-full border border-slate-200 rounded-lg px-3 py-2">
-                        @foreach (['pending', 'verified', 'rejected'] as $status)
-                            <option value="{{ $status }}" @selected($user->provider?->verification_status === $status)>
-                                {{ ucfirst($status) }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
-
             <button type="submit"
                 class="w-full bg-[#0B2E33] text-white rounded-lg py-2 hover:bg-[#0E3B42] transition">{{ __('admin.users.save_submit') }}</button>
         </form>

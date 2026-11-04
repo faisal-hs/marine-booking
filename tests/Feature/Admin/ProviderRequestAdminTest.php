@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Provider;
 use App\Models\ProviderRequest;
-use App\Models\User;
 use App\Notifications\Providers\ProviderRejectedNotification;
 use App\Notifications\Providers\ProviderVerifiedNotification;
 use App\Services\NotificationLinkResolver;
@@ -146,7 +146,7 @@ class ProviderRequestAdminTest extends TestCase
         $registrantUser->update(['name' => 'Sara Adel', 'phone' => '0502220002', 'email' => 'sara@mail.test']);
         $registration = app(ProviderRequestService::class)->submit($registrantUser, ['business_name' => 'Reef Riders', 'city' => 'Dammam', 'area' => 'Corniche'], array_intersect_key($this->providerRequestPayload(), array_flip(['commercial_registration', 'safety_certification', 'insurance_certificate'])));
         $admin = $this->makeAdmin();
-        $get = fn(array $q) => $this->actingAs($admin, 'web')->get(route('admin.provider-requests.index', $q + ['status' => 'all']));
+        $get = fn (array $q) => $this->actingAs($admin, 'web')->get(route('admin.provider-requests.index', $q + ['status' => 'all']));
 
         $get(['source' => 'customer_upgrade'])->assertSee('Coral Divers')->assertDontSee('Reef Riders');
         $get(['source' => 'registration'])->assertSee('Reef Riders')->assertDontSee('Coral Divers');
@@ -362,7 +362,7 @@ class ProviderRequestAdminTest extends TestCase
             'city' => 'Dahab',
             'area' => 'Blue Lagoon',
         ])->assertSessionHasNoErrors();
-        $provider = \App\Models\Provider::where('business_name', 'Blue Hole')->firstOrFail();
+        $provider = Provider::where('business_name', 'Blue Hole')->firstOrFail();
         $this->assertSame(['Dahab', 'Blue Lagoon'], [$provider->city, $provider->area]);
 
         $this->actingAs($admin, 'web')->put(route('admin.providers.update', $provider), [
@@ -409,7 +409,7 @@ class ProviderRequestAdminTest extends TestCase
         $page = $this->asAdmin('admin')->get(route('admin.dashboard'));
 
         $page->assertSee(route('admin.provider-requests.index'));
-        $this->assertSame(1, preg_match('#<span class="ms-auto text-\[10px\] bg-amber-500[^>]*>\s*2\s*</span>#', $page->getContent()), 'The badge should read 2.');
+        $this->assertSame(1, preg_match('#<span\s+class="ms-auto text-\[10px\] bg-amber-500[^>]*>\s*2\s*</span>#', $page->getContent()), 'The badge should read 2.');
         $this->asAdmin('support_admin')->get(route('admin.dashboard'))->assertDontSee(route('admin.provider-requests.index'));
     }
 
@@ -437,9 +437,9 @@ class ProviderRequestAdminTest extends TestCase
 
         $url = app(NotificationLinkResolver::class)->urlFor(['provider_request_uuid' => $request->uuid], $admin);
 
-        $this->assertStringEndsWith('/admin/provider-requests/' . $request->uuid, $url);
+        $this->assertStringEndsWith('/admin/provider-requests/'.$request->uuid, $url);
         $this->assertNull(app(NotificationLinkResolver::class)->urlFor(['provider_request_uuid' => $request->uuid], $this->makeAdmin('support_admin')));
-        $this->actingAs($admin, 'web')->get(route('admin.notifications.index'))->assertSee('/admin/provider-requests/' . $request->uuid);
+        $this->actingAs($admin, 'web')->get(route('admin.notifications.index'))->assertSee('/admin/provider-requests/'.$request->uuid);
     }
 
     // --- Language ---------------------------------------------------------------------------------------

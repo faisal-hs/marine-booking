@@ -23,6 +23,11 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
         return $this->model->newQuery()->where('phone', $phone)->first();
     }
 
+    public function findByPhoneIncludingDeleted(string $phone): ?User
+    {
+        return $this->model->newQuery()->withTrashed()->where('phone', $phone)->first();
+    }
+
     public function emailExists(string $email): bool
     {
         return $this->model->newQuery()->where('email', $email)->exists();

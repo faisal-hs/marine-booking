@@ -50,7 +50,9 @@ class BulkActivityBookingOptionSeeder extends BulkSeeder
                         'max_participants' => $model === 'per_group' ? $this->rand(6, 12) : null,
                         'min_quantity' => $model === 'per_unit' ? 1 : null,
                         'max_quantity' => $model === 'per_unit' ? $this->rand(2, 6) : null,
-                        'min_duration' => match ($model) { 'per_hour' => $this->rand(1, 2), 'package' => $this->rand(3, 6), default => null },
+                        'min_duration' => match ($model) {
+                            'per_hour' => $this->rand(1, 2), 'package' => $this->rand(3, 6), default => null
+                        },
                         'max_duration' => $model === 'per_hour' ? $this->rand(4, 8) : null,
                         'duration_unit' => in_array($model, ['per_hour', 'package'], true) ? 'hour' : null,
                         'is_active' => $order === 0 || ! $this->chance(10) ? 1 : 0,

@@ -11,6 +11,9 @@ interface UserRepositoryInterface extends BaseRepositoryInterface
 
     public function findByPhone(string $phone): ?User;
 
+    /** Like findByPhone, but also finds a soft-deleted account (which still owns its phone number). */
+    public function findByPhoneIncludingDeleted(string $phone): ?User;
+
     public function emailExists(string $email): bool;
 
     public function phoneExists(string $phone): bool;

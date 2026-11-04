@@ -19,9 +19,14 @@ class Customer extends Model
         'date_of_birth' => 'date',
     ];
 
+    /**
+     * Includes a soft-deleted account on purpose, so reservations, payments and
+     * reviews of a deleted customer still show who made them. Anything that SENDS
+     * something to the user must check trashed(); NotificationDispatchService does.
+     */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function reservations()

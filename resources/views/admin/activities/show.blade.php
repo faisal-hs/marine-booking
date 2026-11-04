@@ -168,7 +168,23 @@
             <div><dt class="text-slate-400">{{ __('admin.activities.provider') }}</dt><dd>{{ $activity->provider->business_name }}</dd></div>
             <div><dt class="text-slate-400">{{ __('admin.activities.category') }}</dt><dd>{{ $activity->category->name }}</dd></div>
             <div><dt class="text-slate-400">{{ __('admin.activities.status') }}</dt><dd>{{ __('admin.activities.statuses.'.$activity->status) }}</dd></div>
-        </dl>
+                </dl>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+            @if ($activity->trashed())
+                <x-admin.status-badge variant="neutral" :label="__('admin.activities.deleted_notice')" />
+                @can('adminRestore', $activity)
+                    <x-admin.confirm-form :action="route('admin.activities.restore', $activity)" variant="success">{{ __('admin.activities.restore') }}</x-admin.confirm-form>
+                @endcan
+            @else
+                @can('adminUpdate', $activity)
+                    <x-admin.button pill variant="info" icon="edit" href="{{ route('admin.activities.edit', $activity) }}">{{ __('admin.activities.edit') }}</x-admin.button>
+                @endcan
+                @can('adminDelete', $activity)
+                    <x-admin.confirm-form :action="route('admin.activities.destroy', $activity)" method="DELETE" :confirm="__('admin.activities.confirm_delete')" variant="danger" icon="trash">{{ __('admin.activities.delete') }}</x-admin.confirm-form>
+                @endcan
+            @endif
+        </div>
     </div>
 </div>
 @endsection

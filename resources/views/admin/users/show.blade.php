@@ -7,7 +7,6 @@
         <div class="max-w-2xl">
             <div class="bg-white rounded-xl border border-slate-200 p-6 space-y-3 text-sm">
                 <h1 class="text-lg font-semibold mb-4">{{ $user->name }}</h1>
-                <p><span class="text-slate-400">{{ __('admin.users.user_type') }}:</span> {{ ucfirst($user->user_type) }}</p>
                 <p><span class="text-slate-400">{{ __('admin.users.email') }}:</span> {{ $user->email ?? '—' }}</p>
                 <p><span class="text-slate-400">{{ __('admin.users.phone') }}:</span> {{ $user->phone ?? '—' }}</p>
     <p>
@@ -23,17 +22,7 @@
             {{ __('admin.statuses.' . $user->status) }}
         </span>
     </p>
-                @if ($user->isProvider() && $user->provider)
-                    <p><span class="text-slate-400">{{ __('admin.users.business') }}:</span> {{ $user->provider->business_name }}
-                    </p>
-                    <p><span class="text-slate-400">{{ __('admin.users.verification') }}:</span>
-                        {{ ucfirst($user->provider->verification_status) }}</p>
-                @endif
 
-                @if ($user->isCustomer() && $user->customer)
-                    <p><span class="text-slate-400">{{ __('admin.users.language_field') }}:</span>
-                        {{ $user->customer->preferred_language }}</p>
-                @endif
 
                 @if ($user->isAdmin())
                     <p><span class="text-slate-400">{{ __('admin.users.roles') }}:</span>

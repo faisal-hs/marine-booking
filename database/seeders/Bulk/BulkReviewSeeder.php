@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Bulk;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\Concerns\BulkPools;
 use Illuminate\Support\Facades\DB;
 
@@ -47,7 +48,7 @@ class BulkReviewSeeder extends BulkSeeder
                     $seen[$pair] = true;
 
                     $rating = (int) $this->weighted(['5' => 50, '4' => 30, '3' => 12, '2' => 5, '1' => 3]);
-                    $written = \Carbon\Carbon::parse($reservation->reservation_date)->addDays($this->rand(0, 7))->setTime($this->rand(8, 22), $this->rand(0, 59));
+                    $written = Carbon::parse($reservation->reservation_date)->addDays($this->rand(0, 7))->setTime($this->rand(8, 22), $this->rand(0, 59));
                     $written = $written->greaterThan($this->now) ? $this->now->copy() : $written;
                     $hidden = $this->chance(3);
 

@@ -18,6 +18,12 @@
         </include>
     </source>
     <php>
+        <!--
+            The whole suite runs in ONE PHP process, which keeps a little from every test. With the bulk-data tests
+            (they seed a few thousand rows per class) that crossed PHP's default 128 MB and the process died
+            part-way through. This is headroom, not a fix for a leak: the same suite peaks well below it.
+        -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
@@ -45,6 +51,7 @@
             tests until OTP_DEFAULT_CODE was added to .env by hand.
         -->
         <env name="OTP_DEFAULT_CODE" value="1234"/>
+        <env name="OTP_DEFAULT_CODE_ENABLED" value="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

@@ -9,8 +9,13 @@ interface ActivityRepositoryInterface extends BaseRepositoryInterface
 {
     public function findBySlug(string $slug): ?Activity;
 
-
     public function findByIdOrUuidOrSlug(string $value): ?Activity;
+
+    /**
+     * Sets every PUBLISHED activity of the provider to "inactive" so customers can no longer
+     * book it. Returns how many were changed.
+     */
+    public function deactivatePublishedForProvider(int $providerId): int;
 
     public function slugExists(string $slug, ?int $ignoreId = null): bool;
 

@@ -10,6 +10,13 @@
         </x-admin.alert>
     @endif
 
+    <div class="flex justify-between items-center mb-4">
+        <div></div>
+        @can('adminCreate', \App\Models\Activity::class)
+            <x-admin.button href="{{ route('admin.activities.create') }}">{{ __('admin.activities.add') }}</x-admin.button>
+        @endcan
+    </div>
+
     <form method="GET" class="flex gap-2 mb-4 text-sm">
         <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                placeholder="{{ __('admin.activities.search_placeholder') }}"
@@ -21,6 +28,10 @@
                     {{ __('admin.activities.statuses.' . $status) }}
                 </option>
             @endforeach
+        </select>
+        <select name="trashed" class="border border-slate-200 rounded-lg px-3 py-1.5">
+            <option value="">{{ __('admin.activities.current_activities') }}</option>
+            <option value="only" @selected(($filters['trashed'] ?? '') === 'only')>{{ __('admin.activities.deleted_activities') }}</option>
         </select>
         <button type="submit" class="bg-slate-100 rounded-lg px-3 py-1.5">{{ __('admin.activities.filter') }}</button>
     </form>
@@ -39,7 +50,12 @@
             <tbody>
                 @foreach ($activities as $activity)
                     <tr class="border-b border-slate-50">
-                        <td class="py-2.5 px-4">{{ $activity->title }}</td>
+                        <td class="py-2.5 px-4">
+                            {{ $activity->title }}
+                            @if ($activity->trashed())
+                                <x-admin.status-badge variant="neutral" :label="__('admin.accounts.deleted')" />
+                            @endif
+                        </td>
                         <td class="py-2.5 px-4 text-slate-500">
                             {{ $activity->provider->business_name }}
                             @unless ($activity->provider->isVerified())
@@ -67,6 +83,22 @@
                         </td>
                         <td class="py-2.5 px-4">
                             <div class="flex items-center gap-2">
+                                @can('viewAsAdmin', \App\Models\Activity::class)
+                                    <x-admin.button pill href="{{ route('admin.activities.show', $activity) }}">{{ __('admin.activities.view') }}</x-admin.button>
+                                @endcan
+                                @if ($activity->trashed())
+                                    @can('adminRestore', $activity)
+                                        <x-admin.confirm-form :action="route('admin.activities.restore', $activity)" variant="success">{{ __('admin.activities.restore') }}</x-admin.confirm-form>
+                                    @endcan
+                                @else
+                                    @can('adminUpdate', $activity)
+                                        <x-admin.button pill variant="info" icon="edit" href="{{ route('admin.activities.edit', $activity) }}">{{ __('admin.activities.edit') }}</x-admin.button>
+                                    @endcan
+                                    @can('adminDelete', $activity)
+                                        <x-admin.confirm-form :action="route('admin.activities.destroy', $activity)" method="DELETE" :confirm="__('admin.activities.confirm_delete')" variant="danger" icon="trash">{{ __('admin.activities.delete') }}</x-admin.confirm-form>
+                                    @endcan
+                                @endif
+                                @unless ($activity->trashed())
                                 @can('approve', $activity)
                                     @if ($activity->status === 'pending_review')
                                         @if ($activity->provider->isVerified())
@@ -105,7 +137,8 @@
                                             <x-admin.button pill variant="neutral" type="submit">{{ __('admin.activities.deactivate') }}</x-admin.button>
                                         </form>
                                     @endif
-                                @endcan
+                                                                @endcan
+                                @endunless
                             </div>
                         </td>
                     </tr>

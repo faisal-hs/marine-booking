@@ -32,10 +32,11 @@ class ActivityBookingOptionRepository extends BaseRepository implements Activity
 
     public function slugExistsForActivity(int $activityId, string $slug, ?int $ignoreId = null): bool
     {
-        return $this->model->newQuery()
+        // withTrashed(): a deleted row still owns its slug (the unique index counts it); see ActivityRepository::slugExists.
+        return $this->model->newQuery()->withTrashed()
             ->where('activity_id', $activityId)
             ->where('slug', $slug)
-            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->exists();
     }
 
@@ -50,7 +51,7 @@ class ActivityBookingOptionRepository extends BaseRepository implements Activity
         $this->model->newQuery()
             ->where('activity_id', $activityId)
             ->where('is_default', true)
-            ->when($exceptId, fn($q) => $q->where('id', '!=', $exceptId))
+            ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
             ->update(['is_default' => false]);
     }
 }

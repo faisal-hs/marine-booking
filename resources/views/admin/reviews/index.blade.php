@@ -34,7 +34,7 @@
                 @forelse ($reviews as $review)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5 px-4 text-slate-500">{{ $review->activity->title }}</td>
-                        <td class="py-2.5 px-4">{{ $review->customer->user->name }}</td>
+                        <td class="py-2.5 px-4"><x-admin.account-name :user="$review->customer->user" /></td>
                         <td class="py-2.5 px-4 text-slate-500">{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</td>
                         <td class="py-2.5 px-4">
                             <x-admin.status-badge :variant="$review->is_hidden ? 'danger' : 'success'"

@@ -15,12 +15,6 @@
     <form method="GET" class="flex gap-2 mb-4 text-sm">
         <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
             placeholder="{{ __('admin.users.search_placeholder') }}" class="border border-slate-200 rounded-lg px-3 py-1.5">
-        <select name="user_type" class="border border-slate-200 rounded-lg px-3 py-1.5">
-            <option value="">{{ __('admin.users.all_types') }}</option>
-            @foreach (['admin', 'provider', 'customer'] as $type)
-                <option value="{{ $type }}" @selected(($filters['user_type'] ?? '') === $type)>{{ ucfirst($type) }}</option>
-            @endforeach
-        </select>
         <select name="status" class="border border-slate-200 rounded-lg px-3 py-1.5">
             <option value="">{{ __('admin.users.all_statuses') }}</option>
             @foreach (['active', 'inactive', 'suspended'] as $status)
@@ -36,7 +30,6 @@
             <thead>
                 <tr class="text-slate-400 border-b border-slate-100 bg-slate-50">
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.dashboard.name') }}</th>
-                    <th class="py-2.5 px-4 font-medium">{{ __('admin.dashboard.type') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.users.contact') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.users.status') }}</th>
                     <th class="py-2.5 px-4 font-medium">{{ __('admin.users.actions') }}</th>
@@ -46,7 +39,6 @@
                 @foreach ($users as $user)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5 px-4">{{ $user->name }}</td>
-                        <td class="py-2.5 px-4 text-slate-500">{{ ucfirst($user->user_type) }}</td>
                         <td class="py-2.5 px-4 text-slate-500">{{ $user->email ?? $user->phone ?? '—' }}</td>
                         <td class="py-2.5 px-4">
                             @php

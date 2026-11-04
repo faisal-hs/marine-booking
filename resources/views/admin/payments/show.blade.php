@@ -66,7 +66,7 @@
         <div class="bg-white rounded-xl border border-slate-200 p-6">
             <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.reservations.customer') }}</h2>
             <dl class="text-sm space-y-2">
-                <div><dt class="text-slate-400">{{ __('admin.reservations.customer_name') }}</dt><dd>{{ $payment->reservation->customer->user->name }}</dd></div>
+                <div><dt class="text-slate-400">{{ __('admin.reservations.customer_name') }}</dt><dd><x-admin.account-name :user="$payment->reservation->customer->user" /></dd></div>
                 <div><dt class="text-slate-400">{{ __('admin.users.email') }}</dt><dd>{{ $payment->reservation->customer->user->email ?? '—' }}</dd></div>
             </dl>
         </div>

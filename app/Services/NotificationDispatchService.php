@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The single entry point every domain Service should call to send a
@@ -37,6 +38,16 @@ use Illuminate\Support\Facades\DB;
  * per-channel delivery failures are then retried by the queue worker
  * (and end up in failed_jobs), not by this method.
  *
+ * A RECIPIENT THAT NO LONGER EXISTS is skipped, not an error. Listeners
+ * reach the recipient through relations such as $activity->provider->user.
+ * A soft-deleted user (admin screens soft-delete, per the "never hard-delete
+ * user records" rule) is either null or, through the Provider/Customer
+ * relations, returned as a trashed model; both are skipped. Before this
+ * guard, that null reached get_class() below and threw a TypeError out of
+ * the listener, which broke the very operation that fired the event: a
+ * customer paying for an activity whose provider account had been deleted
+ * got a server error AFTER their reservation was already confirmed.
+ *
  * Known caveat, sync queue driver only (tests / local dev): there each
  * channel runs inline, so if channel N throws, channels before it have
  * already delivered, and a later retry of the same event_key would
@@ -48,11 +59,19 @@ class NotificationDispatchService
 {
     /**
      * @return bool True if the notification was handed off, false if it
-     *              was a duplicate or the hand-off failed (failures are
-     *              reported, never thrown).
+     *              was a duplicate, had no recipient, or the hand-off failed
+     *              (failures are reported, never thrown).
      */
-    public function dispatchOnce(string $eventKey, $notifiable, Notification $notification): bool
+    public function dispatchOnce(string $eventKey, ?object $notifiable, Notification $notification): bool
     {
+        // A missing recipient, or an account that was soft-deleted (the Provider and
+        // Customer relations still return it so screens can show who it was).
+        if ($notifiable === null || (method_exists($notifiable, 'trashed') && $notifiable->trashed())) {
+            Log::warning("Notification [{$eventKey}] skipped: its recipient no longer exists (a deleted account).");
+
+            return false;
+        }
+
         try {
             $logId = DB::table('notification_dispatch_log')->insertGetId([
                 'notifiable_type' => get_class($notifiable),

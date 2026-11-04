@@ -4,6 +4,7 @@ namespace Tests\Feature\Security;
 
 use App\Models\Otp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -49,6 +50,62 @@ class OtpRateLimitingTest extends TestCase
         ]);
 
         $sixthAttempt->assertStatus(429);
+    }
+
+    /** @return array<string, array{0: string, 1: array<string, string>}> */
+    public static function otpRequestEndpoints(): array
+    {
+        return [
+            'customer' => ['/api/v1/auth/customer/otp/request', ['name' => 'Throttle Test']],
+            'provider' => ['/api/v1/auth/provider/otp/request', ['name' => 'Throttle Test', 'business_name' => 'Throttle Divers']],
+            'any account' => ['/api/v1/auth/otp/request', []],
+        ];
+    }
+
+    /**
+     * Asking for a code sends a message to whatever phone number is given. Without a limit the endpoint can be used to
+     * flood a stranger's phone, or to run up the SMS bill.
+     *
+     * @dataProvider otpRequestEndpoints
+     */
+    #[DataProvider('otpRequestEndpoints')]
+    public function test_asking_for_a_code_is_limited_per_phone(string $url, array $extra): void
+    {
+        $payload = ['phone' => '0511111150'] + $extra;
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->assertNotSame(429, $this->postJson($url, $payload)->status(), 'Request '.($i + 1).' was limited too early');
+        }
+
+        $this->postJson($url, $payload)->assertStatus(429);
+
+        // Another phone from the same place is not affected by that phone's limit.
+        $this->assertNotSame(429, $this->postJson($url, ['phone' => '0511111151'] + $extra)->status());
+    }
+
+    public function test_asking_for_codes_is_limited_per_place_so_a_script_cannot_walk_through_many_numbers(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $phone = '05222'.str_pad((string) $i, 5, '0', STR_PAD_LEFT);
+            $this->assertNotSame(429, $this->postJson('/api/v1/auth/customer/otp/request', ['phone' => $phone, 'name' => 'Walker'])->status(), 'Number '.($i + 1).' was limited too early');
+        }
+
+        // Thirty different numbers from one address in a minute: the next one is refused, whatever the number.
+        $this->postJson('/api/v1/auth/customer/otp/request', ['phone' => '0522299999', 'name' => 'Walker'])->assertStatus(429);
+    }
+
+    public function test_the_limit_on_asking_for_codes_lifts_after_a_minute(): void
+    {
+        $payload = ['phone' => '0511111160', 'name' => 'Patient'];
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/v1/auth/customer/otp/request', $payload);
+        }
+        $this->postJson('/api/v1/auth/customer/otp/request', $payload)->assertStatus(429);
+
+        $this->travel(61)->seconds();
+
+        $this->assertNotSame(429, $this->postJson('/api/v1/auth/customer/otp/request', $payload)->status());
     }
 
     public function test_rate_limit_is_scoped_per_phone_not_global(): void

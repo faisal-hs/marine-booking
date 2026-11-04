@@ -13,6 +13,31 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
         parent::__construct($model);
     }
 
+    public function countLiveBookings(?array $activityIds = null, ?int $customerId = null): int
+    {
+        if ($activityIds === null && $customerId === null) {
+            throw new \InvalidArgumentException('Say whose bookings to count: activity ids, a customer id, or both.');
+        }
+
+        $query = $this->model->newQuery()->where(function ($q) {
+            $q->where(function ($upcoming) {
+                $upcoming->where('status', 'confirmed')->whereDate('reservation_date', '>=', today());
+            })->orWhere(function ($hold) {
+                $hold->where('status', 'pending')->where('hold_expires_at', '>', now());
+            });
+        });
+
+        if ($activityIds !== null) {
+            $query->whereIn('activity_id', $activityIds);
+        }
+
+        if ($customerId !== null) {
+            $query->where('customer_id', $customerId);
+        }
+
+        return $query->count();
+    }
+
     public function consumedCapacity(int $bookingOptionId, ?int $schedulePeriodId, string $date): array
     {
         $query = $this->model->newQuery()
@@ -155,7 +180,7 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
         if (is_numeric($value)) {
             $query->where($column, $value);
         } else {
-            $query->whereHas($relation, fn($q) => $q->where('uuid', $value));
+            $query->whereHas($relation, fn ($q) => $q->where('uuid', $value));
         }
     }
 }

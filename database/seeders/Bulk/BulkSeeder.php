@@ -4,6 +4,7 @@ namespace Database\Seeders\Bulk;
 
 use Carbon\Carbon;
 use Database\Seeders\Concerns\RefusesToRunInProduction;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -184,7 +185,7 @@ abstract class BulkSeeder extends Seeder
     /**
      * Stops with a clear message when the data this seeder builds on is missing.
      *
-     * @param  callable(\Illuminate\Database\Query\Builder): \Illuminate\Database\Query\Builder|null  $scope
+     * @param  callable(Builder): Builder|null  $scope
      */
     protected function needs(string $table, string $firstRunThis, ?callable $scope = null): void
     {

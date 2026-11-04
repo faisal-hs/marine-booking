@@ -13,7 +13,7 @@ Built with Laravel 12, Sanctum (API tokens) and Spatie Laravel-Permission (admin
 | Customer API    | Customers (mobile app): phone + OTP login, reserve, pay, review, favourite                                                                 | `/api/v1/auth/customer/*`, `/api/v1/customer/*` |
 | Provider API    | Activity providers (mobile app): phone + OTP login, manage activities, schedules, pricing, upload verification documents, see reservations | `/api/v1/auth/provider/*`, `/api/v1/provider/*` |
 | Public API      | Anyone: published activities, categories, availability, reviews                                                                            | `/api/v1/public/*`                              |
-| Admin panel     | Staff: users, providers and their documents, activity moderation, reservations, payments and refunds, reviews, dashboard, reports          | `/admin` (login at `/admin/login`)              |
+| Admin panel     | Staff: staff accounts, providers and their documents, customers, activities (create, edit, moderate), announcements, activity moderation, reservations, payments and refunds, reviews, dashboard, reports          | `/admin` (login at `/admin/login`)              |
 | Admin JSON API  | Reservations, payments, reviews and the dashboard as JSON                                                                                  | `/api/v1/admin/*`                               |
 | Public website  | Visitors, browse only (booking happens in the mobile app)                                                                                  | `/`                                             |
 | Payment webhook | The payment gateway                                                                                                                        | `POST /api/v1/webhooks/payments/{gateway}`      |
@@ -64,9 +64,17 @@ Then open <http://127.0.0.1:8000> (public site) or <http://127.0.0.1:8000/admin/
 | support_admin | `admin-support@marine-booking.test` | `password` |
 | content_admin | `admin-content@marine-booking.test` | `password` |
 
-Customers and providers have no password; they sign in by phone and a one-time code. In the
-`local` and `testing` environments the code is always `OTP_DEFAULT_CODE` (`1234` in
-`.env.example`). The seeded customer is `0522222222` and the seeded provider is `0511111111`:
+Customers and providers have no password; they sign in by phone and a one-time code. A fixed one-time
+code (`OTP_DEFAULT_CODE`, `1234` in `.env.example`) is controlled by `OTP_DEFAULT_CODE_ENABLED`:
+`true` turns it on in **any** environment (for a staging server with no SMS provider yet), `false`
+turns it off everywhere (to test real codes locally), and leaving it unset keeps it on in `local` and
+`testing` only. Turned on in production it means **anyone who knows a phone number can sign in as that
+person**, so every code issued is logged as a warning; switch it off before real users sign in.
+It applies to customers and providers alike. The seeded customer is `0522222222` and the seeded provider is `0511111111`:
+
+**Sign-in is rate limited**, because every step either sends a message or guesses a code: asking for a code is limited to 5 per
+minute for one phone from one address and 30 per minute for one address in all (so a script cannot walk through many numbers);
+resending to 3 per minute; verifying to 5 attempts per minute. Past a limit the answer is 429.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/request -H 'Accept: application/json' -d phone=0522222222
@@ -75,6 +83,71 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/verify  -H 'Accept: 
 
 The second call returns a bearer token for the other `/api/v1/customer/*` endpoints. Providers
 use the same calls under `/api/v1/auth/provider/`.
+
+## Large demo data
+
+`database/seeders/Bulk` fills **every table** with a large, internally consistent data set, for load testing and for
+building screens against realistic volumes. It is separate from the small demo data above and can sit beside it.
+
+```bash
+php artisan db:seed --class="Database\Seeders\Bulk\BulkDatabaseSeeder"
+```
+
+`BULK_SEED_SCALE` sets the size: `1` is the full set (about **1.3 million rows**, 370 MB in SQLite, seeded in about
+**75 seconds**), `0.1` is a tenth (about 8 seconds), `0.01` a smoke test. `BULK_SEED_RANDOM` seeds the random
+generator: the same scale and seed always produce the same data. **They refuse to run in production.**
+
+There is one seeder per model (26), plus `BulkNotificationSeeder` for the notifications table, and `BulkDatabaseSeeder`
+runs them in dependency order after the roles and the twelve demo categories. Each can also be run on its own with
+`--class`, and says which seeder to run first if something it builds on is missing. Running one again adds nothing;
+raising the scale and running again adds only the difference.
+
+| Seeder | Rows at scale 1 | What it makes |
+|---|---:|---|
+| BulkCategorySeeder | 40 | extra categories, a few inactive |
+| BulkFeatureDefinitionSeeder | 204 | per-category attributes (select, number, boolean, multi-select, text) |
+| BulkUserSeeder | 26,540 | 25,000 customers, 1,500 providers, 40 staff; about 2.5% suspended, 1% deleted |
+| BulkAdminSeeder | 40 (+40 roles) | staff profiles and roles (always at least one super admin) |
+| BulkProviderSeeder | 2,300 | 1,500 registered providers and 800 customers who asked to become one |
+| BulkProviderRequestSeeder | 2,462 | approved, rejected and waiting requests, matching each provider's status |
+| BulkProviderDocumentSeeder | 6,848 | the three required documents, as REAL small PDFs on the private disk |
+| BulkCustomerSeeder | 25,047 | customer accounts, including providers who also use the customer side |
+| BulkActivitySeeder | 15,000 | 62% published, plus drafts, waiting, rejected, inactive and 3% deleted |
+| BulkActivitySchedulePeriodSeeder | 71,781 | weekly departures, some crossing midnight |
+| BulkActivityBookingOptionSeeder | 21,731 | per person, per trip, per hour, package, fixed, per unit, per group |
+| BulkActivityPricingRuleSeeder | 36,728 | prices in EGP, by participant type for per-person options |
+| BulkActivityImageSeeder | 64,527 | placeholder photo paths (no files), first one the cover |
+| BulkActivityFeatureValueSeeder | 58,812 | values of the activity's own category attributes |
+| BulkActivityRequirementSeeder | 45,067 | what a guest must bring or meet |
+| BulkActivityInclusionSeeder | 67,421 | what is and is not included |
+| BulkActivityOptionSeeder | 14,911 | optional extras |
+| BulkActivityAvailabilityOverrideSeeder | 16,644 | closed or specially priced date ranges, past and future |
+| BulkReservationSeeder | 150,000 | bookings priced from the rules, on real departures, within capacity |
+| BulkReservationCapacityLockSeeder | 143,493 | one lock row per option, departure and day that was booked |
+| BulkPaymentSeeder | 131,582 | payments that agree with each booking, including failures and refunds |
+| BulkReviewSeeder | 25,675 | reviews of completed bookings, and each activity's rating |
+| BulkFavoriteSeeder | 120,000 | saved activities, popular ones far more often |
+| BulkDeviceSeeder | 17,872 | push devices with made-up tokens |
+| BulkOtpSeeder | 60,000 | expired sign-in codes (none can sign anyone in) |
+| BulkNotificationSeeder | 208,555 | the in-app feed, built from what happened, using the app's own notification classes |
+| BulkBroadcastSeeder | 600 | past announcements (sent, draft, failed) |
+
+Signing in to the seeded data: a staff member's email is `staff` followed by a number from 0 (the exact address is in `BulkUserSeeder`),
+and the password is `password`. The first one is a super admin; the next few are admins, then support and content admins. Customers and providers have no password; their phones are `07` + 8 digits
+(customers), `06` + 8 digits (providers) and `08` + 8 digits (staff), so they never clash with the demo accounts
+(`05...`).
+
+What is real and what is a placeholder: activity photos are paths only, like the demo data, because 65,000 image files
+would add nothing a path does not. The provider documents ARE real files (the admin screen offers them for download).
+Past announcements record how many people they reached, but their per-user notifications are not generated, which
+would add the size of the audience to the notification table for each one.
+
+The seeders are tested for consistency, not just presence (`tests/Feature/Seeders/BulkDataIntegrityTest.php`: a booking's
+price adds up and uses the right rule, no day is overbooked, a payment matches its booking, a review follows a
+completed one ...), for behaviour (`BulkSeedersBehaviourTest.php`: one seeder per model, repeatable, deterministic,
+refused in production), and against the application (`BulkDataInTheAppTest.php`: the public catalogue, customer, provider
+and staff sign-in, the admin screens, and a new booking made on top of the seeded ones). They run at 5% scale by default;
+`BULK_TEST_SCALE=1 php artisan test tests/Feature/Seeders` runs the same checks over the full set (a few minutes).
 
 ## Running the app
 
@@ -107,7 +180,7 @@ no network, and the OTP code is set in `phpunit.xml`, so it does not depend on y
 GitHub Actions (`.github/workflows/tests.yml`) runs it on every push and pull request, twice:
 once with today's date and once with the clock set 400 days ahead.
 
-Three rules keep the suite honest, and each is enforced by a test in the suite:
+Six rules keep the suite honest, and each is enforced by a test in the suite:
 
 1. **No hardcoded calendar dates in tests.** The reservation flow rejects past dates, so a test
    that books `2026-09-05` fails once that day has passed. Use `Tests\Concerns\RelativeDates`
@@ -116,6 +189,14 @@ Three rules keep the suite honest, and each is enforced by a test in the suite:
    so the tests in it would never run (`tests/Unit/TestFileNamingTest.php`).
 3. **New project environment variables go in `.env.example`**
    (`tests/Unit/EnvExampleCoverageTest.php`).
+4. **Every Blade view must compile to valid PHP.** An inline `@php($x = ...)` followed later in the
+   same file by a block `@php ... @endphp` compiles without complaint into code that is not valid
+   PHP, and only fails when the page is first opened. Use the block form, always
+   (`tests/Feature/Admin/BladeViewsCompileTest.php`).
+6. **Every notification class is placed** in `NotificationFeed` (customer, provider) or the shared
+   list, so each account's feed stays its own (`tests/Feature/Account/DualAccountEffectsTest.php`).
+5. **Every admin screen is checked in English and Arabic for untranslated keys**
+   (`Tests\Concerns\AssertsTranslated`): a missing key does not fail a page, it prints the key.
 
 ## How the code is organised
 
@@ -136,16 +217,16 @@ A request flows `FormRequest` (validation and authorization) → thin controller
 
 ### Provider onboarding and moderation
 
-1. **Verification.** A provider signs up by OTP with `verification_status: pending` and uploads
-   documents through `/api/v1/provider/documents` (business licence, identity document,
-   professional certification, insurance or other; PDF, JPEG, PNG or WebP, up to 5 MB each, at
-   most 10). An admin reads them on the provider page (`/admin/providers/{provider}`) and verifies
-   or rejects the provider. The files live on the private disk (`storage/app/private`), are never
-   reachable by URL, and can only be downloaded by an admin who may view providers. A verified
-   provider cannot delete the documents they were verified on.
-2. **The gate.** Only a verified provider can submit an activity for review, and only a verified
-   provider's activity can be approved or republished. Drafts are not blocked, so a provider can
-   prepare a listing while waiting.
+1. **Becoming a provider takes an admin's approval** (see "Accounts and provider requests"
+   below). A provider sends a request with business details and three documents; an admin reads it
+   on the provider requests screen (or on the provider's own page) and approves or rejects it. The
+   files live on the private disk (`storage/app/private`), are never reachable by URL, and can only
+   be downloaded by an admin who may view provider requests. Once approved, the **commercial
+   registration, safety certification and insurance certificate cannot be deleted**; a provider can
+   still add and remove supporting documents through `/api/v1/provider/documents`.
+2. **The gate.** Until approved, a provider account can do nothing on the provider side (every
+   `/api/v1/provider/*` route except reading the profile answers 403). Only a verified provider's
+   activity can be approved or republished.
 3. **Review.** Approving publishes the activity immediately. A rejected activity can be edited and
    submitted again.
 4. **Editing a live activity.** Changing the title, description, category, location, photos,
@@ -156,6 +237,42 @@ A request flows `FormRequest` (validation and authorization) → thin controller
    unchanged form does nothing, and a deactivated activity is not guarded because an admin has to
    republish it deliberately. Every provider endpoint that changes an activity has to be classified
    in `tests/Feature/Provider/LiveActivityReviewTest.php`, so a new one cannot quietly skip the rule.
+
+### Accounts and provider requests
+
+One phone can hold a **customer account** and a **provider account**. A user's `user_type` is only the
+account they *registered* as; `AccountService` decides what they can use now.
+
+| | Customer account | Provider account |
+|---|---|---|
+| Available | always (created on first use, no approval) | once an admin approves a provider request |
+| Token ability | `customer` | `provider` |
+
+- **Signing in.** `/api/v1/auth/customer/otp/*` and `/api/v1/auth/provider/otp/*` open the account they
+  are named for, for a person who has it. `/api/v1/auth/otp/*` opens the person's **default account**
+  (their own choice, else the one they registered as). A customer phone has no provider sign-in until
+  it has a provider account. Every sign-in returns an `account` object: `account_type`,
+  `default_account`, `available_accounts`, `provider_request_status`.
+- **`GET /api/v1/account`** (either token) returns the account context, the user and the profile;
+  **`PUT /api/v1/account/default`** chooses the default; **`POST /api/v1/account/switch`** signs the person
+  into the other account: a new token, the old one revoked, and the new account's profile in the
+  response. Both profile endpoints also return the `account` object.
+- **Asking to become a provider.** A customer, or someone who registered as a provider, sends
+  `POST /api/v1/account/provider-request` (multipart): `business_name`, `city`, `area`, optional `bio` and
+  `address`, and the files `commercial_registration`, `safety_certification` and
+  `insurance_certificate` (PDF or image, up to 5 MB). `GET` on the same path says where they stand
+  (`none`, `not_submitted`, `pending`, `approved`, `rejected`, with the reason). A rejected request can
+  be corrected and sent again; documents already on file need not be uploaded twice, and a replaced
+  document is removed from the database and the disk.
+- **The admin side.** Requests appear under **Provider requests** (`/admin/provider-requests`), with a
+  badge and a dashboard figure. Only admins holding `provider_requests.view` / `provider_requests.review`,
+  which the seeder gives to the `admin` and `super_admin` roles and nobody else, can see or decide them.
+  Rejecting needs a reason, which the applicant is shown.
+- **Around the rest of the system.** A provider cannot book their own activity. Suspending or
+  deleting a person affects both accounts (a delete is refused while either side has a live booking).
+  Announcements to "all customers" and "all providers" go by account, and "providers" means approved
+  ones. Each account has its **own notification feed**: `NotificationFeed` lists which notification
+  classes belong to which account, and a test fails when a new class is not placed.
 
 ### Notifications
 
@@ -181,6 +298,48 @@ provider API does not expose them either.
 
 `lang/en` and `lang/ar`, with right-to-left layout for Arabic. The admin panel and the public
 site each remember their own language in the session (`admin_locale` and `public_locale`).
+
+## The admin panel
+
+Each area has a list, a detail page and the actions below. A button is shown only to someone who
+may use it, and the server checks the same permission again.
+
+| Area | What staff can do | Permission |
+|---|---|---|
+| **Staff** (`/admin/users`) | List, create, edit, suspend and delete **staff** accounts only | `users.*` |
+| **Providers** | List and search, create, edit, suspend, reactivate, delete, restore; read their documents; verify or reject | `providers.view / create / update / delete / verify / reject` |
+| **Provider requests** | See and decide requests to become a provider, with their documents; approve or reject (a reason is required) | `provider_requests.view / review`: **admin and super admin only** |
+| **Customers** | List and search, create, edit, suspend, reactivate, delete, restore; see their bookings and spending | `customers.view / create / update / delete` |
+| **Activities** | List and search, create for a provider, edit (details, features, requirements, inclusions, photos), delete, restore; approve, reject, publish, deactivate | `activities.view / create / update / delete`, and separately `approve / reject / publish` |
+| **Notifications** | Your own inbox; a log of every in-app notification sent to anyone; announcements to all customers, all providers or one account | `notifications.view / create / delete` |
+
+How the roles line up: `super_admin` and `admin` can do everything; `support_admin` can look at
+providers and customers but not change them; `content_admin` can write activities but cannot
+approve or publish them, and sees no accounts or notifications.
+
+Rules that apply across the panel:
+
+- **Delete is always a soft delete** and is **refused while a booking is live**: a confirmed one
+  still ahead, or a pending one whose hold is still running. The message says how many. A
+  customer's or provider's *history* (bookings, payments, reviews) is never removed. Only the
+  user account is soft-deleted, and a deleted account still shows by name, marked "Deleted".
+- **Suspending or deleting a provider takes their published activities off the site** (they become
+  "inactive"). Reactivating or restoring does not put them back: an admin republishes them, and
+  the verified-provider check runs again.
+- **Deleting an activity** deactivates it first, so restoring it never republishes it silently.
+- A deleted account **cannot sign in**: it gets a clear message, not an error. Restoring it lets
+  it in again.
+- Staff edits to an activity do **not** send a live activity back to review (only a provider's
+  own edits do). The staff are the reviewers.
+- **Staff accounts:** only a super admin can create or promote a super admin, only a super admin
+  can edit or delete one, and the last active super admin cannot be demoted, suspended or deleted.
+- **Announcements** are saved as a draft, then sent once. Sending queues a job (so a queue worker
+  must be running) that gives each active recipient an in-app notification and a push. Staff,
+  suspended and deleted accounts never receive one. A sent announcement cannot be edited, and
+  deleting it does not remove notifications already delivered.
+- The notification **log** deliberately lets `notifications.delete` holders remove an entry. That
+  also removes it from the recipient's feed in the mobile app, which is why it is a separate,
+  stronger permission than viewing.
 
 ## Configuration
 
@@ -212,6 +371,15 @@ mention.
    answer `503` (next section).
 7. Back up `storage/app/private` (the verification documents) together with the database, and make
    sure the web server does not serve it.
+9. **Providers that registered before the provider request existed** and were never approved will find
+   the provider side closed until they submit a request; approved providers are unaffected. Existing
+   approved providers have no `city` or `area` until they set them on their profile.
+10. Decide on `OTP_DEFAULT_CODE_ENABLED` for every environment. It must be off (or unset) in production
+   once real users sign in.
+8. After updating an existing installation, run `php artisan migrate` (new tables) and
+   `php artisan db:seed --class=RolesAndPermissionsSeeder --force` (new permissions, such as
+   `notifications.create`). The seeder is idempotent and safe in production. Without it the new
+   buttons never appear for anyone but a super admin.
 
 ## Known limitations
 
@@ -237,6 +405,21 @@ These are known and deliberately listed, not hidden:
   the application server's disk.
 - **The `approved` activity status is never used.** Approving publishes straight away; the value
   exists in the database enum only.
+- **A person's two accounts share their push devices.** Registering a device on either side registers
+  it for the person, so a push meant for one account can reach the device the other account is using.
+  The in-app feeds are separate; pushes are not.
+- **The notification log filters recipients by the type they registered as**, not by accounts.
+- **A provider request needs the three documents even from a provider who was approved before they existed.**
+  Such providers are not asked to send them.
+- **The provider dropdown on "add activity" lists at most 500 providers.** Beyond that it needs a
+  search box.
+- **Announcements go to all customers, all providers or one account.** There are no segments,
+  scheduling or templates yet, and the "sent to" count is how many were handed to the notification
+  system, not how many devices received a push.
+- **The notification log shows in-app entries only.** A push, SMS or e-mail that kept failing is
+  not listed there; see `php artisan queue:failed`.
+- **A deleted customer's reviews still show their name publicly.** The history is kept on purpose;
+  whether it should be anonymised is a product decision.
 - **No concurrency tests** for capacity locking or webhook races.
 
 ## For AI coding assistants

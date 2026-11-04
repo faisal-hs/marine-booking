@@ -16,14 +16,6 @@
             class="bg-white rounded-xl border border-slate-200 p-6 space-y-4 text-sm">
             @csrf
 
-            <div>
-                <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.user_type') }}</label>
-                <select name="user_type" required class="w-full border border-slate-200 rounded-lg px-3 py-2">
-                    <option value="admin">Admin</option>
-                    <option value="provider">Provider</option>
-                    <option value="customer">Customer</option>
-                </select>
-            </div>
 
             <div>
                 <label class="block font-medium mb-1 text-slate-700">{{ __('admin.dashboard.name') }}</label>
@@ -45,22 +37,22 @@
 
             <div>
                 <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.password') }}</label>
-                <input type="password" name="password" class="w-full border border-slate-200 rounded-lg px-3 py-2">
+                <input type="password" name="password" required minlength="8" class="w-full border border-slate-200 rounded-lg px-3 py-2">
             </div>
 
             <div>
                 <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.role') }}</label>
-                <select name="role" class="w-full border border-slate-200 rounded-lg px-3 py-2">
-                    <option value="">—</option>
+                <select name="role" required class="w-full border border-slate-200 rounded-lg px-3 py-2">
                     @foreach ($roles as $role)
-                        <option value="{{ $role }}">{{ $role }}</option>
+                        <option value="{{ $role }}" @selected(old('role') === $role)>{{ $role }}</option>
                     @endforeach
                 </select>
             </div>
 
+
             <div>
-                <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.business_name') }}</label>
-                <input type="text" name="business_name" value="{{ old('business_name') }}"
+                <label class="block font-medium mb-1 text-slate-700">{{ __('admin.users.job_title') }}</label>
+                <input type="text" name="job_title" value="{{ old('job_title') }}"
                     class="w-full border border-slate-200 rounded-lg px-3 py-2">
             </div>
 

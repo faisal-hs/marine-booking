@@ -162,7 +162,7 @@
                 <dl class="text-sm space-y-2">
                     <div>
                         <dt class="text-slate-400">{{ __('admin.reservations.customer_name') }}</dt>
-                        <dd>{{ $reservation->customer->user->name }}</dd>
+                        <dd><x-admin.account-name :user="$reservation->customer->user" /></dd>
                     </div>
                     <div>
                         <dt class="text-slate-400">{{ __('admin.users.email') }}</dt>

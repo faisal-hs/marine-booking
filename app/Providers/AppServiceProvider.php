@@ -17,8 +17,8 @@ use App\Events\ReservationCreated;
 use App\Events\ReservationExpired;
 use App\Listeners\Notifications\SendActivityApprovedNotifications;
 use App\Listeners\Notifications\SendActivityPublishedNotifications;
-use App\Listeners\Notifications\SendActivitySentBackToReviewNotifications;
 use App\Listeners\Notifications\SendActivityRejectedNotifications;
+use App\Listeners\Notifications\SendActivitySentBackToReviewNotifications;
 use App\Listeners\Notifications\SendPaymentFailedNotifications;
 use App\Listeners\Notifications\SendPaymentRefundedNotifications;
 use App\Listeners\Notifications\SendProviderRejectedNotifications;
@@ -30,6 +30,7 @@ use App\Listeners\Notifications\SendReservationCreatedNotifications;
 use App\Listeners\Notifications\SendReservationExpiredNotifications;
 use App\Notifications\Channels\FcmChannel;
 use App\Notifications\Channels\SmsChannel;
+use App\Repositories\Contracts\CategoryRepositoryInterface;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -71,7 +72,7 @@ class AppServiceProvider extends ServiceProvider
     protected function registerViewComposers(): void
     {
         View::composer('public.*', function ($view) {
-            $view->with('categories', $view->getData()['categories'] ?? app(\App\Repositories\Contracts\CategoryRepositoryInterface::class)->activeOrdered());
+            $view->with('categories', $view->getData()['categories'] ?? app(CategoryRepositoryInterface::class)->activeOrdered());
         });
     }
 
@@ -88,8 +89,8 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function registerNotificationChannels(): void
     {
-        Notification::extend('sms', fn($app) => $app->make(SmsChannel::class));
-        Notification::extend('fcm', fn($app) => $app->make(FcmChannel::class));
+        Notification::extend('sms', fn ($app) => $app->make(SmsChannel::class));
+        Notification::extend('fcm', fn ($app) => $app->make(FcmChannel::class));
     }
 
     protected function configureRateLimiting(): void
@@ -99,7 +100,7 @@ class AppServiceProvider extends ServiceProvider
         // or IP-only limiter would let an attacker exhaust the limit for
         // everyone sharing that IP, e.g. an office network).
         RateLimiter::for('admin-login', function (Request $request) {
-            $key = strtolower((string) $request->input('email')) . '|' . $request->ip();
+            $key = strtolower((string) $request->input('email')).'|'.$request->ip();
 
             return Limit::perMinute(5)->by($key);
         });
@@ -111,14 +112,30 @@ class AppServiceProvider extends ServiceProvider
         // combination keeps the limit scoped to one specific attack
         // target at a time.
         RateLimiter::for('otp-verify', function (Request $request) {
-            $key = (string) $request->input('phone') . '|' . $request->ip();
+            $key = (string) $request->input('phone').'|'.$request->ip();
 
             return Limit::perMinute(5)->by($key);
         });
 
         // OTP resend: tighter limit, same scoping rationale as verify.
+        // Asking for a code SENDS A MESSAGE to whatever phone number is given, so this is the endpoint that can be turned
+        // on a third party (SMS bombing) or run up the SMS bill. Two limits: how often one phone can be asked for a code from
+        // one place, and how many codes one place can ask for in all, which stops a script walking through many numbers.
+        // Starting a payment is what costs money once the mock gateway is replaced by a real one: every attempt reaches the
+        // gateway. Ten a minute per customer is far above what a person does and well below what a script does.
+        RateLimiter::for('payments', function (Request $request) {
+            return Limit::perMinute(10)->by('payments:'.($request->user()?->id ?? $request->ip()));
+        });
+
+        RateLimiter::for('otp-request', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by('otp-request:'.(string) $request->input('phone').'|'.$request->ip()),
+                Limit::perMinute(30)->by('otp-request-ip:'.$request->ip()),
+            ];
+        });
+
         RateLimiter::for('otp-resend', function (Request $request) {
-            $key = (string) $request->input('phone') . '|' . $request->ip();
+            $key = (string) $request->input('phone').'|'.$request->ip();
 
             return Limit::perMinute(3)->by($key);
         });

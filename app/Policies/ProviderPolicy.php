@@ -2,18 +2,43 @@
 
 namespace App\Policies;
 
+use App\Models\Provider;
 use App\Models\User;
 
-/**
- * Admin verification actions only — permission-based, matching
- * ActivityPolicy's approve()/reject() pattern exactly (dedicated
- * permissions per action, not a shared 'update' permission, since an
- * admin verifying someone else's provider account is a fundamentally
- * different authorization question than a provider editing their own
- * profile — which isn't governed by this Policy at all).
- */
 class ProviderPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->can('providers.view');
+    }
+
+    public function view(User $user, Provider $provider): bool
+    {
+        return $user->can('providers.view');
+    }
+
+    public function create(User $user): bool
+    {
+        return $user->can('providers.create');
+    }
+
+    /** Editing the profile, suspending and reactivating. */
+    public function update(User $user, Provider $provider): bool
+    {
+        return $user->can('providers.update');
+    }
+
+    /** Deleting and restoring. */
+    public function delete(User $user, Provider $provider): bool
+    {
+        return $user->can('providers.delete');
+    }
+
+    public function restore(User $user, Provider $provider): bool
+    {
+        return $user->can('providers.delete');
+    }
+
     public function verify(User $user): bool
     {
         return $user->can('providers.verify');
@@ -22,10 +47,5 @@ class ProviderPolicy
     public function reject(User $user): bool
     {
         return $user->can('providers.reject');
-    }
-
-    public function viewAny(User $user): bool
-    {
-        return $user->can('providers.view');
     }
 }

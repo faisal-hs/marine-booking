@@ -35,9 +35,10 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
 
     public function slugExists(string $slug, ?int $ignoreId = null): bool
     {
-        return $this->model->newQuery()
+        // withTrashed(): a deleted row still owns its slug (the unique index counts it); see ActivityRepository::slugExists.
+        return $this->model->newQuery()->withTrashed()
             ->where('slug', $slug)
-            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->exists();
     }
 
@@ -50,7 +51,7 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
         }
 
         if (! empty($filters['search'])) {
-            $query->where('name', 'like', '%' . $filters['search'] . '%');
+            $query->where('name', 'like', '%'.$filters['search'].'%');
         }
 
         return $query->orderBy('sort_order')->paginate($perPage)->withQueryString();

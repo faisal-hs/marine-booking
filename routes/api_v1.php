@@ -1,15 +1,32 @@
 <?php
 
+use App\Http\Controllers\Api\Account\AccountController;
+use App\Http\Controllers\Api\Account\ProviderRequestController;
+use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Auth\AccountAuthController;
 use App\Http\Controllers\Api\Auth\CustomerAuthController;
 use App\Http\Controllers\Api\Auth\ProviderAuthController;
+use App\Http\Controllers\Api\Customer\FavoriteController;
+use App\Http\Controllers\Api\Customer\PaymentController;
 use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Api\Customer\ReviewController;
+use App\Http\Controllers\Api\PingController;
+use App\Http\Controllers\Api\Provider\ActivityBookingOptionController;
 use App\Http\Controllers\Api\Provider\ActivityController;
 use App\Http\Controllers\Api\Provider\ActivityDetailsController;
 use App\Http\Controllers\Api\Provider\ActivityFeatureController;
 use App\Http\Controllers\Api\Provider\ActivityImageController;
+use App\Http\Controllers\Api\Provider\ActivityPricingRuleController;
+use App\Http\Controllers\Api\Provider\AvailabilityOverrideController;
+use App\Http\Controllers\Api\Provider\DocumentController;
 use App\Http\Controllers\Api\Provider\ProfileController as ProviderProfileController;
+use App\Http\Controllers\Api\Provider\ReservationController;
+use App\Http\Controllers\Api\Provider\ScheduleController;
 use App\Http\Controllers\Api\Public\ActivityController as PublicActivityController;
 use App\Http\Controllers\Api\Public\CategoryController as PublicCategoryController;
+use App\Http\Controllers\Api\Shared\DeviceController;
+use App\Http\Controllers\Api\Shared\NotificationController;
+use App\Http\Controllers\Api\Webhooks\PaymentWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,21 +42,20 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/ping', \App\Http\Controllers\Api\PingController::class)->name('api.v1.ping');
+Route::get('/ping', PingController::class)->name('api.v1.ping');
 
 Route::prefix('auth')->name('auth.')->group(function () {
     // Sign in to an account that already exists, whichever kind: opens the person's default account.
-    Route::post('/otp/request', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'requestOtp'])->name('otp.request');
-    Route::post('/otp/verify', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'verifyOtp'])
+    Route::post('/otp/request', [AccountAuthController::class, 'requestOtp'])->middleware('throttle:otp-request')->name('otp.request');
+    Route::post('/otp/verify', [AccountAuthController::class, 'verifyOtp'])
         ->middleware('throttle:otp-verify')
         ->name('otp.verify');
-    Route::post('/otp/resend', [\App\Http\Controllers\Api\Auth\AccountAuthController::class, 'resendOtp'])
+    Route::post('/otp/resend', [AccountAuthController::class, 'resendOtp'])
         ->middleware('throttle:otp-resend')
         ->name('otp.resend');
 
-
     Route::prefix('provider')->name('provider.')->group(function () {
-        Route::post('/otp/request', [ProviderAuthController::class, 'requestOtp'])->name('otp.request');
+        Route::post('/otp/request', [ProviderAuthController::class, 'requestOtp'])->middleware('throttle:otp-request')->name('otp.request');
         Route::post('/otp/verify', [ProviderAuthController::class, 'verifyOtp'])
             ->middleware('throttle:otp-verify')
             ->name('otp.verify');
@@ -52,7 +68,7 @@ Route::prefix('auth')->name('auth.')->group(function () {
     });
 
     Route::prefix('customer')->name('customer.')->group(function () {
-        Route::post('/otp/request', [CustomerAuthController::class, 'requestOtp'])->name('otp.request');
+        Route::post('/otp/request', [CustomerAuthController::class, 'requestOtp'])->middleware('throttle:otp-request')->name('otp.request');
         Route::post('/otp/verify', [CustomerAuthController::class, 'verifyOtp'])
             ->middleware('throttle:otp-verify')
             ->name('otp.verify');
@@ -95,47 +111,47 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         Route::put('/activities/{activity}/inclusions', [ActivityDetailsController::class, 'syncInclusions'])
             ->name('activities.inclusions.sync');
 
-        Route::apiResource('activities.schedule', \App\Http\Controllers\Api\Provider\ScheduleController::class)
+        Route::apiResource('activities.schedule', ScheduleController::class)
             ->parameters(['schedule' => 'period'])
             ->only(['index', 'store', 'update', 'destroy']);
 
-        Route::apiResource('activities.overrides', \App\Http\Controllers\Api\Provider\AvailabilityOverrideController::class)
+        Route::apiResource('activities.overrides', AvailabilityOverrideController::class)
             ->parameters(['overrides' => 'override'])
             ->only(['index', 'store', 'update', 'destroy']);
 
-        Route::apiResource('activities.booking-options', \App\Http\Controllers\Api\Provider\ActivityBookingOptionController::class)
+        Route::apiResource('activities.booking-options', ActivityBookingOptionController::class)
             ->parameters(['booking-options' => 'bookingOption'])
             ->only(['index', 'store', 'show', 'update', 'destroy']);
 
-        Route::apiResource('activities.booking-options.pricing-rules', \App\Http\Controllers\Api\Provider\ActivityPricingRuleController::class)
+        Route::apiResource('activities.booking-options.pricing-rules', ActivityPricingRuleController::class)
             ->parameters(['booking-options' => 'bookingOption', 'pricing-rules' => 'pricingRule'])
             ->only(['index', 'store', 'update', 'destroy']);
 
-        Route::get('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'index'])
+        Route::get('/documents', [DocumentController::class, 'index'])
             ->name('documents.index');
-        Route::post('/documents', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'store'])
+        Route::post('/documents', [DocumentController::class, 'store'])
             ->middleware('throttle:20,1')
             ->name('documents.store');
-        Route::delete('/documents/{document:uuid}', [\App\Http\Controllers\Api\Provider\DocumentController::class, 'destroy'])
+        Route::delete('/documents/{document:uuid}', [DocumentController::class, 'destroy'])
             ->name('documents.destroy');
 
-        Route::get('/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'index'])
+        Route::get('/reservations', [ReservationController::class, 'index'])
             ->name('reservations.index');
-        Route::get('/activities/{activity}/reservations', [\App\Http\Controllers\Api\Provider\ReservationController::class, 'forActivity'])
+        Route::get('/activities/{activity}/reservations', [ReservationController::class, 'forActivity'])
             ->name('activities.reservations.index');
 
-        Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+        Route::post('/devices', [DeviceController::class, 'store'])
             ->name('devices.store');
-        Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+        Route::delete('/devices/{fcmToken}', [DeviceController::class, 'destroy'])
             ->name('devices.destroy');
 
-        Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+        Route::get('/notifications', [NotificationController::class, 'index'])
             ->name('notifications.index');
-        Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
             ->name('notifications.unread-count');
-        Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
             ->name('notifications.read');
-        Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
             ->name('notifications.read-all');
     });
 });
@@ -144,51 +160,52 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
     Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
 
-    Route::apiResource('reservations', \App\Http\Controllers\Api\Customer\ReservationController::class)
+    Route::apiResource('reservations', App\Http\Controllers\Api\Customer\ReservationController::class)
         ->only(['index', 'store', 'show']);
-    Route::post('/reservations/{reservation}/cancel', [\App\Http\Controllers\Api\Customer\ReservationController::class, 'cancel'])
+    Route::post('/reservations/{reservation}/cancel', [App\Http\Controllers\Api\Customer\ReservationController::class, 'cancel'])
         ->name('reservations.cancel');
 
-    Route::post('/reservations/{reservation}/payments', [\App\Http\Controllers\Api\Customer\PaymentController::class, 'store'])
+    Route::post('/reservations/{reservation}/payments', [PaymentController::class, 'store'])
+        ->middleware('throttle:payments')
         ->name('payments.store');
-    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Customer\PaymentController::class, 'show'])
+    Route::get('/payments/{payment}', [PaymentController::class, 'show'])
         ->name('payments.show');
 
-    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+    Route::post('/devices', [DeviceController::class, 'store'])
         ->name('devices.store');
-    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+    Route::delete('/devices/{fcmToken}', [DeviceController::class, 'destroy'])
         ->name('devices.destroy');
 
-    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+    Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
-    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
         ->name('notifications.unread-count');
-    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
         ->name('notifications.read');
-    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
 
-    Route::get('/favorites', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'index'])
+    Route::get('/favorites', [FavoriteController::class, 'index'])
         ->name('favorites.index');
-    Route::post('/favorites', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'store'])
+    Route::post('/favorites', [FavoriteController::class, 'store'])
         ->name('favorites.store');
-    Route::delete('/favorites/{activity}', [\App\Http\Controllers\Api\Customer\FavoriteController::class, 'destroy'])
+    Route::delete('/favorites/{activity}', [FavoriteController::class, 'destroy'])
         ->name('favorites.destroy');
 
-    Route::apiResource('reviews', \App\Http\Controllers\Api\Customer\ReviewController::class)
+    Route::apiResource('reviews', ReviewController::class)
         ->only(['index', 'store', 'update', 'destroy']);
 });
 
 // The signed-in person's accounts. Open to a customer token or a provider token.
 Route::middleware(['auth:sanctum', 'ability:customer,provider'])->prefix('account')->name('account.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Api\Account\AccountController::class, 'show'])->name('show');
-    Route::put('/default', [\App\Http\Controllers\Api\Account\AccountController::class, 'setDefault'])->name('default');
-    Route::post('/switch', [\App\Http\Controllers\Api\Account\AccountController::class, 'switch'])->name('switch');
-    Route::post('/logout', [\App\Http\Controllers\Api\Account\AccountController::class, 'logout'])->name('logout');
+    Route::get('/', [AccountController::class, 'show'])->name('show');
+    Route::put('/default', [AccountController::class, 'setDefault'])->name('default');
+    Route::post('/switch', [AccountController::class, 'switch'])->name('switch');
+    Route::post('/logout', [AccountController::class, 'logout'])->name('logout');
 
     // Becoming a provider: needs an admin's approval, and is the only provider-side thing open before it.
-    Route::get('/provider-request', [\App\Http\Controllers\Api\Account\ProviderRequestController::class, 'show'])->name('provider-request.show');
-    Route::post('/provider-request', [\App\Http\Controllers\Api\Account\ProviderRequestController::class, 'store'])
+    Route::get('/provider-request', [ProviderRequestController::class, 'show'])->name('provider-request.show');
+    Route::post('/provider-request', [ProviderRequestController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('provider-request.store');
 });
@@ -206,42 +223,42 @@ Route::middleware(['auth:sanctum', 'ability:customer,provider'])->prefix('accoun
 | Controller, matching ActivityPolicy's existing admin-method pattern.
 */
 Route::middleware(['auth:web'])->prefix('admin')->name('api.admin.')->group(function () {
-    Route::get('/reservations', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
+    Route::get('/reservations', [App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
         ->name('reservations.index');
-    Route::get('/reservations/{reservation}', [\App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])
+    Route::get('/reservations/{reservation}', [App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])
         ->name('reservations.show');
 
-    Route::get('/payments', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'index'])
+    Route::get('/payments', [App\Http\Controllers\Api\Admin\PaymentController::class, 'index'])
         ->name('payments.index');
-    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'show'])
+    Route::get('/payments/{payment}', [App\Http\Controllers\Api\Admin\PaymentController::class, 'show'])
         ->name('payments.show');
-    Route::post('/payments/{payment}/refund', [\App\Http\Controllers\Api\Admin\PaymentController::class, 'refund'])
+    Route::post('/payments/{payment}/refund', [App\Http\Controllers\Api\Admin\PaymentController::class, 'refund'])
         ->name('payments.refund');
 
-    Route::post('/devices', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'store'])
+    Route::post('/devices', [DeviceController::class, 'store'])
         ->name('devices.store');
-    Route::delete('/devices/{fcmToken}', [\App\Http\Controllers\Api\Shared\DeviceController::class, 'destroy'])
+    Route::delete('/devices/{fcmToken}', [DeviceController::class, 'destroy'])
         ->name('devices.destroy');
 
-    Route::get('/notifications', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'index'])
+    Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
-    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'unreadCount'])
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
         ->name('notifications.unread-count');
-    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAsRead'])
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
         ->name('notifications.read');
-    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\Shared\NotificationController::class, 'markAllAsRead'])
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
 
-    Route::get('/reviews', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'index'])
+    Route::get('/reviews', [App\Http\Controllers\Api\Admin\ReviewController::class, 'index'])
         ->name('reviews.index');
-    Route::get('/reviews/{review}', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'show'])
+    Route::get('/reviews/{review}', [App\Http\Controllers\Api\Admin\ReviewController::class, 'show'])
         ->name('reviews.show');
-    Route::post('/reviews/{review}/hide', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'hide'])
+    Route::post('/reviews/{review}/hide', [App\Http\Controllers\Api\Admin\ReviewController::class, 'hide'])
         ->name('reviews.hide');
-    Route::post('/reviews/{review}/unhide', [\App\Http\Controllers\Api\Admin\ReviewController::class, 'unhide'])
+    Route::post('/reviews/{review}/unhide', [App\Http\Controllers\Api\Admin\ReviewController::class, 'unhide'])
         ->name('reviews.unhide');
 
-    Route::get('/dashboard', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'index'])
+    Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard.index');
 });
 
@@ -250,9 +267,9 @@ Route::prefix('public')->name('api.public.')->group(function () {
     Route::get('/categories/{category}', [PublicCategoryController::class, 'show'])->name('categories.show');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');
     Route::get('/activities/{activity}', [PublicActivityController::class, 'show'])->name('activities.show');
-    Route::get('/activities/{activity}/availability', [\App\Http\Controllers\Api\Public\ActivityController::class, 'availability'])
+    Route::get('/activities/{activity}/availability', [PublicActivityController::class, 'availability'])
         ->name('activities.availability');
-    Route::get('/activities/{activity}/reviews', [\App\Http\Controllers\Api\Public\ActivityController::class, 'reviews'])
+    Route::get('/activities/{activity}/reviews', [PublicActivityController::class, 'reviews'])
         ->name('activities.reviews');
 });
 
@@ -262,5 +279,5 @@ Route::prefix('public')->name('api.public.')->group(function () {
 | own signature verification inside the bound driver, never from route
 | middleware — see PaymentWebhookController's own doc comment.
 */
-Route::post('/webhooks/payments/{gateway}', [\App\Http\Controllers\Api\Webhooks\PaymentWebhookController::class, 'handle'])
+Route::post('/webhooks/payments/{gateway}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.payments');

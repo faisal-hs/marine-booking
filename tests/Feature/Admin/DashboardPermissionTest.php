@@ -35,7 +35,7 @@ class DashboardPermissionTest extends TestCase
         $response = $this->actingAs($admin, 'web')->get(route('admin.dashboard'));
 
         $response->assertOk()
-            ->assertSee('Users')
+            ->assertSee('Staff')
             ->assertSee('Roles & Permissions')
             ->assertSee('Settings');
     }
@@ -56,12 +56,12 @@ class DashboardPermissionTest extends TestCase
     public function test_support_admin_sees_users_page_but_cannot_create_or_delete(): void
     {
         $admin = $this->makeAdmin('support_admin');
-        $target = User::factory()->customer()->create();
+        $target = $this->makeAdmin('content_admin');
 
         $response = $this->actingAs($admin, 'web')->get(route('admin.users.index'));
 
         $response->assertOk()
-            ->assertDontSee('+ Add User');
+            ->assertDontSee('+ Add staff member');
 
         $showResponse = $this->actingAs($admin, 'web')->get(route('admin.users.show', $target));
         $showResponse->assertOk()->assertDontSee('Delete');
@@ -70,11 +70,11 @@ class DashboardPermissionTest extends TestCase
     public function test_admin_role_sees_users_page_with_full_actions(): void
     {
         $admin = $this->makeAdmin('admin');
-        $target = User::factory()->customer()->create();
+        $target = $this->makeAdmin('content_admin');
 
         $indexResponse = $this->actingAs($admin, 'web')->get(route('admin.users.index'));
         $indexResponse->assertOk()
-            ->assertSee('+ Add User')
+            ->assertSee('+ Add staff member')
             ->assertSee('Edit')
             ->assertSee('Delete');
 
