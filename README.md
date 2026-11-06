@@ -149,6 +149,27 @@ refused in production), and against the application (`BulkDataInTheAppTest.php`:
 and staff sign-in, the admin screens, and a new booking made on top of the seeded ones). They run at 5% scale by default;
 `BULK_TEST_SCALE=1 php artisan test tests/Feature/Seeders` runs the same checks over the full set (a few minutes).
 
+## Monthly reservations per provider
+
+```bash
+php artisan db:seed --class=ProviderMonthlyReservationSeeder
+```
+
+gives **every active provider at least 50 paid reservations in the current month** (`PROVIDER_MONTH_MINIMUM`, default 50), for dashboards,
+revenue and the provider app to show real numbers. An active provider is one an admin has approved whose account is active; pending, rejected,
+suspended and deleted providers get nothing.
+
+- Each reservation is on a real departure of one of the provider's published activities, on that departure's weekday, priced from the option's own
+  pricing rules, and no day goes beyond an activity's capacity.
+- Every one is **paid**: a succeeded payment for the full total through the mock gateway. Days before today are `completed`; today and later are
+  `confirmed` (a trip is not completed in advance). Customers are active ones, never the provider themselves.
+- "At least 50" counts what is already there (confirmed or completed reservations of the month with a succeeded payment, however they were
+  created), so running it again adds nothing, and raising the minimum adds only the difference.
+- An active provider with nothing bookable first gets one small published activity, "<business> Day Trip" (daily departures, 40 places, adult 300 and
+  child 150 EGP). In the demo data that is 5 of the 15 active providers; without it they could never reach the minimum.
+- If a minimum cannot fit without overbooking, it stops with a message instead of overbooking.
+- It works on the demo data and on the bulk data, ignores `BULK_SEED_SCALE`, and refuses to run in production.
+
 ## Running the app
 
 Three processes need to be running. `composer dev` starts all of them; or use three terminals:
@@ -212,6 +233,13 @@ A request flows `FormRequest` (validation and authorization) → thin controller
   member may do is decided by permissions such as `activities.approve`, `payments.refund` and
   `reports.view`, grouped into the roles `super_admin`, `admin`, `support_admin` and
   `content_admin`.
+- **Provider API route files.** `routes/api_v1.php` holds the original provider routes; `routes/api_provider.php` is the file for the provider app's newer ones.
+  Both are loaded under `/api/v1`, and a route written in the second at `/foo` answers at `/api/v1/provider/foo` already behind a bearer token, the
+  `provider` ability and an approved provider (the header of the file lists the conventions). `ProviderRouteConventionsTest` fails if any route repeats
+  another's method and URI or name, or is reachable without those guards.
+- **Refusal comes before lookup.** The `ability:*`, `provider.approved` and staff checks run before route-model binding, so a caller who may not
+  use an area gets the same answer whether or not the id exists (it used to be 404 for a made-up id and 403 for a real one, which revealed which
+  ids exist, drafts included). `RefusalComesBeforeLookupTest` guards it.
 - **Admin JSON API.** `POST /api/v1/auth/admin/login` with `email` and `password` returns a bearer
   token (`token`, `expires_at`, and the staff member's roles and permissions). Send it as
   `Authorization: Bearer <token>` to `/api/v1/admin/*`. The token expires after

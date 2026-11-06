@@ -21,4 +21,16 @@ return [
 
     // Everything is derived from this, so the same scale always produces the same data.
     'seed' => (int) env('BULK_SEED_RANDOM', 20261103),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monthly reservations per provider
+    |--------------------------------------------------------------------------
+    |
+    | ProviderMonthlyReservationSeeder gives every ACTIVE provider at least this many paid reservations in the current
+    | month. It counts what already exists and only adds the shortfall. It does not follow BULK_SEED_SCALE: this is a
+    | requirement, not a volume.
+    |
+    */
+    'provider_month_minimum' => (int) env('PROVIDER_MONTH_MINIMUM', 50),
 ];

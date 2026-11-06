@@ -22,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::prefix('api/v1')
                 ->middleware('api')
                 ->group(base_path('routes/api_v1.php'));
+
+            // The provider app's own routes (see the header of routes/api_provider.php).
+            Route::prefix('api/v1')
+                ->middleware('api')
+                ->group(base_path('routes/api_provider.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -38,10 +43,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Check WHO is calling before looking anything up: otherwise a customer or provider token gets a 404 for a payment
         // that does not exist and a 403 for one that does, which tells them which ids exist.
-        $middleware->prependToPriorityList(
-            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            prepend: \App\Http\Middleware\EnsureStaffApiAccess::class,
-        );
+        // The same goes for every other "who is calling?" check, and they must run in this order: a customer or admin token is turned
+        // away before anything is looked up, and so is a provider an admin has not approved yet. Without this a refused caller got 404 for an
+        // id that does not exist and 403 for one that does, which told them which ids exist (drafts included).
+        foreach ([
+            \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
+            \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            \App\Http\Middleware\EnsureProviderApproved::class,
+            \App\Http\Middleware\EnsureStaffApiAccess::class,
+        ] as $guard) {
+            $middleware->prependToPriorityList(before: \Illuminate\Routing\Middleware\SubstituteBindings::class, prepend: $guard);
+        }
         $middleware->redirectGuestsTo(fn() => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
