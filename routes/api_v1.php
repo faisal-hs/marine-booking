@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Account\AccountController;
 use App\Http\Controllers\Api\Account\ProviderRequestController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Auth\AccountAuthController;
+use App\Http\Controllers\Api\Auth\AdminAuthController;
 use App\Http\Controllers\Api\Auth\CustomerAuthController;
 use App\Http\Controllers\Api\Auth\ProviderAuthController;
 use App\Http\Controllers\Api\Customer\FavoriteController;
@@ -45,6 +46,16 @@ use Illuminate\Support\Facades\Route;
 Route::get('/ping', PingController::class)->name('api.v1.ping');
 
 Route::prefix('auth')->name('auth.')->group(function () {
+    // Staff sign-in for the admin JSON API: email and password, a bearer token back (it expires; see config/admin_api.php).
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::post('/login', [AdminAuthController::class, 'login'])
+            ->middleware('throttle:admin-login')
+            ->name('login');
+        Route::post('/logout', [AdminAuthController::class, 'logout'])
+            ->middleware(['auth:sanctum', 'staff.api'])
+            ->name('logout');
+    });
+
     // Sign in to an account that already exists, whichever kind: opens the person's default account.
     Route::post('/otp/request', [AccountAuthController::class, 'requestOtp'])->middleware('throttle:otp-request')->name('otp.request');
     Route::post('/otp/verify', [AccountAuthController::class, 'verifyOtp'])
@@ -211,18 +222,21 @@ Route::middleware(['auth:sanctum', 'ability:customer,provider'])->prefix('accoun
 });
 
 /*
-| Admin API — read-only. Uses the 'auth:web' session guard (the SAME
-| guard the Blade admin panel already authenticates with; admins never
-| receive Sanctum tokens in this project), deliberately NOT the
-| 'admin.access' middleware alias used by routes/web.php's Blade
-| routes — that alias redirects to the login page on failure, which is
-| wrong for a JSON API. Being under /api/* is enough for this project's
-| existing exception handler (bootstrap/app.php) to render
-| Authentication/AuthorizationException as JSON automatically.
-| Permission enforcement happens via ReservationPolicy inside the
-| Controller, matching ActivityPolicy's existing admin-method pattern.
+| Admin API. Staff sign in with POST /auth/admin/login and send the bearer token it returns.
+|
+| It used to be guarded by 'auth:web' (the session guard), but the api middleware group has no session, so over real
+| HTTP every one of these routes answered 401 even for a signed-in admin: they only worked under a test's actingAs().
+| Sessions are deliberately NOT added to the API (a cookie-authenticated JSON API needs CSRF protection); a token
+| needs none.
+|
+| 'auth:sanctum' finds the user (token for a client; the web session still satisfies it in tests) and 'staff.api' insists
+| on an active staff account whose token is an admin one, so a customer or provider token cannot reach this area. What
+| each admin may DO is still decided by the policies and permissions inside the controllers.
+|
+| Deliberately NOT the 'admin.access' alias that routes/web.php uses: that one redirects to the login page on failure,
+| which is wrong for a JSON API. Under /api/* the exception handler (bootstrap/app.php) renders failures as JSON.
 */
-Route::middleware(['auth:web'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'staff.api'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/reservations', [App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
         ->name('reservations.index');
     Route::get('/reservations/{reservation}', [App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])

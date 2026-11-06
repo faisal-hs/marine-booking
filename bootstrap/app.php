@@ -31,9 +31,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'provider.approved' => \App\Http\Middleware\EnsureProviderApproved::class,
+            'staff.api' => \App\Http\Middleware\EnsureStaffApiAccess::class,
             'admin.access' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'locale' => \App\Http\Middleware\SetLocale::class,
         ]);
+
+        // Check WHO is calling before looking anything up: otherwise a customer or provider token gets a 404 for a payment
+        // that does not exist and a 403 for one that does, which tells them which ids exist.
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Http\Middleware\EnsureStaffApiAccess::class,
+        );
         $middleware->redirectGuestsTo(fn() => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {

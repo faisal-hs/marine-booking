@@ -207,9 +207,20 @@ A request flows `FormRequest` (validation and authorization) → thin controller
 - `app/Http/Controllers/Api/{Auth,Customer,Provider,Public,Admin,Shared,Webhooks}` are the JSON
   API; `app/Http/Controllers/Web/{Admin,Public}` are the Blade pages.
 - **Authentication.** Customers and providers use Sanctum bearer tokens with the abilities
-  `customer` / `provider`. Admins use the `web` session guard plus permissions such as
-  `activities.approve`, `payments.refund` and `reports.view`, grouped into the roles
-  `super_admin`, `admin`, `support_admin` and `content_admin`.
+  `customer` / `provider`. Staff use the `web` session guard in the browser panel, and a
+  short-lived Sanctum token with the ability `admin` on the JSON API (see below). What a staff
+  member may do is decided by permissions such as `activities.approve`, `payments.refund` and
+  `reports.view`, grouped into the roles `super_admin`, `admin`, `support_admin` and
+  `content_admin`.
+- **Admin JSON API.** `POST /api/v1/auth/admin/login` with `email` and `password` returns a bearer
+  token (`token`, `expires_at`, and the staff member's roles and permissions). Send it as
+  `Authorization: Bearer <token>` to `/api/v1/admin/*`. The token expires after
+  `ADMIN_API_TOKEN_HOURS` hours (8 by default), is revoked by `POST /api/v1/auth/admin/logout`, and
+  stops working at once if the account is suspended. A customer or provider token is refused (403)
+  however valid it is. Signing in shares the browser panel's rate limit (5 attempts a minute per
+  email and address). The API deliberately has no session: a cookie-authenticated JSON API would
+  need CSRF protection, and until this token sign-in existed these routes answered 401 over real
+  HTTP for everyone, because the `api` middleware group has no session for the `web` guard to read.
 - **Availability and pricing are separate services** (`AvailabilityService`,
   `ActivityPricingService`) and are meant to stay that way.
 - **Payments** go through `PaymentGatewayInterface` (`app/Contracts/Payments`); a gateway is

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\NewAccessToken;
 
 class AdminAuthService
 {
@@ -14,9 +15,8 @@ class AdminAuthService
     ) {}
 
     /**
-     * Validates admin credentials and returns the User for the Controller
-     * to log in via the session-based 'web' guard. No token is issued —
-     * admin auth is browser-session based, not API-token based.
+     * Validates admin credentials and returns the User. The browser panel logs them in
+     * through the session guard; the JSON API turns them into a token with issueToken().
      */
     public function attemptLogin(string $email, string $password): User
     {
@@ -41,5 +41,11 @@ class AdminAuthService
         }
 
         return $user;
+    }
+
+    /** A bearer token for the JSON API: admin ability only, and it expires (see config/admin_api.php). */
+    public function issueToken(User $user): NewAccessToken
+    {
+        return $user->createToken('admin-api', ['admin'], now()->addHours(config('admin_api.token_hours')));
     }
 }
