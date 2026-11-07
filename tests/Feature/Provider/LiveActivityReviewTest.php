@@ -59,6 +59,8 @@ class LiveActivityReviewTest extends TestCase
     /** Moving the activity itself through its life; not an edit of what it says. */
     private const LIFECYCLE_ROUTES = [
         'provider.activities.store', 'provider.activities.destroy', 'provider.activities.submit-for-review',
+        // The provider app's publish / pause / resume: it never changes what the activity says, and it cannot publish what was not approved.
+        'provider.activities.status',
     ];
 
     protected function setUp(): void

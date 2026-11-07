@@ -139,7 +139,8 @@ class ProviderAppEnvelopeTest extends TestCase
 
         $this->assertSame([
             'GET api/v1/provider/apply', 'GET api/v1/provider/bookings', 'GET api/v1/provider/calendar', 'GET api/v1/provider/categories', 'GET api/v1/provider/customers',
-            'GET api/v1/provider/dashboard', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
+            'GET api/v1/provider/dashboard', 'PATCH api/v1/provider/activities/{id}/status', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
+            'POST api/v1/provider/bookings/{id}/cancel',
         ], $withIt, 'A route with the attribute answers in the spec shape; a route without it must not');
     }
 }

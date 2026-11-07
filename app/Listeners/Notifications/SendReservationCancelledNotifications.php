@@ -25,7 +25,8 @@ class SendReservationCancelledNotifications
 
         // Only a booking the provider was told about (a confirmed one) is worth telling
         // them was cancelled; a pending hold that is cancelled never reached them.
-        if ($reservation->confirmed_at !== null) {
+        // ...and not one the provider cancelled themselves.
+        if ($reservation->confirmed_at !== null && $reservation->cancellation_source !== \App\Enums\CancellationSource::Provider) {
             $this->dispatcher->dispatchOnce(
                 "provider.reservation.cancelled:{$reservation->id}",
                 $reservation->activity->provider->user,

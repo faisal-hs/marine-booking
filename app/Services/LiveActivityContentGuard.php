@@ -33,7 +33,7 @@ class LiveActivityContentGuard
 
     public function run(Activity $activity, callable $edit): mixed
     {
-        if ($activity->status !== 'published') {
+        if (! in_array($activity->status, ['published', 'approved'], true)) {
             return $edit();
         }
 

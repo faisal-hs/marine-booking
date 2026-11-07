@@ -71,12 +71,12 @@ class ActivityController extends Controller
         $this->authorize('approve', $activity);
 
         try {
-            $this->service->approve($activity);
+            $approved = $this->service->approve($activity);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('status', __('admin.activities.approved'));
+        return back()->with('status', __($approved->status === 'published' ? 'admin.activities.approved' : 'admin.activities.approved_waiting'));
     }
 
     public function reject(RejectActivityRequest $request, Activity $activity): RedirectResponse

@@ -21,6 +21,11 @@ final class ErrorCode
 
     public const DECLINE_REASON_REQUIRED = 'DECLINE_REASON_REQUIRED';
 
+    // Not in the spec: a provider cancels a confirmed booking instead of declining a pending one (see docs/PROVIDER_API.md, D1).
+    public const CANCELLATION_REASON_REQUIRED = 'CANCELLATION_REASON_REQUIRED';
+
+    public const REFUND_FAILED = 'REFUND_FAILED';
+
     public const INSUFFICIENT_AVAILABLE_BALANCE = 'INSUFFICIENT_AVAILABLE_BALANCE';
 
     // Not in the spec: the status has no more specific code.

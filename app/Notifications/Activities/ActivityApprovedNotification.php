@@ -23,7 +23,9 @@ class ActivityApprovedNotification extends BaseActivityNotification
     {
         return $this->baseData(
             'activity.approved',
-            "Your activity \"{$this->activity->title}\" has been approved and is now live."
+            $this->live()
+                ? "Your activity \"{$this->activity->title}\" has been approved and is now live."
+                : "Your activity \"{$this->activity->title}\" has been approved. Publish it when you are ready to take bookings."
         );
     }
 
@@ -31,7 +33,9 @@ class ActivityApprovedNotification extends BaseActivityNotification
     {
         return [
             'title' => 'Activity Approved',
-            'body' => "\"{$this->activity->title}\" has been approved and is now live for customers to book.",
+            'body' => $this->live()
+                ? "\"{$this->activity->title}\" has been approved and is now live for customers to book."
+                : "\"{$this->activity->title}\" has been approved. Publish it when you are ready for customers to book.",
             'data' => ['activity_id' => (string) $this->activity->id, 'type' => 'activity.approved'],
         ];
     }
@@ -41,7 +45,15 @@ class ActivityApprovedNotification extends BaseActivityNotification
         return (new MailMessage)
             ->subject('Your Activity Has Been Approved')
             ->greeting("Hi {$notifiable->name},")
-            ->line("Great news — \"{$this->activity->title}\" has been approved and is now live for customers to book.")
+            ->line($this->live()
+                ? "Great news — \"{$this->activity->title}\" has been approved and is now live for customers to book."
+                : "Great news — \"{$this->activity->title}\" has been approved. It is not visible to customers until you publish it.")
             ->line('Thank you for listing with us!');
+    }
+
+    /** Approved AND published (automatic publishing is on), as opposed to approved and waiting for the provider. */
+    private function live(): bool
+    {
+        return $this->activity->status === 'published';
     }
 }

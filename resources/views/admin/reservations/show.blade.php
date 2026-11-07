@@ -139,6 +139,12 @@
                             <dt class="text-slate-400">{{ __('admin.reservations.cancelled_at') }}</dt>
                             <dd>{{ $reservation->cancelled_at->toDateTimeString() }}</dd>
                         </div>
+                        @if ($reservation->cancellation_source)
+                            <div>
+                                <dt class="text-slate-400">{{ __('admin.reservations.cancelled_by') }}</dt>
+                                <dd>{{ __('admin.reservations.sources.' . $reservation->cancellation_source->value) }}</dd>
+                            </div>
+                        @endif
                         @if ($reservation->cancellation_reason)
                             <div>
                                 <dt class="text-slate-400">{{ __('admin.reservations.cancellation_reason') }}</dt>

@@ -39,6 +39,8 @@ class Reservation extends Model
         'confirmed_at',
         'cancelled_at',
         'cancellation_reason',
+        'cancellation_source',
+        'cancelled_by_user_id',
     ];
 
     protected $casts = [
@@ -46,6 +48,7 @@ class Reservation extends Model
         'participants' => 'array',
         'pricing_breakdown' => 'array',
         'status' => ReservationStatus::class,
+        'cancellation_source' => \App\Enums\CancellationSource::class,
         'hold_expires_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'cancelled_at' => 'datetime',

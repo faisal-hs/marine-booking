@@ -190,7 +190,8 @@ class ReservationService
         return $reservation;
     }
 
-    public function cancel(Reservation $reservation, ?string $reason = null): Reservation
+    /** @param  int|null  $cancelledBy  the account that cancelled it */
+    public function cancel(Reservation $reservation, ?string $reason = null, \App\Enums\CancellationSource $source = \App\Enums\CancellationSource::Customer, ?int $cancelledBy = null): Reservation
     {
         if (in_array($reservation->status, [ReservationStatus::Cancelled, ReservationStatus::Expired, ReservationStatus::Completed], true)) {
             throw ValidationException::withMessages([
@@ -202,6 +203,8 @@ class ReservationService
             'status' => ReservationStatus::Cancelled->value,
             'cancelled_at' => now(),
             'cancellation_reason' => $reason,
+            'cancellation_source' => $source->value,
+            'cancelled_by_user_id' => $cancelledBy,
         ]);
 
         $reservation = $reservation->fresh();

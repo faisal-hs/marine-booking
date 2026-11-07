@@ -92,7 +92,7 @@ class ReservationController extends BaseApiController
     {
         $this->abortIfNotOwnReservation($request, $reservation);
 
-        $reservation = $this->service->cancel($reservation, $request->input('reason'));
+        $reservation = $this->service->cancel($reservation, $request->input('reason'), \App\Enums\CancellationSource::Customer, $request->user()->id);
 
         return $this->success(new ReservationResource($reservation), 'Reservation cancelled successfully.');
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ProviderApp\ActivityStatusController;
 use App\Http\Controllers\Api\ProviderApp\ApplicationController;
 use App\Http\Controllers\Api\ProviderApp\BookingController;
 use App\Http\Controllers\Api\ProviderApp\CalendarController;
@@ -61,8 +62,11 @@ Route::group([
     Route::middleware('provider.approved')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+        Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->middleware('throttle:30,1')->name('bookings.cancel');
         Route::get('/calendar', [CalendarController::class, 'show'])->name('calendar.show');
         Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
+
+        Route::patch('/activities/{id}/status', [ActivityStatusController::class, 'update'])->name('activities.status');
 
         // (routes go here)
     });

@@ -22,7 +22,9 @@ class ReservationCancelledNotification extends BaseReservationNotification
     {
         return $this->baseData(
             'reservation.cancelled',
-            "Your reservation for {$this->reservation->activity->title} has been cancelled."
+            $this->byProvider()
+                ? "{$this->providerName()} cancelled your reservation for {$this->reservation->activity->title}. Your payment is being refunded in full."
+                : "Your reservation for {$this->reservation->activity->title} has been cancelled."
         );
     }
 
@@ -30,7 +32,9 @@ class ReservationCancelledNotification extends BaseReservationNotification
     {
         return [
             'title' => 'Reservation Cancelled',
-            'body' => "Your {$this->reservation->activity->title} booking has been cancelled.",
+            'body' => $this->byProvider()
+                ? "{$this->providerName()} cancelled your {$this->reservation->activity->title} booking. You are being refunded in full."
+                : "Your {$this->reservation->activity->title} booking has been cancelled.",
             'data' => ['reservation_id' => (string) $this->reservation->id, 'type' => 'reservation.cancelled'],
         ];
     }
@@ -40,7 +44,21 @@ class ReservationCancelledNotification extends BaseReservationNotification
         return (new MailMessage)
             ->subject('Reservation Cancelled')
             ->greeting("Hi {$notifiable->name},")
-            ->line("Your reservation for {$this->reservation->activity->title} on {$this->reservation->reservation_date->toDateString()} has been cancelled.")
+            ->line($this->byProvider()
+                ? "{$this->providerName()} cancelled your reservation for {$this->reservation->activity->title} on {$this->reservation->reservation_date->toDateString()}."
+                : "Your reservation for {$this->reservation->activity->title} on {$this->reservation->reservation_date->toDateString()} has been cancelled.")
+            ->when($this->byProvider(), fn ($mail) => $mail->line('Your payment is being refunded in full.'))
             ->when($this->reservation->cancellation_reason, fn($mail) => $mail->line("Reason: {$this->reservation->cancellation_reason}"));
+    }
+
+    /** Cancelled by the provider, not by the customer. */
+    private function byProvider(): bool
+    {
+        return $this->reservation->cancellation_source === \App\Enums\CancellationSource::Provider;
+    }
+
+    private function providerName(): string
+    {
+        return $this->reservation->activity->provider->business_name;
     }
 }

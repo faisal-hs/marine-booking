@@ -23,7 +23,7 @@
                class="border border-slate-200 rounded-lg px-3 py-1.5">
         <select name="status" class="border border-slate-200 rounded-lg px-3 py-1.5">
             <option value="">{{ __('admin.activities.all_statuses') }}</option>
-            @foreach (['draft', 'pending_review', 'published', 'rejected', 'inactive'] as $status)
+            @foreach (['draft', 'pending_review', 'approved', 'published', 'rejected', 'inactive'] as $status)
                 <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>
                     {{ __('admin.activities.statuses.' . $status) }}
                 </option>

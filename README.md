@@ -237,6 +237,9 @@ A request flows `FormRequest` (validation and authorization) → thin controller
   Both are loaded under `/api/v1`, and a route written in the second at `/foo` answers at `/api/v1/provider/foo` already behind a bearer token, the
   `provider` ability and an approved provider (the header of the file lists the conventions). `ProviderRouteConventionsTest` fails if any route repeats
   another's method and URI or name, or is reachable without those guards.
+- **Provider app API status.** `docs/PROVIDER_API.md` lists every operation of the provider app specification, whether it is built, and the decisions that are
+  holding the rest. Providers cancel a confirmed booking with a reason (the customer is refunded in full), and `ACTIVITY_AUTO_PUBLISH` decides whether an admin's
+  approval also publishes an activity or leaves it for the provider to publish.
 - **Refusal comes before lookup.** The `ability:*`, `provider.approved` and staff checks run before route-model binding, so a caller who may not
   use an area gets the same answer whether or not the id exists (it used to be 404 for a made-up id and 403 for a real one, which revealed which
   ids exist, drafts included). `RefusalComesBeforeLookupTest` guards it.
