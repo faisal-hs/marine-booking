@@ -102,8 +102,15 @@ class ProviderRouteConventionsTest extends TestCase
 
     public function test_every_provider_route_needs_a_provider_token_and_all_but_one_need_an_approved_provider(): void
     {
-        // Open to a provider an admin has not approved yet, on purpose: reading their own profile.
-        $openBeforeApproval = ['GET api/v1/provider/profile'];
+        // Open to a provider an admin has not approved yet, on purpose: reading their own profile, and the onboarding routes.
+        $openBeforeApproval = [
+            'GET api/v1/provider/profile',
+            // The onboarding routes of the provider app: applying is how a provider gets approved.
+            'GET api/v1/provider/categories',
+            'GET api/v1/provider/apply',
+            'POST api/v1/provider/apply',
+            'POST api/v1/provider/apply/resubmit',
+        ];
 
         $provider = array_filter($this->routes(), fn (LaravelRoute $r) => $r->uri() === 'api/v1/provider' || str_starts_with($r->uri(), 'api/v1/provider/'));
         $this->assertGreaterThan(40, count($provider), 'Expected the provider routes to be present');

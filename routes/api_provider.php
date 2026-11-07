@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\ProviderApp\ApplicationController;
+use App\Http\Controllers\Api\ProviderApp\BookingController;
+use App\Http\Controllers\Api\ProviderApp\CalendarController;
+use App\Http\Controllers\Api\ProviderApp\CategoryController;
+use App\Http\Controllers\Api\ProviderApp\CustomerController;
+use App\Http\Controllers\Api\ProviderApp\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,8 +22,12 @@ use Illuminate\Support\Facades\Route;
 |
 |   auth:sanctum         the caller must send a valid bearer token;
 |   ability:provider     and it must be a PROVIDER token (a customer or admin token gets 403);
-|   provider.approved    and the provider must be approved by an admin (an unapproved one gets 403 with its
-|                        provider_request_status). It is the only thing open before approval, in api_v1.php: GET /provider/profile.
+|   provider.approved    and the provider must be approved by an admin (an unapproved one gets 403 PROVIDER_NOT_APPROVED with its
+|                        provider_request_status), EXCEPT the onboarding routes at the top of the file, which exist for providers not yet
+|                        approved (and GET /provider/profile in api_v1.php).
+|
+| Responses use the provider app spec's shape ({status, message, data, meta} / {status, code, message, errors}), chosen by the
+| 'envelope' => 'provider-app' attribute on the group. The rest of the API keeps {success, ..., pagination}. See ProviderEnvelope.
 |
 | Conventions, so a new endpoint looks like the ones around it:
 |
@@ -33,9 +43,27 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->name('provider.')->group(function () {
-    // Everything below needs an APPROVED provider.
+// 'envelope' => 'provider-app' makes every response and every failure of these routes use the spec's shape (see ProviderEnvelope).
+Route::group([
+    'middleware' => ['auth:sanctum', 'ability:provider'],
+    'prefix' => 'provider',
+    'as' => 'provider.',
+    'envelope' => 'provider-app',
+], function () {
+    // --- Onboarding: open to a provider an admin has NOT approved yet, because applying is how they get approved. ---
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+
+    Route::get('/apply', [ApplicationController::class, 'show'])->name('apply.show');
+    Route::post('/apply', [ApplicationController::class, 'store'])->middleware('throttle:20,1')->name('apply.store');
+    Route::post('/apply/resubmit', [ApplicationController::class, 'resubmit'])->middleware('throttle:20,1')->name('apply.resubmit');
+
+    // --- Everything below needs an APPROVED provider. ---
     Route::middleware('provider.approved')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
+        Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+        Route::get('/calendar', [CalendarController::class, 'show'])->name('calendar.show');
+        Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
+
         // (routes go here)
     });
 });

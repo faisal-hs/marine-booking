@@ -22,6 +22,12 @@ class ProviderResource extends JsonResource
             'address' => $this->address,
             'city' => $this->city,
             'area' => $this->area,
+            // What the provider application collects (null until the provider has applied through the provider app).
+            'business_type' => $this->business_type,
+            'marina_name' => $this->marina_name,
+            'contact_phone' => $this->contact_phone,
+            'contact_email' => $this->contact_email,
+            'category_ids' => $this->categories()->pluck('categories.id')->all(),
             // The three documents a provider request needs: the latest of each, or null.
             ...collect(config('providers.documents.required_types'))->mapWithKeys(function (string $type) {
                 $document = $this->documentOfType($type);

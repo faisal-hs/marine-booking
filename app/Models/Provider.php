@@ -30,6 +30,10 @@ class Provider extends Model
         'address',
         'city',
         'area',
+        'business_type',
+        'marina_name',
+        'contact_phone',
+        'contact_email',
         'lat',
         'lng',
         'verification_status',
@@ -54,6 +58,12 @@ class Provider extends Model
         return $this->belongsTo(User::class)->withTrashed();
     }
 
+
+    /** The categories the provider works in (many to many). */
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class)->withTimestamps();
+    }
 
     public function activities()
     {

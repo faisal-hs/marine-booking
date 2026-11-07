@@ -24,6 +24,12 @@ class Category extends Model
         'sort_order',
     ];
 
+    /** The providers that work in this category (many to many). */
+    public function providers()
+    {
+        return $this->belongsToMany(Provider::class)->withTimestamps();
+    }
+
     public function activities()
     {
         // Populated in Module 05 — declared now so the relationship

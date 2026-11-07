@@ -71,9 +71,19 @@ return Application::configure(basePath: dirname(__DIR__))
 
             public function jsonError(string $message, int $code = 400, ?array $errors = null)
             {
+                // The provider app routes answer in the spec's shape: { status, code, message, errors }.
+                if (\App\Support\ProviderApi\ProviderEnvelope::applies(request())) {
+                    return \App\Support\ProviderApi\ProviderEnvelope::error($message, $code, null, $errors);
+                }
+
                 return $this->error($message, $code, $errors);
             }
         };
+
+        // A failure the provider app raised with the spec's own error code (INVALID_STATUS_TRANSITION and so on).
+        $exceptions->render(function (\App\Exceptions\ProviderApiException $e, Request $request) {
+            return \App\Support\ProviderApi\ProviderEnvelope::error($e->getMessage(), $e->status, $e->errorCode, $e->errors);
+        });
 
         $exceptions->render(function (ValidationException $e, Request $request) use ($responder) {
             if ($request->is('api/*') || $request->expectsJson()) {

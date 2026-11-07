@@ -21,6 +21,19 @@ class EnsureProviderApproved
         $user = $request->user();
 
         if (! $user || ! $user->provider?->isVerified()) {
+            $status = $user ? $this->accounts->providerRequestStatus($user) : 'none';
+
+            // The provider app answers in the spec's shape, with the spec's code.
+            if (\App\Support\ProviderApi\ProviderEnvelope::applies($request)) {
+                return \App\Support\ProviderApi\ProviderEnvelope::error(
+                    'Your provider account is not approved yet. Submit your provider request and wait for an admin to approve it.',
+                    403,
+                    \App\Support\ProviderApi\ErrorCode::PROVIDER_NOT_APPROVED,
+                    null,
+                    ['provider_request_status' => $status]
+                );
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Your provider account is not approved yet. Submit your provider request and wait for an admin to approve it.',

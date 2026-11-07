@@ -132,16 +132,29 @@ class ProviderRequestService
             'rejection_reason' => null,
         ];
 
+        // Sent by the provider app's application form; the older account endpoint does not send them, and then nothing changes.
+        foreach (['business_type', 'marina_name', 'contact_phone', 'contact_email'] as $extra) {
+            if (array_key_exists($extra, $data)) {
+                $details[$extra] = $data[$extra];
+            }
+        }
+
         if (! $provider) {
-            return $this->providers->create($details + ['user_id' => $user->id, 'slug' => $this->providers->uniqueSlug($data['business_name'])]);
+            $provider = $this->providers->create($details + ['user_id' => $user->id, 'slug' => $this->providers->uniqueSlug($data['business_name'])]);
+        } else {
+            // An unapproved provider has nothing public yet, so a new business name can change its address.
+            if ($provider->business_name !== $data['business_name']) {
+                $details['slug'] = $this->providers->uniqueSlug($data['business_name']);
+            }
+
+            $provider = $this->providers->update($provider, $details);
         }
 
-        // An unapproved provider has nothing public yet, so a new business name can change its address.
-        if ($provider->business_name !== $data['business_name']) {
-            $details['slug'] = $this->providers->uniqueSlug($data['business_name']);
+        if (isset($data['category_ids'])) {
+            $provider->categories()->sync($data['category_ids']);
         }
 
-        return $this->providers->update($provider, $details);
+        return $provider;
     }
 
     protected function assertPending(ProviderRequest $request): void
