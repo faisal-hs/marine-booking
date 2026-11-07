@@ -29,7 +29,7 @@ class BulkFeatureDefinitionSeeder extends BulkSeeder
                     continue;
                 }
 
-                $chosen = (array) array_rand($templates, $this->rand(4, 6));
+                $chosen = $this->sampleKeys($templates, $this->rand(4, 6));
                 sort($chosen);
 
                 foreach ($chosen as $order => $index) {

@@ -269,6 +269,9 @@ class ReservationService
 
         foreach ($pastReservations as $reservation) {
             $reservation->update(['status' => ReservationStatus::Completed->value]);
+
+            // A completed booking is money earned: it goes into the provider's wallet.
+            app(\App\Services\Wallet\LedgerService::class)->syncBooking($reservation->refresh());
         }
 
         return $pastReservations->count();

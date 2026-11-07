@@ -22,7 +22,7 @@ class BulkActivityRequirementSeeder extends BulkSeeder
 
         $this->insert('activity_requirements', (function () use ($pool) {
             foreach ($this->activitiesWithout('activity_requirements') as $activity) {
-                foreach ((array) array_rand($pool, $this->rand(2, 4)) as $order => $index) {
+                foreach ($this->sampleKeys($pool, $this->rand(2, 4)) as $order => $index) {
                     yield [
                         'uuid' => $this->uuid('requirement', "{$activity->id}-{$index}"),
                         'activity_id' => $activity->id,

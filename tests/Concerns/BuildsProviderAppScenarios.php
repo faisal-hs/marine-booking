@@ -7,6 +7,7 @@ use App\Models\ActivityBookingOption;
 use App\Models\Customer;
 use App\Models\Provider;
 use App\Models\User;
+use App\Services\Wallet\LedgerService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -91,6 +92,22 @@ trait BuildsProviderAppScenarios
         [, $customer] = $this->makeCustomer(array_filter(['name' => $name, 'phone' => $phone]));
 
         return $customer;
+    }
+
+    /** Puts money in a provider's wallet: a completed, paid booking (optionally part-refunded), posted to the ledger. Returns the booking id. */
+    protected function fundWallet(array $scenario, float $amount = 1000, string $date = '2026-11-10', float $refunded = 0): int
+    {
+        $id = $this->makeBooking($scenario, $this->customerNamed('Wallet Customer '.Str::random(5)), $date, 'completed', $amount);
+        $this->makePayment($id, $amount, $refunded);
+        app(LedgerService::class)->syncProvider($scenario['provider']);
+
+        return $id;
+    }
+
+    /** A bank account as the API stores it. */
+    protected function bankAccount(array $overrides = []): array
+    {
+        return array_merge(['account_holder_name' => 'Red Sea Divers', 'bank_name' => 'Al Rajhi Bank', 'iban' => 'SA0380000000608010167519', 'swift_code' => null, 'verification_status' => 'approved'], $overrides);
     }
 
     /** One call to the API as someone in particular (a token, or nobody). Not called call()/get(): those belong to PHPUnit's HTTP helpers. */

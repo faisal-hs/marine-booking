@@ -50,7 +50,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_table_has_data_and_the_main_volumes_follow_the_scale(): void
     {
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
             'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
             'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
             'notifications', 'broadcasts'] as $table) {
@@ -74,7 +74,7 @@ class BulkDataIntegrityTest extends TestCase
     {
         $now = Carbon::now()->addMinutes(1)->toDateTimeString();
 
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
             $this->assertSame(0, DB::table($table)->where('created_at', '>', $now)->count(), "{$table} has rows created in the future");
         }
         $this->assertSame(0, DB::table('provider_requests')->whereNotNull('reviewed_at')->where('reviewed_at', '>', $now)->count());

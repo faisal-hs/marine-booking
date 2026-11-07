@@ -26,6 +26,10 @@ final class ErrorCode
 
     public const REFUND_FAILED = 'REFUND_FAILED';
 
+    public const DUPLICATE_WITHDRAWAL = 'DUPLICATE_WITHDRAWAL';
+
+    public const BANK_ACCOUNT_REQUIRED = 'BANK_ACCOUNT_REQUIRED';
+
     public const INSUFFICIENT_AVAILABLE_BALANCE = 'INSUFFICIENT_AVAILABLE_BALANCE';
 
     // Not in the spec: the status has no more specific code.

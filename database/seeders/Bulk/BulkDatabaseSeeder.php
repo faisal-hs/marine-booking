@@ -47,6 +47,8 @@ class BulkDatabaseSeeder extends Seeder
         BulkReservationSeeder::class,
         BulkReservationCapacityLockSeeder::class,
         BulkPaymentSeeder::class,
+        BulkWalletEntrySeeder::class,
+        BulkWithdrawalSeeder::class,
         BulkReviewSeeder::class,
         BulkFavoriteSeeder::class,
         BulkDeviceSeeder::class,

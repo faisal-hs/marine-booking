@@ -3,6 +3,8 @@
 namespace Database\Seeders\Bulk;
 
 use Carbon\Carbon;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use Database\Seeders\Concerns\RefusesToRunInProduction;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Seeder;
@@ -45,6 +47,13 @@ abstract class BulkSeeder extends Seeder
 
     protected int $created = 0;
 
+    /**
+     * The seeder's OWN random engine, started from its seed. Every draw goes through it, never through PHP's global generator: anything can reseed
+     * the global one at any moment (Faker's Generator::__destruct() calls mt_srand() with no seed whenever the garbage collector destroys a Faker
+     * object), and a seeder that depended on it gave different data from one run to the next depending on how much garbage earlier code had left.
+     */
+    protected Randomizer $random;
+
     /** Fills the tables this seeder owns. */
     abstract protected function seed(): void;
 
@@ -54,9 +63,10 @@ abstract class BulkSeeder extends Seeder
 
         $this->now = Carbon::now()->startOfMinute();
         $seed = (crc32(static::class) ^ (int) config('seeding.seed')) & 0x7FFFFFFF;
-        mt_srand($seed);
-        fake()->seed($seed);
-        fake('ar_SA')->seed($seed);
+
+        // Every draw comes from this engine, which nothing else can reach (see $random). Faker is used only for names, and fakeName() reseeds it from
+        // the engine each time, so a Faker object being destroyed, or anything else touching PHP's global generator, cannot change what is seeded.
+        $this->startRandom($seed);
 
         $started = microtime(true);
         DB::transaction(fn () => $this->seed());
@@ -79,30 +89,54 @@ abstract class BulkSeeder extends Seeder
 
     // --- Deterministic randomness -----------------------------------------------------------------
 
+    /** Starts the seeder's own random engine from a seed. run() does it; a test of the helpers does it by hand. */
+    protected function startRandom(int $seed): void
+    {
+        $this->random = new Randomizer(new Mt19937($seed));
+    }
+
     protected function rand(int $min, int $max): int
     {
-        return mt_rand($min, $max);
+        return $this->random->getInt($min, $max);
     }
 
-    /** True $percent times in a hundred. */
     protected function chance(float $percent): bool
     {
-        return mt_rand(0, 99999) < $percent * 1000;
+        return $this->random->getInt(0, 99999) < $percent * 1000;
     }
 
-    /** @param  array<int|string, mixed>  $list */
     protected function pick(array $list): mixed
     {
-        return $list[array_rand($list)];
+        return $list[$this->random->pickArrayKeys($list, 1)[0]];
     }
 
     /**
-     * A yes/no that depends ONLY on $key (and the seed), never on how many times a seeder has run.
+     * $count distinct keys of the list, left in the order the list has them (what array_rand() gives, from this seeder's own engine).
      *
-     * Use it for "does this one have any?" decisions. A seeder that fills in what is missing re-examines the items that
-     * legitimately have nothing (an activity with no add-ons, a booking nobody paid or reviewed); if it rolled
-     * the dice again for them on every run, each run would add more. With chance() that is exactly what happened.
+     * @return list<int|string>
      */
+    protected function sampleKeys(array $list, int $count): array
+    {
+        $chosen = $this->random->pickArrayKeys($list, $count);
+
+        return array_values(array_filter(array_keys($list), fn ($key) => in_array($key, $chosen, true)));
+    }
+
+    /** A name from Faker, reseeded from this seeder's engine so it does not depend on Faker's (or PHP's global) random state. */
+    protected function fakeName(bool $arabic = false): string
+    {
+        $faker = $arabic ? fake('ar_SA') : fake();
+        $faker->seed($this->random->getInt(0, 0x7FFFFFFF));
+
+        return $faker->name();
+    }
+
+    /** A raw random integer, 0 to mt_getrandmax(). */
+    protected function raw(): int
+    {
+        return $this->random->getInt(0, mt_getrandmax());
+    }
+
     protected function stable(string $key, float $percent): bool
     {
         return (crc32($key.'|'.config('seeding.seed')) % 100000) < $percent * 1000;
@@ -113,7 +147,7 @@ abstract class BulkSeeder extends Seeder
      */
     protected function weighted(array $weights): string
     {
-        $roll = mt_rand(1, (int) round(array_sum($weights) * 1000)) / 1000;
+        $roll = $this->random->getInt(1, (int) round(array_sum($weights) * 1000)) / 1000;
 
         foreach ($weights as $key => $weight) {
             if (($roll -= $weight) <= 0) {
@@ -127,7 +161,7 @@ abstract class BulkSeeder extends Seeder
     /** A lazily skewed index in [0, $count): low indexes are chosen far more often (popular items). */
     protected function skewed(int $count): int
     {
-        $r = mt_rand() / mt_getrandmax();
+        $r = $this->raw() / mt_getrandmax();
 
         return min($count - 1, (int) floor($count * $r * $r));
     }

@@ -3,61 +3,73 @@
 namespace App\Services\ProviderApp;
 
 use App\Models\Provider;
+use App\Models\WalletEntry;
+use App\Services\Wallet\LedgerService;
 use Carbon\Carbon;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Gross and net revenue of a provider, as the spec defines them:
+ * A provider's revenue, read from the WALLET LEDGER (the financial source of truth), never recomputed from bookings on each request:
  *
- *   GROSS  the total value of COMPLETED bookings, before the platform's commission.
- *   NET    what the provider keeps: (gross - what was refunded on those bookings) x (1 - commission rate).
+ *   GROSS  what customers paid for the provider's COMPLETED bookings, before refunds and commission
+ *   NET    what the provider keeps: gross, less what was refunded, less the platform's commission (their own terms: a percentage or a fixed amount)
  *
- * The commission is the provider's own commission_rate (a percentage an admin sets on the provider). Refunds are treated as borne by the
- * provider, which is the one reading of "provider-borne adjustments/refunds" the data supports today; it is one of the decisions the spec
- * leaves open (see docs/PROVIDER_API.md).
- *
- * available() and pending() are PROVISIONAL balances until the wallet ledger exists (spec phase 4): available is the net of every completed
- * booking, pending the net of bookings confirmed but not yet completed. Nothing has been withdrawn yet, because there is no withdrawal yet.
+ * available() is what can be withdrawn now; pending() is what is not withdrawable yet: completed bookings still inside the waiting period
+ * (config/wallet.php) plus the expected net of confirmed bookings whose trip has not happened.
  */
 class ProviderRevenue
 {
+    public function __construct(private readonly LedgerService $ledger) {}
+
     /** @return array{gross: float, net: float} */
     public function month(Provider $provider, \DateTimeInterface $inMonth): array
     {
+        $this->ledger->syncProvider($provider);
+
         $start = Carbon::instance($inMonth)->startOfMonth()->toDateString();
         $end = Carbon::instance($inMonth)->endOfMonth()->toDateString();
 
-        return $this->figures($provider, 'completed', fn (Builder $q) => $q->whereBetween('r.reservation_date', [$start, $end]));
+        return $this->between($provider, $start, $end);
+    }
+
+    /** @return array{gross: float, net: float} for the trips that took place between two dates (inclusive) */
+    public function between(Provider $provider, string $from, string $to): array
+    {
+        $entries = WalletEntry::query()->where('provider_id', $provider->id)->whereIn('type', WalletEntry::BOOKING_TYPES)->whereBetween('occurred_on', [$from, $to]);
+
+        return [
+            'gross' => round((float) (clone $entries)->where('type', WalletEntry::BOOKING_INCOME)->sum('amount'), 2),
+            'net' => round((float) $entries->sum('amount'), 2),
+        ];
     }
 
     public function available(Provider $provider): float
     {
-        return $this->figures($provider, 'completed')['net'];
+        $this->ledger->syncProvider($provider);
+
+        return $this->ledger->balances($provider)['available'];
     }
 
     public function pending(Provider $provider): float
     {
-        return $this->figures($provider, 'confirmed')['net'];
+        $this->ledger->syncProvider($provider);
+
+        return round($this->ledger->balances($provider)['pending'] + $this->expectedFromConfirmed($provider), 2);
     }
 
-    /** @return array{gross: float, net: float} */
-    private function figures(Provider $provider, string $status, ?callable $scope = null): array
+    /** The net the provider would keep from bookings that are confirmed (paid) but whose trip has not been completed yet. */
+    public function expectedFromConfirmed(Provider $provider): float
     {
-        $reservations = function () use ($provider, $status, $scope): Builder {
-            $query = DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')
-                ->where('a.provider_id', $provider->id)->whereNull('r.deleted_at')->where('r.status', $status);
+        $rows = DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')
+            ->where('a.provider_id', $provider->id)->whereNull('r.deleted_at')->where('r.status', 'confirmed')
+            ->selectRaw('r.total, COALESCE((SELECT SUM(p.refunded_amount) FROM payments p WHERE p.reservation_id = r.id), 0) AS refunded')->get();
 
-            return $scope ? $scope($query) : $query;
-        };
+        $net = 0.0;
+        foreach ($rows as $row) {
+            $kept = max(0, round((float) $row->total - (float) $row->refunded, 2));
+            $net += $kept - $provider->commissionOn($kept);
+        }
 
-        $gross = (float) $reservations()->sum('r.total');
-        $refunded = (float) DB::table('payments')->whereIn('reservation_id', $reservations()->select('r.id'))->sum('refunded_amount');
-        $rate = (float) $provider->commission_rate;
-
-        return [
-            'gross' => round($gross, 2),
-            'net' => round(max(0, $gross - $refunded) * (1 - $rate / 100), 2),
-        ];
+        return round($net, 2);
     }
 }

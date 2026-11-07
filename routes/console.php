@@ -19,3 +19,6 @@ Schedule::command('reservations:expire-stale-holds')->everyFiveMinutes();
 // reservations actually reaching 'completed' status. See
 // ReservationService::completePastReservations()'s own doc comment.
 Schedule::command('reservations:complete-past')->daily();
+
+// Anything completed in another way (or before the wallet existed) is posted to the provider wallets too.
+Schedule::command('wallet:sync')->dailyAt('00:30');

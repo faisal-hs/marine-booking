@@ -127,6 +127,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('payments:'.($request->user()?->id ?? $request->ip()));
         });
 
+        // The provider app's write endpoints each have a budget of their own. (A numeric throttle:10,1 would NOT: for a signed-in user all numeric throttles
+        // share one counter, so doing ordinary things could lock a provider out of withdrawing.)
+        RateLimiter::for('provider-apply', fn (Request $request) => Limit::perMinute(20)->by('provider-apply:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('provider-booking-cancel', fn (Request $request) => Limit::perMinute(30)->by('provider-booking-cancel:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('provider-bank-account', fn (Request $request) => Limit::perMinute(20)->by('provider-bank-account:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('provider-withdrawals', fn (Request $request) => Limit::perMinute(10)->by('provider-withdrawals:'.($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('otp-request', function (Request $request) {
             return [
                 Limit::perMinute(5)->by('otp-request:'.(string) $request->input('phone').'|'.$request->ip()),
@@ -158,6 +165,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(PaymentFailed::class, SendPaymentFailedNotifications::class);
         Event::listen(PaymentRefunded::class, SendPaymentRefundedNotifications::class);
+        Event::listen(PaymentRefunded::class, \App\Listeners\Wallet\SyncWalletOnRefund::class);
 
         Event::listen(ActivityApproved::class, SendActivityApprovedNotifications::class);
         Event::listen(ActivityRejected::class, SendActivityRejectedNotifications::class);

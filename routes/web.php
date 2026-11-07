@@ -13,6 +13,7 @@ use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
 use App\Http\Controllers\Web\Admin\PaymentController;
 use App\Http\Controllers\Web\Admin\ProviderController;
 use App\Http\Controllers\Web\Admin\ProviderProfileChangeController;
+use App\Http\Controllers\Web\Admin\WithdrawalController;
 use App\Http\Controllers\Web\Admin\ReportController;
 use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\ReviewController;
@@ -126,6 +127,12 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->name('customers.restore');
 
         // Requests to become a provider. Only admins who hold provider_requests.view / .review.
+        Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');
+        Route::get('/withdrawals/{withdrawal:uuid}', [WithdrawalController::class, 'show'])->name('withdrawals.show');
+        Route::post('/withdrawals/{withdrawal:uuid}/processing', [WithdrawalController::class, 'processing'])->name('withdrawals.processing');
+        Route::post('/withdrawals/{withdrawal:uuid}/paid', [WithdrawalController::class, 'paid'])->name('withdrawals.paid');
+        Route::post('/withdrawals/{withdrawal:uuid}/reject', [WithdrawalController::class, 'reject'])->name('withdrawals.reject');
+        Route::post('/withdrawals/{withdrawal:uuid}/fail', [WithdrawalController::class, 'fail'])->name('withdrawals.fail');
         Route::get('/provider-requests', [ProviderRequestController::class, 'index'])->name('provider-requests.index');
         Route::get('/provider-requests/{providerRequest}', [ProviderRequestController::class, 'show'])->name('provider-requests.show');
         Route::post('/provider-requests/{providerRequest}/approve', [ProviderRequestController::class, 'approve'])->name('provider-requests.approve');

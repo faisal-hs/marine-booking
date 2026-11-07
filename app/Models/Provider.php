@@ -18,6 +18,7 @@ class Provider extends Model
     protected $attributes = [
         'verification_status' => 'pending',
         'commission_rate' => 0,
+        'commission_type' => 'percentage',
     ];
 
     protected $fillable = [
@@ -39,12 +40,15 @@ class Provider extends Model
         'verification_status',
         'rejection_reason',
         'commission_rate',
+        'commission_type',
+        'bank_account',
     ];
 
     protected $casts = [
         'lat' => 'decimal:7',
         'lng' => 'decimal:7',
         'commission_rate' => 'decimal:2',
+        'bank_account' => 'encrypted:array',
     ];
 
     /**
@@ -58,6 +62,22 @@ class Provider extends Model
         return $this->belongsTo(User::class)->withTrashed();
     }
 
+
+    public function walletEntries()
+    {
+        return $this->hasMany(WalletEntry::class);
+    }
+
+    public function withdrawals()
+    {
+        return $this->hasMany(Withdrawal::class);
+    }
+
+    /** The commission on a booking worth $base to this provider, under their own terms (a percentage or a fixed amount). */
+    public function commissionOn(float $base): float
+    {
+        return \App\Support\Money\Commission::calculate((string) $this->commission_type, (float) $this->commission_rate, $base);
+    }
 
     public function profileChanges()
     {

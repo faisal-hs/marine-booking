@@ -238,10 +238,11 @@ A request flows `FormRequest` (validation and authorization) → thin controller
   Both are loaded under `/api/v1`, and a route written in the second at `/foo` answers at `/api/v1/provider/foo` already behind a bearer token, the
   `provider` ability and an approved provider (the header of the file lists the conventions). `ProviderRouteConventionsTest` fails if any route repeats
   another's method and URI or name, or is reachable without those guards.
-- **Provider app API status.** `docs/PROVIDER_API.md` lists every operation of the provider app specification, whether it is built, and the decisions that are
-  holding the rest. The platform currency is SAR (`config/platform.php`); a provider's change to critical profile information (business name and type) waits for an admin's approval.
-  Providers cancel a confirmed booking with a reason (the customer is refunded in full), and `ACTIVITY_AUTO_PUBLISH` decides whether an admin's
-  approval also publishes an activity or leaves it for the provider to publish.
+- **Provider app API status.** `docs/PROVIDER_API.md` lists every operation of the provider app specification, whether it is built, the final business decisions, and what is still
+  to be confirmed. The platform currency is SAR (`config/platform.php`). Providers have a **wallet**: a ledger of every movement of their money, a commission set per provider
+  (a percentage or a fixed amount), a configurable waiting period before earnings can be withdrawn, and withdrawals that reserve the money at once and are paid by an admin by
+  hand (`config/wallet.php`). A provider's change to critical profile information waits for an admin's approval, and providers cancel a confirmed booking with a reason
+  (the customer is refunded in full).
 - **Refusal comes before lookup.** The `ability:*`, `provider.approved` and staff checks run before route-model binding, so a caller who may not
   use an area gets the same answer whether or not the id exists (it used to be 404 for a made-up id and 403 for a real one, which revealed which
   ids exist, drafts included). `RefusalComesBeforeLookupTest` guards it.

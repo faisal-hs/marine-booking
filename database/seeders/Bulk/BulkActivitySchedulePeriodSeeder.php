@@ -28,7 +28,7 @@ class BulkActivitySchedulePeriodSeeder extends BulkSeeder
                     continue;
                 }
 
-                foreach ((array) array_rand(range(0, 6), $this->rand(3, 7)) as $order => $day) {
+                foreach ($this->sampleKeys(range(0, 6), $this->rand(3, 7)) as $order => $day) {
                     [$start, $end] = $this->pick(self::SLOTS);
                     // The first departure is always live: a published activity must have at least one.
                     $deleted = $order > 0 && $this->chance(2);

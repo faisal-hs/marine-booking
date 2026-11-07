@@ -234,7 +234,7 @@
 
                 <p class="text-xs text-slate-400 mt-3">
                     {{ __('admin.providers.joined') }}: {{ $provider->created_at->toFormattedDateString() }}
-                    · {{ __('admin.providers.commission') }}: {{ $provider->commission_rate }}%
+                    · {{ __('admin.providers.commission') }}: {{ $provider->commission_type === 'fixed' ? number_format((float) $provider->commission_rate, 2).' '.config('platform.currency') : $provider->commission_rate.'%' }}
                 </p>
 
                 <div class="mt-4 flex flex-wrap gap-2">

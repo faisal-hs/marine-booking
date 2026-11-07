@@ -25,6 +25,15 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <x-admin.field name="lat" type="number" step="any" min="-90" max="90" :label="__('admin.providers.lat')" :value="$provider?->lat" />
     <x-admin.field name="lng" type="number" step="any" min="-180" max="180" :label="__('admin.providers.lng')" :value="$provider?->lng" />
-    <x-admin.field name="commission_rate" type="number" step="0.01" min="0" max="100"
+    <div>
+        <label for="commission_type" class="block text-sm font-medium text-slate-700 mb-1">{{ __('admin.providers.commission_type') }}</label>
+        <select id="commission_type" name="commission_type" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            @foreach (['percentage', 'fixed'] as $type)
+                <option value="{{ $type }}" @selected(old('commission_type', $provider?->commission_type ?? 'percentage') === $type)>{{ __('admin.providers.commission_types.' . $type) }}</option>
+            @endforeach
+        </select>
+        @error('commission_type')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+    </div>
+    <x-admin.field name="commission_rate" type="number" step="0.01" min="0"
         :label="__('admin.providers.commission_rate')" :value="$provider?->commission_rate" />
 </div>

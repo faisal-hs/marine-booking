@@ -180,6 +180,6 @@ trait BulkPools
 
     protected function fcmToken(): string
     {
-        return substr(bin2hex(random_bytes(0)).str_repeat(substr(sha1((string) mt_rand().(string) mt_rand()), 0, 38), 4), 0, 152);
+        return substr(str_repeat(substr(sha1((string) $this->raw().(string) $this->raw()), 0, 38), 4), 0, 152);
     }
 }

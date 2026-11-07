@@ -26,7 +26,7 @@ class BulkActivityInclusionSeeder extends BulkSeeder
                 $order = 0;
 
                 foreach ([['included', $included, $this->rand(2, 4)], ['excluded', $excluded, $this->rand(1, 2)]] as [$type, $pool, $count]) {
-                    foreach ((array) array_rand($pool, $count) as $index) {
+                    foreach ($this->sampleKeys($pool, $count) as $index) {
                         yield [
                             'uuid' => $this->uuid('inclusion', "{$activity->id}-{$type}-{$index}"),
                             'activity_id' => $activity->id,

@@ -29,6 +29,7 @@
                         ['key' => 'feature_definitions', 'route' => 'admin.feature-definitions.index', 'permission' => 'feature_definitions.view', 'icon' => 'tag'],
                         ['key' => 'reservations', 'route' => 'admin.reservations.index', 'permission' => 'reservations.view', 'icon' => 'calendar'],
                         ['key' => 'payments', 'route' => 'admin.payments.index', 'permission' => 'payments.view', 'icon' => 'card'],
+                        ['key' => 'withdrawals', 'route' => 'admin.withdrawals.index', 'permission' => 'withdrawals.view', 'icon' => 'card'],
                         ['key' => 'notifications', 'route' => 'admin.notifications.index', 'permission' => 'notifications.view', 'icon' => 'bell'],
                         ['key' => 'reports', 'route' => 'admin.reports.index', 'permission' => 'reports.view', 'icon' => 'chart'],
                         ['key' => 'roles', 'route' => null, 'permission' => 'roles.view', 'icon' => 'lock'],

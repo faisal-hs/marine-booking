@@ -28,7 +28,10 @@ class StoreProviderRequest extends FormRequest
             'area' => ['nullable', 'string', 'max:120'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'commission_rate' => ['nullable', 'numeric', 'between:0,100'],
+            // How the platform's commission on this provider's bookings is worked out, the same for all their activities.
+            'commission_type' => ['nullable', 'in:percentage,fixed'],
+            // A percentage is 0 to 100; a fixed commission is an amount in the platform currency, kept once per booking.
+            'commission_rate' => ['nullable', 'numeric', 'min:0', \Illuminate\Validation\Rule::when($this->input('commission_type', 'percentage') === 'percentage', ['max:100'])],
             'verify_now' => ['sometimes', 'boolean', function (string $attribute, mixed $value, \Closure $fail) {
                 if ($value && ! $this->user()->can('providers.verify')) {
                     $fail(__('admin.providers.cannot_verify_now'));

@@ -78,6 +78,11 @@ class Reservation extends Model
         return $this->belongsTo(ActivitySchedulePeriod::class, 'schedule_period_id');
     }
 
+    public function walletEntries()
+    {
+        return $this->hasMany(WalletEntry::class);
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class);

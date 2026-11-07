@@ -112,6 +112,10 @@ class ProviderRouteConventionsTest extends TestCase
             'POST api/v1/provider/apply/resubmit',
         ];
 
+        // The one provider route with no token on purpose: the statement a signed, expiring link points to (it is opened by a browser or a PDF viewer).
+        // It is allowed ONLY if it is really signed.
+        $signedLinks = ['GET api/v1/provider/earnings/statement/download'];
+
         $provider = array_filter($this->routes(), fn (LaravelRoute $r) => $r->uri() === 'api/v1/provider' || str_starts_with($r->uri(), 'api/v1/provider/'));
         $this->assertGreaterThan(40, count($provider), 'Expected the provider routes to be present');
 
@@ -119,6 +123,12 @@ class ProviderRouteConventionsTest extends TestCase
         foreach ($provider as $route) {
             $label = array_values(array_diff($route->methods(), ['HEAD']))[0].' '.$route->uri();
             $middleware = $this->middlewareOf($route);
+
+            if (in_array($label, $signedLinks, true)) {
+                str_contains($middleware, 'ValidateSignature') || $problems[] = "{$label} has no token and is not signed either";
+
+                continue;
+            }
 
             str_contains($middleware, 'Authenticate:sanctum') || $problems[] = "{$label} does not require a token";
             str_contains($middleware, 'CheckForAnyAbility:provider') || $problems[] = "{$label} accepts a non-provider token";

@@ -55,7 +55,7 @@ class BulkActivityFeatureValueSeeder extends BulkSeeder
             }] + $none,
             'boolean' => ['value_boolean' => $this->chance(60) ? 1 : 0] + $none,
             'select' => ['value_text' => $keys ? $this->pick($keys) : null] + $none,
-            'multi_select' => ['value_json' => json_encode($keys ? (array) array_map(fn ($i) => $keys[$i], (array) array_rand($keys, min(count($keys), $this->rand(1, 3)))) : [])] + $none,
+            'multi_select' => ['value_json' => json_encode($keys ? array_map(fn ($i) => $keys[$i], $this->sampleKeys($keys, min(count($keys), $this->rand(1, 3)))) : [])] + $none,
             default => ['value_text' => $this->pick(['Crystal-clear water', 'Small groups only', 'Sea turtles often seen', 'Perfect for beginners', 'Includes a hot lunch', 'Spectacular coral gardens'])] + $none,
         };
     }

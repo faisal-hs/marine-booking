@@ -27,7 +27,7 @@ class BulkActivityOptionSeeder extends BulkSeeder
                     continue;
                 }
 
-                foreach ((array) array_rand($pool, $this->rand(1, 3)) as $order => $index) {
+                foreach ($this->sampleKeys($pool, $this->rand(1, 3)) as $order => $index) {
                     yield [
                         'uuid' => $this->uuid('add-on', "{$activity->id}-{$index}"),
                         'activity_id' => $activity->id,

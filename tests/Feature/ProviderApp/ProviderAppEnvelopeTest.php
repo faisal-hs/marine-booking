@@ -137,10 +137,15 @@ class ProviderAppEnvelopeTest extends TestCase
         }
         sort($withIt);
 
-        $this->assertSame([
+        $expected = [
             'GET api/v1/provider/apply', 'GET api/v1/provider/bookings', 'GET api/v1/provider/calendar', 'GET api/v1/provider/categories', 'GET api/v1/provider/customers',
             'GET api/v1/provider/dashboard', 'PATCH api/v1/provider/activities/{id}/status', 'PATCH api/v1/provider/profile', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
-            'POST api/v1/provider/bookings/{id}/cancel',
-        ], $withIt, 'A route with the attribute answers in the spec shape; a route without it must not');
+            'POST api/v1/provider/bookings/{id}/cancel', 'GET api/v1/provider/earnings', 'GET api/v1/provider/earnings/report', 'GET api/v1/provider/earnings/statement',
+            'GET api/v1/provider/earnings/statement/download', 'GET api/v1/provider/bank-account', 'PUT api/v1/provider/bank-account',
+            'POST api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals/{id}',
+        ];
+        sort($expected);
+
+        $this->assertSame($expected, $withIt, 'A route with the attribute answers in the spec shape; a route without it must not');
     }
 }

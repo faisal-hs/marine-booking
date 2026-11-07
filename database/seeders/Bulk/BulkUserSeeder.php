@@ -57,7 +57,7 @@ class BulkUserSeeder extends BulkSeeder
 
             yield [
                 'uuid' => $this->uuid('user-customer', $i),
-                'name' => $arabic ? fake('ar_SA')->name() : fake()->name(),
+                'name' => $this->fakeName($arabic),
                 'email' => $i % 2 === 0 ? "customer{$i}@bulk.example.test" : null,
                 'phone' => $this->phone(self::CUSTOMER_PHONE_PREFIX, $i),
                 'email_verified_at' => null,
@@ -87,7 +87,7 @@ class BulkUserSeeder extends BulkSeeder
 
             yield [
                 'uuid' => $this->uuid('user-provider', $i),
-                'name' => $this->chance(25) ? fake('ar_SA')->name() : fake()->name(),
+                'name' => $this->fakeName($this->chance(25)),
                 'email' => $this->chance(30) ? "provider{$i}@bulk.example.test" : null,
                 'phone' => $this->phone(self::PROVIDER_PHONE_PREFIX, $i),
                 'email_verified_at' => null,
@@ -114,7 +114,7 @@ class BulkUserSeeder extends BulkSeeder
 
             yield [
                 'uuid' => $this->uuid('user-staff', $i),
-                'name' => fake()->name(),
+                'name' => $this->fakeName(),
                 'email' => "staff{$i}@bulk.example.test",
                 'phone' => $this->phone(self::STAFF_PHONE_PREFIX, $i),
                 'email_verified_at' => $this->ts($created),

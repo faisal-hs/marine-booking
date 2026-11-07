@@ -23,7 +23,7 @@ class BulkSeedersBehaviourTest extends TestCase
     use RefreshDatabase;
 
     /** Every table the seeders fill. */
-    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
         'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
         'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
         'notifications', 'broadcasts', 'model_has_roles'];
@@ -223,7 +223,7 @@ class BulkSeedersBehaviourTest extends TestCase
         $this->seed(BulkDatabaseSeeder::class);
         $first = $fingerprint();
 
-        foreach (['notifications', 'otps', 'devices', 'favorites', 'reviews', 'payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options',
+        foreach (['notifications', 'otps', 'devices', 'favorites', 'reviews', 'withdrawals', 'wallet_entries', 'payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options',
             'activity_availability_overrides', 'activity_schedule_periods', 'activity_options', 'activity_inclusions', 'activity_requirements', 'activity_feature_values', 'activity_images',
             'activities', 'provider_documents', 'provider_profile_changes', 'provider_requests', 'providers', 'customers', 'admins', 'model_has_roles', 'broadcasts', 'users', 'feature_definitions', 'categories'] as $table) {
             DB::table($table)->delete();
@@ -292,6 +292,8 @@ class BulkSeedersBehaviourTest extends TestCase
 
             public function stableChoice(string $key, float $percent): bool { return $this->stable($key, $percent); }
 
+            public function start(int $seed): void { $this->startRandom($seed); }
+
             public function weightedChoice(array $weights): string { return $this->weighted($weights); }
 
             public function id(string $kind, int $key): string { return $this->uuid($kind, $key); }
@@ -336,7 +338,7 @@ class BulkSeedersBehaviourTest extends TestCase
     public function test_weighted_choices_follow_their_weights(): void
     {
         $seeder = $this->helpers();
-        mt_srand(12345);
+        $seeder->start(12345);   // the seeder's own engine: PHP's global generator plays no part in what a seeder draws
 
         $seen = ['a' => 0, 'b' => 0, 'c' => 0];
         for ($i = 0; $i < 20000; $i++) {

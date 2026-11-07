@@ -51,6 +51,7 @@ class NotificationFeed
         ActivityRejectedNotification::class,
         ActivitySentBackToReviewNotification::class,
         \App\Notifications\Providers\ProviderProfileChangeReviewedNotification::class,
+        \App\Notifications\Wallet\WithdrawalStatusNotification::class,
     ];
 
     /**

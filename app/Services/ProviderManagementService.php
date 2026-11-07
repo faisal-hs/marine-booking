@@ -69,6 +69,7 @@ class ProviderManagementService
                 'lat' => $data['lat'] ?? null,
                 'lng' => $data['lng'] ?? null,
                 'commission_rate' => $data['commission_rate'] ?? 0,
+                'commission_type' => $data['commission_type'] ?? 'percentage',
             ]);
         });
 
@@ -88,10 +89,12 @@ class ProviderManagementService
                 $provider->user->update($contact);
             }
 
-            $profile = array_intersect_key($data, array_flip(['business_name', 'business_license', 'bio', 'address', 'city', 'area', 'lat', 'lng', 'commission_rate']));
-            // The column is not nullable: an empty rate means "leave it as it is".
-            if (array_key_exists('commission_rate', $profile) && $profile['commission_rate'] === null) {
-                unset($profile['commission_rate']);
+            $profile = array_intersect_key($data, array_flip(['business_name', 'business_license', 'bio', 'address', 'city', 'area', 'lat', 'lng', 'commission_rate', 'commission_type']));
+            // The columns are not nullable: an empty value means "leave it as it is".
+            foreach (['commission_rate', 'commission_type'] as $column) {
+                if (array_key_exists($column, $profile) && $profile[$column] === null) {
+                    unset($profile[$column]);
+                }
             }
             if ($profile !== []) {
                 $this->providers->update($provider, $profile);
