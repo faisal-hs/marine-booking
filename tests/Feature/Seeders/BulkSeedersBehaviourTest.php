@@ -23,7 +23,7 @@ class BulkSeedersBehaviourTest extends TestCase
     use RefreshDatabase;
 
     /** Every table the seeders fill. */
-    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
         'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
         'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
         'notifications', 'broadcasts', 'model_has_roles'];
@@ -225,7 +225,7 @@ class BulkSeedersBehaviourTest extends TestCase
 
         foreach (['notifications', 'otps', 'devices', 'favorites', 'reviews', 'payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options',
             'activity_availability_overrides', 'activity_schedule_periods', 'activity_options', 'activity_inclusions', 'activity_requirements', 'activity_feature_values', 'activity_images',
-            'activities', 'provider_documents', 'provider_requests', 'providers', 'customers', 'admins', 'model_has_roles', 'broadcasts', 'users', 'feature_definitions', 'categories'] as $table) {
+            'activities', 'provider_documents', 'provider_profile_changes', 'provider_requests', 'providers', 'customers', 'admins', 'model_has_roles', 'broadcasts', 'users', 'feature_definitions', 'categories'] as $table) {
             DB::table($table)->delete();
         }
         // Back to a database as fresh as the first one, row ids included: prices and a few other choices derive from a row's id.

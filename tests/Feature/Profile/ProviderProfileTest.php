@@ -46,8 +46,11 @@ class ProviderProfileTest extends TestCase
                 'bio' => 'New bio here.',
             ]);
 
-        $response->assertOk()->assertJsonPath('data.business_name', 'Updated Diving Co');
-        $this->assertDatabaseHas('providers', ['id' => $provider->id, 'business_name' => 'Updated Diving Co']);
+        // The bio changes at once. The business name is critical information, so it waits for an admin (see ProviderProfileUpdateTest):
+        // the live profile keeps its current name meanwhile.
+        $response->assertOk()->assertJsonPath('data.business_name', 'Original Diving')->assertJsonPath('data.bio', 'New bio here.');
+        $this->assertDatabaseHas('providers', ['id' => $provider->id, 'business_name' => 'Original Diving', 'bio' => 'New bio here.']);
+        $this->assertDatabaseHas('provider_profile_changes', ['provider_id' => $provider->id, 'status' => 'pending']);
     }
 
     public function test_customer_token_cannot_access_provider_profile(): void

@@ -306,7 +306,7 @@ class ActivityPricingService
             'booking_option_id' => $option->id,
             'booking_option_uuid' => $option->uuid,
             'pricing_model' => $option->booking_model->value,
-            'currency' => $currency ?? 'EGP',
+            'currency' => $currency ?? config('platform.currency'),
             'subtotal' => $subtotal,
             'discount' => 0.0,
             'tax' => 0.0,

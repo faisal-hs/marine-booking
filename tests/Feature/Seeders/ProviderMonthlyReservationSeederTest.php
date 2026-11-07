@@ -169,7 +169,7 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $this->assertNone(DB::table('reservations as r')->whereRaw("(select count(*) from payments p where p.reservation_id = r.id and p.status = 'succeeded') != 1")->limit(3)->pluck('r.uuid'), 'Exactly one succeeded payment');
         $this->assertSame(DB::table('reservations')->count(), DB::table('payments')->count(), 'Nothing but those payments');
         $this->assertNone(DB::table('payments as p')->join('reservations as r', 'r.id', '=', 'p.reservation_id')->whereRaw('ABS(p.amount - r.total) > 0.005')->limit(3)->pluck('p.reference_id'), 'Paid in full');
-        $this->assertNone(DB::table('payments')->where(fn ($q) => $q->whereNull('paid_at')->orWhere('refunded_amount', '!=', 0)->orWhere('gateway', '!=', 'mock')->orWhere('currency', '!=', 'EGP'))->limit(3)->pluck('reference_id'), 'Paid, never refunded, mock gateway, EGP');
+        $this->assertNone(DB::table('payments')->where(fn ($q) => $q->whereNull('paid_at')->orWhere('refunded_amount', '!=', 0)->orWhere('gateway', '!=', 'mock')->orWhere('currency', '!=', config('platform.currency')))->limit(3)->pluck('reference_id'), 'Paid, never refunded, mock gateway, in the platform currency');
         $this->assertNone(DB::table('payments')->where('paid_at', '>', now())->limit(3)->pluck('reference_id'), 'Paid in the future');
         $this->assertSame(DB::table('payments')->count(), DB::table('payments')->distinct()->count('reference_id'), 'Unique payment references');
     }

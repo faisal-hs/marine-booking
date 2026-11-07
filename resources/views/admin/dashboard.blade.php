@@ -37,7 +37,7 @@
         </div>
         <div class="bg-[#ECFDF5] rounded-xl p-5">
             <p class="text-2xl font-semibold text-slate-800">{{ number_format($stats['payments']['net_revenue'], 2) }}</p>
-            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.net_revenue') }} (EGP)</p>
+            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.net_revenue') }} ({{ config('platform.currency') }})</p>
         </div>
         <div class="bg-[#ECFDF5] rounded-xl p-5">
             <p class="text-2xl font-semibold text-slate-800">{{ $stats['reviews']['average_platform_rating'] }} / 5</p>

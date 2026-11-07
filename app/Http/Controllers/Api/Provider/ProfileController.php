@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class ProfileController extends BaseApiController
 {
+    public function __construct(private readonly \App\Services\ProviderProfileService $profiles) {}
+
     /** The profile plus which account this is, the default one, which can be switched to, and the request status. */
     private function withAccount(\App\Models\User $user, ProviderResource $profile): array
     {
@@ -23,26 +25,17 @@ class ProfileController extends BaseApiController
 
     public function update(UpdateProfileRequest $request)
     {
-        $data = $request->payload();
         $user = $request->user();
 
-        DB::transaction(function () use ($data, $user) {
-            $user->update(array_filter([
-                'name' => $data['name'] ?? null,
-                'email' => $data['email'] ?? null,
-            ], fn($v) => $v !== null));
+        // As before, a field sent as null is left alone (PATCH is the way to clear one). Critical information (the business name) now waits for
+        // an admin, the same as through PATCH: the rule is about the information, not the verb.
+        $result = $this->profiles->update($user, array_filter($request->payload(), fn ($v) => $v !== null));
 
-            $user->provider->update(array_filter([
-                'business_name' => $data['business_name'] ?? null,
-                'bio' => $data['bio'] ?? null,
-                'address' => $data['address'] ?? null,
-                'city' => $data['city'] ?? null,
-                'area' => $data['area'] ?? null,
-                'lat' => $data['lat'] ?? null,
-                'lng' => $data['lng'] ?? null,
-            ], fn($v) => $v !== null));
-        });
-
-        return $this->success($this->withAccount($user, new ProviderResource($user->fresh()->provider)), 'Profile updated successfully.');
+        return $this->success(
+            $this->withAccount($user, new ProviderResource($user->fresh()->provider)),
+            $result['waiting'] === []
+                ? 'Profile updated successfully.'
+                : 'Profile updated. Your change to '.implode(', ', str_replace('_', ' ', $result['waiting'])).' is waiting for admin review and takes effect once approved.'
+        );
     }
 }

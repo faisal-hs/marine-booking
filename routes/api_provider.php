@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ProviderApp\CalendarController;
 use App\Http\Controllers\Api\ProviderApp\CategoryController;
 use App\Http\Controllers\Api\ProviderApp\CustomerController;
 use App\Http\Controllers\Api\ProviderApp\DashboardController;
+use App\Http\Controllers\Api\ProviderApp\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -61,6 +62,7 @@ Route::group([
     // --- Everything below needs an APPROVED provider. ---
     Route::middleware('provider.approved')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.patch');
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->middleware('throttle:30,1')->name('bookings.cancel');
         Route::get('/calendar', [CalendarController::class, 'show'])->name('calendar.show');

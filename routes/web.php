@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\FeatureDefinitionController;
 use App\Http\Controllers\Web\Admin\PaymentController;
 use App\Http\Controllers\Web\Admin\ProviderController;
+use App\Http\Controllers\Web\Admin\ProviderProfileChangeController;
 use App\Http\Controllers\Web\Admin\ReportController;
 use App\Http\Controllers\Web\Admin\ReservationController;
 use App\Http\Controllers\Web\Admin\ReviewController;
@@ -156,6 +157,8 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::get('/providers/{provider}/documents/{document:uuid}', [ProviderController::class, 'downloadDocument'])->name('providers.documents.download');
         Route::post('/providers/{provider}/verify', [ProviderController::class, 'verify'])->name('providers.verify');
         Route::post('/providers/{provider}/reject', [ProviderController::class, 'reject'])->name('providers.reject');
+        Route::post('/providers/{provider}/profile-changes/{change:uuid}/approve', [ProviderProfileChangeController::class, 'approve'])->withoutScopedBindings()->name('providers.profile-changes.approve');
+        Route::post('/providers/{provider}/profile-changes/{change:uuid}/reject', [ProviderProfileChangeController::class, 'reject'])->withoutScopedBindings()->name('providers.profile-changes.reject');
 
         Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
         Route::get('/reviews/{review}', [ReviewController::class, 'show'])->name('reviews.show');

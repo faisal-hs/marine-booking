@@ -31,6 +31,7 @@ class BulkDatabaseSeeder extends Seeder
         BulkAdminSeeder::class,
         BulkProviderSeeder::class,
         BulkProviderRequestSeeder::class,
+        BulkProviderProfileChangeSeeder::class,
         BulkProviderDocumentSeeder::class,
         BulkCustomerSeeder::class,
         BulkActivitySeeder::class,

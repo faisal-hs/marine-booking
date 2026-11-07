@@ -34,7 +34,7 @@
             <div>
                 @if ($activity->starting_price !== null)
                     <p class="text-xs text-slate-400">{{ __('public.activity.starting_from') }}</p>
-                    <p class="font-semibold text-slate-800">{{ number_format($activity->starting_price, 0) }} EGP</p>
+                    <p class="font-semibold text-slate-800">{{ number_format($activity->starting_price, 0) }} {{ config('platform.currency') }}</p>
                 @endif
             </div>
             <span class="bg-[var(--brand-accent)] text-white text-xs font-medium rounded-lg px-4 py-2">

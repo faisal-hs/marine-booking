@@ -28,6 +28,8 @@ class ProviderResource extends JsonResource
             'contact_phone' => $this->contact_phone,
             'contact_email' => $this->contact_email,
             'category_ids' => $this->categories()->pluck('categories.id')->all(),
+            // Critical information the provider asked to change, waiting for an admin (null when nothing is). The live values above are unchanged meanwhile.
+            'pending_profile_change' => $this->pendingChangeData(),
             // The three documents a provider request needs: the latest of each, or null.
             ...collect(config('providers.documents.required_types'))->mapWithKeys(function (string $type) {
                 $document = $this->documentOfType($type);
@@ -40,6 +42,22 @@ class ProviderResource extends JsonResource
             'rejection_reason' => $this->rejection_reason,
             'status' => $this->user->status,
             'created_at' => $this->created_at?->toIso8601String(),
+        ];
+    }
+
+    /** @return array{uuid: string, requested_at: string, changes: array<string, array{current: mixed, requested: mixed}>}|null */
+    private function pendingChangeData(): ?array
+    {
+        $change = $this->pendingProfileChange()->first();
+
+        if (! $change) {
+            return null;
+        }
+
+        return [
+            'uuid' => $change->uuid,
+            'requested_at' => $change->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
+            'changes' => collect($change->requested_changes)->map(fn (array $c) => ['current' => $c['from'], 'requested' => $c['to']])->all(),
         ];
     }
 }

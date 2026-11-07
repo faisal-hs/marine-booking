@@ -11,6 +11,12 @@ return [
     |
     */
 
+    /*
+    | Critical profile information. A change to one of these fields does not take effect until an admin approves it; any other profile field
+    | changes at once. Applies to PATCH and to the older PUT alike. Add a field here to put it under review too.
+    */
+    'critical_profile_fields' => ['business_name', 'business_type'],
+
     // Paging: the spec asks for page and per_page, with a maximum of 100.
     'per_page_default' => 20,
     'per_page_max' => 100,
@@ -19,7 +25,7 @@ return [
     | Customer tiers (GET /provider/customers). A customer's score out of 100 is made of four parts, each earned in proportion
     | up to a cap, so a customer who reaches every cap scores 100:
     |
-    |   spend             completed spend with this provider            up to `spend` EGP        -> 40 points
+    |   spend             completed spend with this provider            up to `spend` (in the platform currency)        -> 40 points
     |   bookings          completed bookings with this provider         up to `bookings`         -> 30 points
     |   recent            bookings made in the last `recent_days` days  up to `recent`           -> 20 points
     |   no_cancellations  10 points if they cancelled nothing in the last `cancellation_days` days, else 0

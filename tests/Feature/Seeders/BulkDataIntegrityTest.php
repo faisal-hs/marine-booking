@@ -50,7 +50,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_table_has_data_and_the_main_volumes_follow_the_scale(): void
     {
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
             'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
             'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
             'notifications', 'broadcasts'] as $table) {
@@ -74,7 +74,7 @@ class BulkDataIntegrityTest extends TestCase
     {
         $now = Carbon::now()->addMinutes(1)->toDateTimeString();
 
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
             $this->assertSame(0, DB::table($table)->where('created_at', '>', $now)->count(), "{$table} has rows created in the future");
         }
         $this->assertSame(0, DB::table('provider_requests')->whereNotNull('reviewed_at')->where('reviewed_at', '>', $now)->count());
@@ -243,7 +243,7 @@ class BulkDataIntegrityTest extends TestCase
             'Only per-person options are priced by participant type'
         );
         $this->assertNone(DB::table('activity_pricing_rules')->where('price', '<=', 0)->limit(3)->pluck('id'), 'Prices are positive');
-        $this->assertSame(0, DB::table('activity_pricing_rules')->where('currency', '!=', 'EGP')->count());
+        $this->assertSame(0, DB::table('activity_pricing_rules')->where('currency', '!=', config('platform.currency'))->count());
         // A departure-specific price points at a departure of the SAME activity.
         $this->assertNone(
             DB::table('activity_pricing_rules as r')->join('activity_booking_options as o', 'o.id', '=', 'r.activity_booking_option_id')->join('activity_schedule_periods as s', 's.id', '=', 'r.schedule_period_id')
@@ -374,7 +374,7 @@ class BulkDataIntegrityTest extends TestCase
             abs($sum - (float) $r->total) < 0.005 || $problems[] = "breakdown sums to {$sum}, total is {$r->total}";
             abs((float) $r->subtotal - (float) $r->total) < 0.005 || $problems[] = 'subtotal differs from total';
             ((float) $r->discount === 0.0 && (float) $r->tax === 0.0) || $problems[] = 'unexpected discount or tax';
-            $r->currency === 'EGP' || $problems[] = 'currency';
+            $r->currency === config('platform.currency') || $problems[] = 'currency';
 
             foreach ($breakdown as $line) {
                 abs($line['quantity'] * $line['unit_price'] - $line['total']) < 0.005 || $problems[] = 'a line does not multiply out';

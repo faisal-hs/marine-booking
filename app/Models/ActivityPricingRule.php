@@ -11,9 +11,18 @@ class ActivityPricingRule extends Model
     use HasUuid;
 
     protected $attributes = [
-        'currency' => 'EGP',
         'is_active' => true,
     ];
+
+    /** A rule made without a currency is in the platform's (config/platform.php). One that names its own currency keeps it. */
+    protected static function booted(): void
+    {
+        static::creating(function (self $rule) {
+            if (empty($rule->currency)) {
+                $rule->currency = config('platform.currency');
+            }
+        });
+    }
 
     protected $fillable = [
         'activity_booking_option_id',

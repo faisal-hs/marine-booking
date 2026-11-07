@@ -191,7 +191,7 @@ class BulkReservationSeeder extends BulkSeeder
             'status' => $status,
             'hold_expires_at' => $hold ? $this->ts($hold) : null,
             'pricing_model' => $option->booking_model,
-            'currency' => 'EGP',
+            'currency' => config('platform.currency'),
             'subtotal' => $price['total'],
             'discount' => 0,
             'tax' => 0,

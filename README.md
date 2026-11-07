@@ -110,12 +110,13 @@ raising the scale and running again adds only the difference.
 | BulkAdminSeeder | 40 (+40 roles) | staff profiles and roles (always at least one super admin) |
 | BulkProviderSeeder | 2,300 | 1,500 registered providers and 800 customers who asked to become one |
 | BulkProviderRequestSeeder | 2,462 | approved, rejected and waiting requests, matching each provider's status |
+| BulkProviderProfileChangeSeeder | about 370 | approved, rejected and waiting business-name changes; an approved one ends at the provider's live name |
 | BulkProviderDocumentSeeder | 6,848 | the three required documents, as REAL small PDFs on the private disk |
 | BulkCustomerSeeder | 25,047 | customer accounts, including providers who also use the customer side |
 | BulkActivitySeeder | 15,000 | 62% published, plus drafts, waiting, rejected, inactive and 3% deleted |
 | BulkActivitySchedulePeriodSeeder | 71,781 | weekly departures, some crossing midnight |
 | BulkActivityBookingOptionSeeder | 21,731 | per person, per trip, per hour, package, fixed, per unit, per group |
-| BulkActivityPricingRuleSeeder | 36,728 | prices in EGP, by participant type for per-person options |
+| BulkActivityPricingRuleSeeder | 36,728 | prices in the platform currency (SAR), by participant type for per-person options |
 | BulkActivityImageSeeder | 64,527 | placeholder photo paths (no files), first one the cover |
 | BulkActivityFeatureValueSeeder | 58,812 | values of the activity's own category attributes |
 | BulkActivityRequirementSeeder | 45,067 | what a guest must bring or meet |
@@ -166,7 +167,7 @@ suspended and deleted providers get nothing.
 - "At least 50" counts what is already there (confirmed or completed reservations of the month with a succeeded payment, however they were
   created), so running it again adds nothing, and raising the minimum adds only the difference.
 - An active provider with nothing bookable first gets one small published activity, "<business> Day Trip" (daily departures, 40 places, adult 300 and
-  child 150 EGP). In the demo data that is 5 of the 15 active providers; without it they could never reach the minimum.
+  child 150 SAR). In the demo data that is 5 of the 15 active providers; without it they could never reach the minimum.
 - If a minimum cannot fit without overbooking, it stops with a message instead of overbooking.
 - It works on the demo data and on the bulk data, ignores `BULK_SEED_SCALE`, and refuses to run in production.
 
@@ -238,7 +239,8 @@ A request flows `FormRequest` (validation and authorization) → thin controller
   `provider` ability and an approved provider (the header of the file lists the conventions). `ProviderRouteConventionsTest` fails if any route repeats
   another's method and URI or name, or is reachable without those guards.
 - **Provider app API status.** `docs/PROVIDER_API.md` lists every operation of the provider app specification, whether it is built, and the decisions that are
-  holding the rest. Providers cancel a confirmed booking with a reason (the customer is refunded in full), and `ACTIVITY_AUTO_PUBLISH` decides whether an admin's
+  holding the rest. The platform currency is SAR (`config/platform.php`); a provider's change to critical profile information (business name and type) waits for an admin's approval.
+  Providers cancel a confirmed booking with a reason (the customer is refunded in full), and `ACTIVITY_AUTO_PUBLISH` decides whether an admin's
   approval also publishes an activity or leaves it for the provider to publish.
 - **Refusal comes before lookup.** The `ability:*`, `provider.approved` and staff checks run before route-model binding, so a caller who may not
   use an area gets the same answer whether or not the id exists (it used to be 404 for a made-up id and 403 for a real one, which revealed which
@@ -438,7 +440,7 @@ These are known and deliberately listed, not hidden:
   no accounts (see Deploying, step 3), so the first super admin has to be created by hand.
 - **The FCM HTTP gateway needs a hand-refreshed OAuth access token** (`FCM_ACCESS_TOKEN`) until
   service-account authentication is implemented (`HttpFcmGateway`).
-- **Money is handled as PHP floats and the currency is EGP throughout.**
+- **Money is handled as PHP floats and every record carries its currency, and the platform currency (SAR, `config/platform.php`) is used for new ones.**
 - **Revenue in the reports is gross.** Payments have no `refunded_at`, so a refund cannot be
   attributed to a period. The all-time figure on the dashboard is net of refunds.
 - **Providers cannot see who booked.** Their reservation list and booking alerts show the

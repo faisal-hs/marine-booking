@@ -50,6 +50,7 @@ class NotificationFeed
         ActivityPublishedNotification::class,
         ActivityRejectedNotification::class,
         ActivitySentBackToReviewNotification::class,
+        \App\Notifications\Providers\ProviderProfileChangeReviewedNotification::class,
     ];
 
     /**

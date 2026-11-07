@@ -57,7 +57,7 @@ trait BuildsProviderAppScenarios
             'status' => $status,
             'hold_expires_at' => null,
             'pricing_model' => 'per_person',
-            'currency' => 'EGP',
+            'currency' => config('platform.currency'),
             'subtotal' => $total,
             'discount' => 0,
             'tax' => 0,
@@ -79,7 +79,7 @@ trait BuildsProviderAppScenarios
 
         return DB::table('payments')->insertGetId([
             'uuid' => (string) Str::uuid(), 'reference_id' => 'PAY-'.strtoupper(Str::random(10)), 'reservation_id' => $reservationId, 'gateway' => 'mock',
-            'payment_id' => 'mock_'.Str::random(8), 'provider_reference' => 'mock_'.Str::random(8), 'amount' => $amount, 'currency' => 'EGP',
+            'payment_id' => 'mock_'.Str::random(8), 'provider_reference' => 'mock_'.Str::random(8), 'amount' => $amount, 'currency' => config('platform.currency'),
             'status' => $refunded >= $amount ? 'refunded' : ($refunded > 0 ? 'partially_refunded' : 'succeeded'), 'failure_reason' => null, 'refunded_amount' => $refunded,
             'paid_at' => $now, 'raw_payload' => '{}', 'created_at' => $now, 'updated_at' => $now,
         ]);

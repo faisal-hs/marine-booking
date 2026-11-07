@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  *  - cancelled AFTER being confirmed: it was paid, and 40% were refunded, 25% partly refunded, the rest not refunded;
  *  - cancelled without ever being confirmed: 20% had a failed attempt, the rest never paid;
  *  - expired: 35% had a failed attempt; pending: half have a payment in progress.
- * All through the mock gateway, in EGP.
+ * All through the mock gateway, in the platform currency (SAR by default).
  *
  * Volume at scale 1: about 132,000.
  * Prerequisites: BulkReservationSeeder.

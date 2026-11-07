@@ -235,7 +235,7 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
             'status' => $past ? 'completed' : 'confirmed',
             'hold_expires_at' => null,
             'pricing_model' => $option->booking_model,
-            'currency' => 'EGP',
+            'currency' => config('platform.currency'),
             'subtotal' => $price['total'],
             'discount' => 0,
             'tax' => 0,
@@ -350,7 +350,7 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
 
     /**
      * A small, complete, published activity for a provider that has nothing to book: daily departures, 40 places, per-person
-     * prices (adult 300, child 150 EGP). Created once; the same one is found again on a re-run.
+     * prices (adult 300, child 150, in the platform currency). Created once; the same one is found again on a re-run.
      */
     private function createInventory(object $provider): void
     {
@@ -407,7 +407,7 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
 
         $this->insert('activity_pricing_rules', array_map(fn (string $type, int $price) => [
             'uuid' => $this->uuid('provider-month-rule', "{$provider->id}-{$type}"), 'activity_booking_option_id' => $optionId, 'participant_type' => $type,
-            'price' => $price, 'min_quantity' => null, 'max_quantity' => null, 'schedule_period_id' => null, 'currency' => 'EGP', 'is_active' => 1,
+            'price' => $price, 'min_quantity' => null, 'max_quantity' => null, 'schedule_period_id' => null, 'currency' => config('platform.currency'), 'is_active' => 1,
             'created_at' => $stamp, 'updated_at' => $stamp,
         ], ['adult', 'child'], [300, 150]));
 

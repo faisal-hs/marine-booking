@@ -48,7 +48,7 @@
                     </div>
                     <div>
                         <p class="text-2xl font-semibold text-slate-800">{{ number_format($summary['total_paid'], 2) }}</p>
-                        <p class="text-xs text-slate-500">{{ __('admin.customers.total_paid') }}</p>
+                        <p class="text-xs text-slate-500">{{ __('admin.customers.total_paid', ['currency' => config('platform.currency')]) }}</p>
                     </div>
                     <div>
                         <p class="text-2xl font-semibold text-slate-800">{{ $summary['reviews'] }} / {{ $summary['favorites'] }}</p>

@@ -59,6 +59,17 @@ class Provider extends Model
     }
 
 
+    public function profileChanges()
+    {
+        return $this->hasMany(ProviderProfileChange::class);
+    }
+
+    /** The change to critical profile information that is waiting for an admin, if any (there is at most one). */
+    public function pendingProfileChange()
+    {
+        return $this->hasOne(ProviderProfileChange::class)->where('status', ProviderProfileChange::PENDING)->latest('id');
+    }
+
     /** The categories the provider works in (many to many). */
     public function categories()
     {

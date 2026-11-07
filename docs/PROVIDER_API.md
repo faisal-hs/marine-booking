@@ -5,10 +5,11 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 29 o
 
 | | Operations |
 |---|---|
-| **Built** | 9, plus 1 that replaces two (booking cancellation, below) |
+| **Built** | 10, plus 1 that replaces two (booking cancellation) |
 | **Decided: the current system stays** | 3 (availability) |
-| **Waiting on a decision** | 14 |
-| **Collide with a route that already exists** | 6 |
+| **Kept as it is** | 1 (`GET /provider/profile`, which now also shows a change waiting for review) |
+| **Decided, not built yet** | 14 (verification documents, earnings, bank account, withdrawals, coupons, analytics) |
+| **Held: the decisions conflict** | 4 (activities create / read / update; see section 7) |
 | **Not yet, need no decision** | 4 (reviews) |
 
 ## 1. Every operation, and where it stands
@@ -25,10 +26,10 @@ change a contract in use (section 5). **Not yet** = needs no decision, simply no
 | `POST /provider/apply` | **Built** | Multipart. The three documents keep the names the platform uses (`commercial_registration`, `safety_certification`, `insurance_certificate`). Several categories (many to many). |
 | `GET /provider/apply` | **Built** | Latest application, the admin's note, `can_resubmit`. 404 when there is none. |
 | `POST /provider/apply/resubmit` | **Built** | Latest rejected application only; creates a NEW application, the rejected one stays as history. |
-| `GET /provider/verification` | Decision D4 | Needs a status per document. |
-| `POST /provider/verification/{key}` | Decision D4 | Same. |
-| `GET /provider/profile` | Collides, D5 | The path exists with another shape. The existing response now also carries the new application details. |
-| `PATCH /provider/profile` | Collides, D5 | The existing one is `PUT`. Commercial changes needing new approval need a revision workflow. |
+| `GET /provider/verification` | Decided, not built | Section 7. |
+| `POST /provider/verification/{key}` | Decided, not built | Section 7. |
+| `GET /provider/profile` | **Kept** | The existing endpoint, unchanged, plus `business_type`, `marina_name`, `contact_phone`, `contact_email`, `category_ids` and `pending_profile_change`. |
+| `PATCH /provider/profile` | **Built** | Partial update. Ordinary fields change at once; critical ones wait for an admin (section 3). The older `PUT` stays and follows the same rule. |
 
 ### Phase 2: bookings, calendar, availability
 
@@ -47,30 +48,29 @@ change a contract in use (section 5). **Not yet** = needs no decision, simply no
 | Operation | Status | Notes |
 |---|---|---|
 | `PATCH /provider/activities/{id}/status` | **Built** | Publish an approved activity, pause, resume (section 3). |
-| `GET, POST /provider/activities` | Collides, D3 | |
-| `GET, PUT /provider/activities/{id}` | Collides, D3 | |
+| `GET, POST /provider/activities`, `GET, PUT /provider/activities/{id}` | **Held** | Your two answers about activity approval conflict (section 7). |
 
 ### Phase 4: earnings and withdrawals
 
 | Operation | Status | Notes |
 |---|---|---|
-| `GET /provider/earnings`, `/earnings/statement`, `/earnings/report` | Decision D6, D7 | Need the wallet ledger. |
-| `GET /provider/bank-account` | Decision D6 | |
-| `POST /provider/withdrawals`, `GET /provider/withdrawals`, `GET /provider/withdrawals/{id}` | Decision D6, D8 | |
+| `GET /provider/earnings`, `/earnings/statement`, `/earnings/report` | Decided, not built | The wallet ledger first (section 7). |
+| `GET /provider/bank-account` | Decided, not built | Section 7. |
+| `POST /provider/withdrawals`, `GET /provider/withdrawals`, `GET /provider/withdrawals/{id}` | Decided, not built | The wallet ledger first (section 7). |
 
 ### Phase 5: customers, coupons, reviews
 
 | Operation | Status | Notes |
 |---|---|---|
 | `GET /provider/customers` | **Built** | Tiers from a configurable score (section 3). |
-| `GET, POST /provider/coupons`, `PATCH, DELETE /provider/coupons/{id}` | Decision D9 | No coupon exists in the platform yet. |
+| `GET, POST /provider/coupons`, `PATCH, DELETE /provider/coupons/{id}` | Decided, not built | Needs the customer booking flow to apply one (section 7). |
 | `GET /provider/reviews`, `POST, PATCH, DELETE /provider/reviews/{id}/reply` | Not yet | Need no decision; the next batch. |
 
 ### Phase 6: analytics
 
 | Operation | Status | Notes |
 |---|---|---|
-| `GET /provider/analytics` | Decision D10 | The platform records no page views at all. |
+| `GET /provider/analytics` | Decided, not built | Financial figures must come from the ledger (section 7). |
 
 ## 2. Conventions of the provider app API
 
@@ -104,6 +104,15 @@ change a contract in use (section 5). **Not yet** = needs no decision, simply no
   resumes it. Nothing that has not been approved can be activated. The app sees published as `active` and inactive as `paused`. An `approved` activity is guarded like a
   live one: changing what customers see sends it back to review, so it cannot be edited after approval and then published. The setting applies to approvals made
   after it is changed.
+- **Profile changes** (`ProviderProfileService`). Ordinary information (bio, address, city, area, location, marina, business contact, categories, the account's name and email) changes
+  at once. **Critical information** (`config/provider_app.php` → `critical_profile_fields`, default `business_name` and `business_type`) does not take effect until an admin approves it:
+  the live profile keeps its value, and the response says the change is waiting, with the current and the requested value. There is at most one waiting request: asking again replaces it
+  (the older one is kept as `superseded`), and asking for a field's current value again withdraws just that field. The admin sees it on the provider's page with Approve and Reject (a
+  reason is required and the provider is told it); admins who may update providers are notified when one is waiting. `PATCH` can clear a field with null; the older `PUT` ignores nulls,
+  as it always did. **The older `PUT` also follows the rule**: changing the business name through it no longer takes effect at once.
+- **Currency** (`config/platform.php`, `PLATFORM_CURRENCY`, **SAR**). Every price, booking, payment and report label uses it. It is written onto each record when the record is made, so a
+  record always says what it was made in, and changing it affects only new records: **nothing already stored is converted or relabelled**. Records made before this change keep
+  `EGP` (section 7, question 1).
 - **Guests**: the participants of a per-person booking added up, otherwise the quantity; a whole trip counts as one.
 - **Gross** = total of COMPLETED bookings before commission. **Net** = (gross - refunds on them) x (1 - the provider's `commission_rate` percent). Refunds are treated as
   borne by the provider (D8). (`ProviderRevenue`)
@@ -117,21 +126,22 @@ change a contract in use (section 5). **Not yet** = needs no decision, simply no
 
 ## 4. Decisions
 
-| # | Question | Outcome |
-|---|---|---|
-| D1 | Accept/decline bookings | **Decided.** Keep automatic confirmation on payment; the provider can cancel a confirmed booking, with a mandatory reason, logged as provider-initiated. |
-| D2 | Provider-wide availability | **Decided.** The current per-activity system stays; the three availability endpoints are not built. |
-| D3 | Activity publishing | **Decided.** A true/false setting for automatic publishing; admin approval stays a prerequisite. *Still open inside D3: the simple `price`, `duration_hours`, `max_capacity` fields of the spec's activity create/update, and one category versus several per activity.* |
-| D12 | Customer tiers | **Decided.** The spec's initial weights and thresholds, configurable in a config file. |
-| Ownership | Another provider's resource | **Decided.** `404 RESOURCE_NOT_FOUND`. |
-| D4 | Verification documents: a status per document, versions, review history; needs per-document review in the admin panel too. | Open. Recommendation: build it, with Approve / Reject per document on the admin request page. |
-| D5 | Profile: the spec's `GET`/`PATCH` collide with the existing `GET`/`PUT`. | Open. Recommendation: add the spec's fields to the existing response and accept `PATCH`, rather than replacing. |
-| D6 | Wallet: when do completed bookings become withdrawable; who executes payouts. | Open. Recommendation: a ledger first; withdrawals recorded, paid out manually until a payout provider is chosen. |
-| D7 | Currency: the spec's examples are SAR; the platform stores EGP. | Open. Recommendation: EGP. |
-| D8 | Who bears promotional discounts, taxes, gateway fees (what Net means). | Open. Recommendation: the provider bears commission and refunds; the platform bears gateway fees and its own discounts. |
-| D9 | Coupons: unique per provider or platform-wide; empty `activity_ids` means all; applying one is part of the customer booking flow. | Open. Recommendation: unique per provider; empty means all; built together with the customer side. |
-| D10 | Analytics: the platform records no page views. | Open. Recommendation: start recording views now; build the endpoint once there is data. |
-| D11 | The spec's envelope differs from the rest of the API's. | Assumed: the spec's, for the provider app only. |
+| Topic | Outcome |
+|---|---|
+| Accept/decline bookings | **Decided.** Automatic confirmation on payment; the provider can cancel a confirmed booking, with a mandatory reason, logged as provider-initiated. **Built.** |
+| Provider-wide availability | **Decided.** The current per-activity system stays. |
+| Customer tiers | **Decided.** The spec's weights and thresholds, configurable in `config/provider_app.php`. **Built.** |
+| Another provider's resource | **Decided.** `404 RESOURCE_NOT_FOUND`. **Built.** |
+| Profile | **Decided and built.** `PATCH` added, `PUT` kept; critical changes reviewed by an admin. |
+| Currency | **Decided and built.** SAR. |
+| Verification documents | **Decided, not built.** Section 7. |
+| Wallet and withdrawals | **Decided, not built.** Section 7. |
+| Discounts, fees, commission | **Decided, not built.** Needs the ledger. Section 7. |
+| Coupons | **Decided, not built.** Section 7. |
+| Analytics | **Decided, not built.** Section 7. |
+| Activity pricing and capacity | **Decided, not built.** Section 7. |
+| Activity publishing | **Conflict.** Your answer of 6 November (admin approval stays, with an automatic-publishing switch) and your document of 7 November (no admin approval of activities) disagree. Section 7. |
+| Envelope | Assumed: the spec's, for the provider app only. |
 
 ## 5. Where the spec collides with routes that already exist
 
@@ -153,3 +163,31 @@ change a contract in use (section 5). **Not yet** = needs no decision, simply no
 - `ActivityApprovedNotification`: says whether the activity is live or waiting for the provider. The admin screen shows the `approved` state and says what an approval did.
 - `EnsureProviderApproved`, `bootstrap/app.php`: answer in the spec's shape on provider app routes.
 - `ProviderResource`: five more fields (`business_type`, `marina_name`, `contact_phone`, `contact_email`, `category_ids`); nothing removed. Reservation resources: `cancellation_source`.
+- `ProviderResource`: also `pending_profile_change`. `Provider`: `pendingProfileChange()`, `profileChanges()`. New table `provider_profile_changes`.
+- `PUT /provider/profile` now goes through `ProviderProfileService`: a changed business name (or any field in `critical_profile_fields`) waits for an admin. The test that asserted an immediate change was updated.
+- Currency: `config/platform.php`; the pricing rule model default and the pricing service fallback, the bulk and monthly seeders, the admin report headers, the admin labels (a `:currency` placeholder in English and
+  Arabic) and the public activity card read it. A migration changes the database default of `activity_pricing_rules.currency`; no row is touched.
+
+## 7. Held and open: what I need before building the rest
+
+**A conflict to resolve first: activity approval.** On 6 November you answered *"Admin approval remains a prerequisite before activities are published"* and asked for an automatic-publishing setting
+(built: `ACTIVITY_AUTO_PUBLISH`). Your document of 7 November says individual activities need **no** admin approval: an approved provider creates, edits and publishes directly, and an admin can
+pause or deactivate (with a reason) afterwards. They cannot both stand. If the document is the final word, then: the `pending_review` / approve / reject flow and its admin screens stop being used for
+activities; editing a live activity no longer sends it back to review (`LiveActivityContentGuard`); `ACTIVITY_AUTO_PUBLISH` has no purpose; and an admin pause must be remembered separately from a
+provider's own pause, so a provider cannot republish what an admin paused. That touches the admin activity screens and a large part of the activity tests, so I have built none of it.
+
+**Gaps in the document** (each needs an answer, or I use the stated default):
+
+1. **Existing EGP data.** Is there real data stored in EGP? Nothing is converted (as you said), so old rows stay EGP, and totals that add old and new rows together would mix currencies. If this is only
+   demo data, re-seeding is enough.
+2. **When does an earning become withdrawable?** "Once the eligibility conditions are met" is not defined. Default I would use: when the booking is completed, plus a configurable delay (default 0 days).
+3. **Gateway fees.** "According to the provider's approved financial agreement": there is no field for it. I would add a percentage and a fixed amount per provider (default 0). And is the commission per
+   provider (as now) only, or can an activity have its own rate?
+4. **Payouts.** "The approved payout procedure": who pays out and how (bank transfer by hand, a payout provider)? Until chosen, withdrawals can be recorded and reserved but not paid by the system.
+5. **Bank account data**: which fields (IBAN, bank name, account holder), and may the provider change it freely? I would require admin review of a change, like the profile.
+6. **Platform-funded discounts**: only a provider can create a coupon, so every coupon is provider-funded. Are there platform (admin) coupons or promotions? If so, who creates them?
+7. **Verification documents**: which documents are mandatory (today: commercial registration, safety certification, insurance certificate), do any expire (and when is "expired" decided), and what exactly does
+   an expired mandatory document suspend?
+8. **Activity capacity per departure**: today `max_participants` belongs to the activity and a departure has no capacity of its own. Per-departure capacity means a new column and a change to the
+   booking capacity check. Confirm that is wanted, and what an existing activity's departures take as their capacity (I would copy the activity's).
+9. **Money arithmetic.** The platform handles money as floats. The ledger must not. I would build it in integer minor units (halalas). That is a design decision, not a question, unless you object.

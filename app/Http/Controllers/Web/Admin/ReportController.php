@@ -60,7 +60,7 @@ class ReportController extends Controller
             $rows[] = [$label, $series['data'][$i]];
         }
 
-        return [['Date', 'Gross Revenue (EGP)'], $rows];
+        return [['Date', 'Gross Revenue ('.config('platform.currency').')'], $rows];
     }
 
     protected function reservationsRows($from, $to): array
@@ -80,7 +80,7 @@ class ReportController extends Controller
             ->map(fn($row) => [$row->title, $row->bookings_count, $row->revenue])
             ->all();
 
-        return [['Activity', 'Bookings', 'Revenue (EGP)'], $rows];
+        return [['Activity', 'Bookings', 'Revenue ('.config('platform.currency').')'], $rows];
     }
 
     protected function providersRows($from, $to): array
@@ -89,7 +89,7 @@ class ReportController extends Controller
             ->map(fn($row) => [$row->business_name, $row->bookings_count, $row->revenue])
             ->all();
 
-        return [['Provider', 'Bookings', 'Revenue (EGP)'], $rows];
+        return [['Provider', 'Bookings', 'Revenue ('.config('platform.currency').')'], $rows];
     }
 
     protected function categoriesRows($from, $to): array
@@ -98,7 +98,7 @@ class ReportController extends Controller
             ->map(fn($row) => [$row->name, $row->bookings_count, $row->revenue])
             ->all();
 
-        return [['Category', 'Bookings', 'Revenue (EGP)'], $rows];
+        return [['Category', 'Bookings', 'Revenue ('.config('platform.currency').')'], $rows];
     }
 
     protected function streamCsv(string $filename, array $headerRow, array $rows): StreamedResponse

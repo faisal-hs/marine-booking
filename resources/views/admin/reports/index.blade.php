@@ -80,7 +80,7 @@
                     <tr class="text-left text-slate-400 border-b border-slate-100">
                         <th class="py-2 font-medium">{{ __('admin.reservations.activity') }}</th>
                         <th class="py-2 font-medium">{{ __('admin.reports.bookings') }}</th>
-                        <th class="py-2 font-medium">{{ __('admin.reports.revenue') }}</th>
+                        <th class="py-2 font-medium">{{ __('admin.reports.revenue', ['currency' => config('platform.currency')]) }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -110,7 +110,7 @@
                     <tr class="text-left text-slate-400 border-b border-slate-100">
                         <th class="py-2 font-medium">{{ __('admin.providers.business_name') }}</th>
                         <th class="py-2 font-medium">{{ __('admin.reports.bookings') }}</th>
-                        <th class="py-2 font-medium">{{ __('admin.reports.revenue') }}</th>
+                        <th class="py-2 font-medium">{{ __('admin.reports.revenue', ['currency' => config('platform.currency')]) }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -140,7 +140,7 @@
                     <tr class="text-left text-slate-400 border-b border-slate-100">
                         <th class="py-2 font-medium">{{ __('admin.nav.categories') }}</th>
                         <th class="py-2 font-medium">{{ __('admin.reports.bookings') }}</th>
-                        <th class="py-2 font-medium">{{ __('admin.reports.revenue') }}</th>
+                        <th class="py-2 font-medium">{{ __('admin.reports.revenue', ['currency' => config('platform.currency')]) }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -166,7 +166,7 @@
             data: {
                 labels: @json($revenueOverTime['labels']),
                 datasets: [{
-                    label: '{{ __('admin.reports.revenue') }}',
+                    label: '{{ __('admin.reports.revenue', ['currency' => config('platform.currency')]) }}',
                     data: @json($revenueOverTime['data']),
                     borderColor: '#14B8A6',
                     backgroundColor: 'rgba(20, 184, 166, 0.1)',

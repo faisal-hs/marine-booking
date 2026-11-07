@@ -6,6 +6,38 @@
 @section('content')
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
+            @if ($pendingChange = $provider->pendingProfileChange)
+                <div class="bg-amber-50 rounded-xl border border-amber-200 p-6">
+                    <h2 class="text-sm font-semibold text-slate-800 mb-1">{{ __('admin.providers.profile_change.title') }}</h2>
+                    <p class="text-xs text-slate-600 mb-4">{{ __('admin.providers.profile_change.intro') }}</p>
+                    <dl class="text-sm space-y-3 mb-4">
+                        @foreach ($pendingChange->requested_changes as $field => $change)
+                            <div>
+                                <dt class="text-slate-400">{{ trans()->has('admin.providers.profile_change.fields.'.$field) ? __('admin.providers.profile_change.fields.'.$field) : \Illuminate\Support\Str::headline($field) }}</dt>
+                                <dd><span class="text-slate-500">{{ __('admin.providers.profile_change.current') }}:</span> {{ $change['from'] ?? '—' }}</dd>
+                                <dd class="font-medium"><span class="text-slate-500 font-normal">{{ __('admin.providers.profile_change.requested') }}:</span> {{ $change['to'] }}</dd>
+                            </div>
+                        @endforeach
+                        <div class="text-xs text-slate-500">{{ __('admin.providers.profile_change.requested_at') }}: {{ $pendingChange->created_at->toDateTimeString() }}</div>
+                    </dl>
+                    @can('update', $provider)
+                        <div class="flex flex-wrap gap-3 items-start">
+                            <form method="POST" action="{{ route('admin.providers.profile-changes.approve', [$provider, $pendingChange]) }}">
+                                @csrf
+                                <button type="submit" class="bg-emerald-600 text-white rounded-lg px-3 py-1.5 text-sm">{{ __('admin.providers.profile_change.approve') }}</button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.providers.profile-changes.reject', [$provider, $pendingChange]) }}"
+                                onsubmit="return confirm('{{ __('admin.providers.profile_change.confirm_reject') }}')" class="flex gap-2">
+                                @csrf
+                                <input type="text" name="rejection_reason" required placeholder="{{ __('admin.providers.profile_change.reason_placeholder') }}"
+                                    class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-64">
+                                <button type="submit" class="bg-red-600 text-white rounded-lg px-3 py-1.5 text-sm">{{ __('admin.providers.profile_change.reject') }}</button>
+                            </form>
+                        </div>
+                    @endcan
+                </div>
+            @endif
+
             <div class="bg-white rounded-xl border border-slate-200 p-6">
                 <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.details_title') }}</h2>
                 <dl class="text-sm space-y-2">
@@ -113,7 +145,7 @@
                     </div>
                     <div>
                         <p class="text-2xl font-semibold text-slate-800">{{ number_format($summary['gross_revenue'], 2) }}</p>
-                        <p class="text-xs text-slate-500">{{ __('admin.providers.gross_revenue') }}</p>
+                        <p class="text-xs text-slate-500">{{ __('admin.providers.gross_revenue', ['currency' => config('platform.currency')]) }}</p>
                     </div>
                 </div>
             </div>

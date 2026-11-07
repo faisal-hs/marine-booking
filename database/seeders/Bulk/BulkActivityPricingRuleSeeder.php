@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
  * The prices. A per-person option has an adult price (and a child price at 50 to 60% of it, and sometimes a token
  * infant price); every other model has one price. A few per-person options also have a dearer adult price for one
  * particular departure.
- * Volume at scale 1: about 37,000, all in EGP.
+ * Volume at scale 1: about 37,000, all in the platform currency (SAR by default).
  * Prerequisites: BulkActivityBookingOptionSeeder, BulkActivitySchedulePeriodSeeder.
  */
 class BulkActivityPricingRuleSeeder extends BulkSeeder
@@ -78,7 +78,7 @@ class BulkActivityPricingRuleSeeder extends BulkSeeder
             'min_quantity' => null,
             'max_quantity' => null,
             'schedule_period_id' => $period,
-            'currency' => 'EGP',
+            'currency' => config('platform.currency'),
             'is_active' => 1,
             'created_at' => $option->created_at,
             'updated_at' => $option->created_at,
