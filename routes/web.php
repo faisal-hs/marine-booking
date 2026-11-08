@@ -75,10 +75,8 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
             ->name('feature-definitions.destroy');
 
         Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
-        Route::post('/activities/{activity}/approve', [ActivityController::class, 'approve'])->name('activities.approve');
-        Route::post('/activities/{activity}/reject', [ActivityController::class, 'reject'])->name('activities.reject');
-        Route::post('/activities/{activity}/publish', [ActivityController::class, 'publish'])->name('activities.publish');
-        Route::post('/activities/{activity}/deactivate', [ActivityController::class, 'deactivate'])->name('activities.deactivate');
+        Route::post('/activities/{activity}/suspend', [ActivityController::class, 'suspend'])->name('activities.suspend');
+        Route::post('/activities/{activity}/lift-suspension', [ActivityController::class, 'lift'])->name('activities.lift');
         // "create" must come before {activity}, or it would be read as an activity id.
         Route::get('/activities/create', [ActivityController::class, 'create'])->name('activities.create');
         Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store');

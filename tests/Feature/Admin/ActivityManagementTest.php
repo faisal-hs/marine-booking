@@ -23,7 +23,7 @@ use Tests\TestCase;
 /**
  * Staff create, edit, delete and restore of activities, with the permission each needs.
  * A content admin may write listings (activities.create/update/delete) but not release
- * them (approve, reject, publish): that boundary is part of what is tested here.
+ * them (suspending an activity): that boundary is part of what is tested here.
  */
 class ActivityManagementTest extends TestCase
 {
@@ -92,9 +92,9 @@ class ActivityManagementTest extends TestCase
     /** @return array<string, array{0: string, 1: string, 2: string}> */
     public static function permissionMatrix(): array
     {
-        $actions = ['index', 'show', 'create', 'store', 'edit', 'update', 'features', 'requirements', 'inclusions', 'images_store', 'images_cover', 'images_destroy', 'destroy', 'restore', 'approve'];
+        $actions = ['index', 'show', 'create', 'store', 'edit', 'update', 'features', 'requirements', 'inclusions', 'images_store', 'images_cover', 'images_destroy', 'destroy', 'restore', 'suspend'];
         $everything = $actions;
-        $writeButNotRelease = array_values(array_diff($actions, ['approve']));
+        $writeButNotRelease = array_values(array_diff($actions, ['suspend']));
         $allowed = [
             'super_admin' => $everything,
             'admin' => $everything,
@@ -120,7 +120,7 @@ class ActivityManagementTest extends TestCase
         $actor->syncRoles($role === 'none' ? [] : [$role]);
         [, $provider] = $this->makeProvider('verified');
         $category = $this->categoryWithFeatures();
-        $activity = $this->makeActivity($provider, $action === 'approve' ? 'pending_review' : 'draft', ['category' => $category]);
+        $activity = $this->makeActivity($provider, $action === 'suspend' ? 'published' : 'draft', ['category' => $category]);
         $image = $this->image($activity, true);
 
         if ($action === 'restore') {
@@ -143,7 +143,7 @@ class ActivityManagementTest extends TestCase
             'images_destroy' => $client->delete(route('admin.activities.images.destroy', [$activity, $image])),
             'destroy' => $client->delete(route('admin.activities.destroy', $activity)),
             'restore' => $client->post(route('admin.activities.restore', $activity)),
-            'approve' => $client->post(route('admin.activities.approve', $activity)),
+            'suspend' => $client->post(route('admin.activities.suspend', $activity), ['suspension_reason' => 'A complaint was upheld']),
         };
 
         if ($expected === 'denied') {
@@ -157,7 +157,7 @@ class ActivityManagementTest extends TestCase
         }
     }
 
-    public function test_a_content_admin_can_write_a_listing_but_cannot_release_it(): void
+    public function test_a_content_admin_can_write_a_listing_but_cannot_suspend_it(): void
     {
         [, $provider] = $this->makeProvider('verified');
         $category = $this->makeCategory();
@@ -166,9 +166,10 @@ class ActivityManagementTest extends TestCase
         $this->actingAs($content, 'web')->post(route('admin.activities.store'), $this->validPayload($provider, $category))->assertRedirect();
         $activity = Activity::firstOrFail();
 
-        $this->actingAs($content, 'web')->post(route('admin.activities.approve', $activity))->assertForbidden();
-        $this->actingAs($content, 'web')->post(route('admin.activities.publish', $activity))->assertForbidden();
-        $this->assertSame('draft', $activity->fresh()->status);
+        $activity->update(['status' => 'published']);
+        $this->actingAs($content, 'web')->post(route('admin.activities.suspend', $activity), ['suspension_reason' => 'A complaint'])->assertForbidden();
+        $this->assertSame('published', $activity->fresh()->status);
+        $this->assertFalse($activity->fresh()->isSuspended());
     }
 
     public function test_a_denied_change_really_changes_nothing(): void
@@ -257,7 +258,7 @@ class ActivityManagementTest extends TestCase
         $this->asAdmin()->post(route('admin.activities.store'), $this->validPayload($provider, $this->makeCategory(), ['status' => 'published', 'published_at' => now()->toDateTimeString(), 'average_rating' => 5]));
 
         $activity = Activity::firstOrFail();
-        $this->assertSame('draft', $activity->status, 'Releasing an activity is approve/publish, with their permission and gate.');
+        $this->assertSame('draft', $activity->status, 'Staff create a draft; going live is the provider\'s own act, and stopping an activity is the suspend permission.');
         $this->assertNull($activity->published_at);
     }
 

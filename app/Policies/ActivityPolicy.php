@@ -34,19 +34,10 @@ class ActivityPolicy
      * on someone else's activity is a fundamentally different
      * authorization question than a provider acting on their own.
      */
-    public function approve(User $user): bool
+    /** Suspending an activity, and lifting the suspension. */
+    public function suspend(User $user): bool
     {
-        return $user->can('activities.approve');
-    }
-
-    public function reject(User $user): bool
-    {
-        return $user->can('activities.reject');
-    }
-
-    public function publish(User $user): bool
-    {
-        return $user->can('activities.publish');
+        return $user->can('activities.suspend');
     }
 
     public function viewAny(User $user): bool

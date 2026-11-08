@@ -23,7 +23,7 @@
                class="border border-slate-200 rounded-lg px-3 py-1.5">
         <select name="status" class="border border-slate-200 rounded-lg px-3 py-1.5">
             <option value="">{{ __('admin.activities.all_statuses') }}</option>
-            @foreach (['draft', 'pending_review', 'approved', 'published', 'rejected', 'inactive'] as $status)
+            @foreach (['draft', 'approved', 'published', 'inactive', 'suspended'] as $status)
                 <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>
                     {{ __('admin.activities.statuses.' . $status) }}
                 </option>
@@ -65,20 +65,17 @@
                         <td class="py-2.5 px-4 text-slate-500">{{ $activity->category->name }}</td>
                         <td class="py-2.5 px-4">
                             @php
-        $variant = match ($activity->status) {
-            'published' => 'success',
-            'pending_review' => 'warning',
-            'rejected' => 'danger',
-            'inactive' => 'neutral',
-            default => 'info',
-        };
+                                $shown = $activity->isSuspended() ? 'suspended' : $activity->status;
+                                $variant = match ($shown) {
+                                    'published' => 'success',
+                                    'suspended' => 'danger',
+                                    'inactive' => 'neutral',
+                                    default => 'info',
+                                };
                             @endphp
-                            <x-admin.status-badge :variant="$variant" :label="__('admin.activities.statuses.' . $activity->status)" />
-                            @if ($activity->status === 'rejected' && $activity->rejection_reason)
-                                <p class="text-xs text-slate-400 mt-1">{{ $activity->rejection_reason }}</p>
-                            @endif
-                            @if ($activity->status === 'pending_review' && $activity->published_at)
-                                <p class="text-xs text-amber-600 mt-1">{{ __('admin.activities.edited_after_publication') }}</p>
+                            <x-admin.status-badge :variant="$variant" :label="__('admin.activities.statuses.' . $shown)" />
+                            @if ($activity->isSuspended())
+                                <p class="text-xs text-slate-400 mt-1">{{ $activity->suspension_reason }}</p>
                             @endif
                         </td>
                         <td class="py-2.5 px-4">
@@ -99,45 +96,21 @@
                                     @endcan
                                 @endif
                                 @unless ($activity->trashed())
-                                @can('approve', $activity)
-                                    @if ($activity->status === 'pending_review')
-                                        @if ($activity->provider->isVerified())
-                                            <form method="POST" action="{{ route('admin.activities.approve', $activity) }}">
-                                                @csrf
-                                                <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.approve') }}</x-admin.button>
-                                            </form>
-                                        @else
-                                            <span class="text-xs text-amber-600">{{ __('admin.activities.verify_provider_first') }}</span>
-                                        @endif
-                                    @endif
-                                @endcan
-                                @can('reject', $activity)
-                                    @if ($activity->status === 'pending_review')
-                                        <form method="POST" action="{{ route('admin.activities.reject', $activity) }}"
-                                              onsubmit="return confirm('{{ __('admin.activities.confirm_reject') }}') && (this.rejection_reason.value = prompt('{{ __('admin.activities.reason_prompt') }}') || '') !== ''">
+                                @can('suspend', $activity)
+                                    @if ($activity->isSuspended())
+                                        <form method="POST" action="{{ route('admin.activities.lift', $activity) }}">
                                             @csrf
-                                            <input type="hidden" name="rejection_reason" value="">
-                                            <x-admin.button pill variant="danger" type="submit">{{ __('admin.activities.reject') }}</x-admin.button>
+                                            <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.lift') }}</x-admin.button>
+                                        </form>
+                                    @elseif (in_array($activity->status, ['published', 'approved', 'inactive'], true))
+                                        <form method="POST" action="{{ route('admin.activities.suspend', $activity) }}"
+                                              onsubmit="return confirm('{{ __('admin.activities.confirm_suspend') }}') && (this.suspension_reason.value = prompt('{{ __('admin.activities.reason_prompt') }}') || '') !== ''">
+                                            @csrf
+                                            <input type="hidden" name="suspension_reason" value="">
+                                            <x-admin.button pill variant="danger" type="submit">{{ __('admin.activities.suspend') }}</x-admin.button>
                                         </form>
                                     @endif
                                 @endcan
-                                @can('publish', $activity)
-                                    @if ($activity->status === 'inactive')
-                                        @if ($activity->provider->isVerified())
-                                            <form method="POST" action="{{ route('admin.activities.publish', $activity) }}">
-                                                @csrf
-                                                <x-admin.button pill variant="success" type="submit">{{ __('admin.activities.publish') }}</x-admin.button>
-                                            </form>
-                                        @else
-                                            <span class="text-xs text-amber-600">{{ __('admin.activities.verify_provider_first') }}</span>
-                                        @endif
-                                    @elseif ($activity->status === 'published')
-                                        <form method="POST" action="{{ route('admin.activities.deactivate', $activity) }}">
-                                            @csrf
-                                            <x-admin.button pill variant="neutral" type="submit">{{ __('admin.activities.deactivate') }}</x-admin.button>
-                                        </form>
-                                    @endif
-                                                                @endcan
                                 @endunless
                             </div>
                         </td>

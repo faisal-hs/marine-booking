@@ -98,10 +98,10 @@ trait BulkPools
     }
 
     /** @return list<string> */
-    protected function rejectionReasons(): array
+    protected function suspensionReasons(): array
     {
-        return ['The description is too short to review.', 'Please add at least three photos.', 'Pricing is missing for children.', 'The meeting point is unclear.',
-            'The safety information is incomplete.', 'The category does not match the activity.'];
+        return ['Several customers reported that the trip did not match its description.', 'The safety information is incomplete: please contact the platform team.',
+            'The listing used photos that are not the provider\'s own.', 'Under review after a safety incident.', 'The meeting point is unclear and customers could not find it.'];
     }
 
     /** @return list<string> */

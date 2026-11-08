@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
-use App\Http\Controllers\Api\Provider\Concerns\GuardsLiveActivityContent;
+use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\PaginationRequest;
 use App\Http\Requests\Provider\Activity\StoreActivityRequest;
@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 class ActivityController extends BaseApiController
 {
     use AuthorizesRequests;
-    use GuardsLiveActivityContent;
+    use AppliesActivityEdits;
 
     protected const EAGER_LOAD = [
         'category',
@@ -42,6 +42,7 @@ class ActivityController extends BaseApiController
 
     public function __construct(
         protected ActivityService $service,
+        protected \App\Services\ActivityPublishingService $publishing,
         protected ActivityRepositoryInterface $repository,
         protected ActivityImageService $imageService,
         protected ActivityFeatureService $featureService,
@@ -106,7 +107,7 @@ class ActivityController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [$activity, $message] = $this->editWithReviewGuard($activity, function () use ($request, $activity) {
+        [$activity, $message] = $this->applyEdit($activity, function () use ($request, $activity) {
             return DB::transaction(function () use ($request, $activity) {
                 $activity = $this->service->update($activity, $request->payload());
 
@@ -130,13 +131,20 @@ class ActivityController extends BaseApiController
         return $this->noContent('Activity deleted successfully.');
     }
 
-    public function submitForReview(Request $request, Activity $activity)
+    /**
+     * The provider's request to publish a draft: live at once, or held as ready until they activate it, as ACTIVITY_AUTO_PUBLISH says.
+     * (`submit-for-review` is the old name of this route and still works: nobody reviews activities any more.)
+     */
+    public function publish(Request $request, Activity $activity)
     {
         $this->authorize('update', $activity);
 
-        $activity = $this->service->submitForReview($activity);
+        $activity = $this->publishing->requestPublication($activity);
 
-        return $this->success(new ActivityResource($activity), 'Activity submitted for review.');
+        return $this->success(
+            new ActivityResource($activity),
+            $activity->status === 'published' ? 'Activity published.' : 'Activity is ready. It stays hidden until you activate it.'
+        );
     }
 
     /**

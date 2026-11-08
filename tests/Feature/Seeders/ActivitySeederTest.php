@@ -50,9 +50,13 @@ class ActivitySeederTest extends TestCase
 
         $statuses = Activity::distinct()->pluck('status')->all();
 
-        foreach (['draft', 'pending_review', 'approved', 'rejected', 'published', 'inactive'] as $expected) {
+        foreach (['draft', 'approved', 'published', 'inactive'] as $expected) {
             $this->assertContains($expected, $statuses, "Status '{$expected}' has no seeded activities.");
         }
+
+        $this->assertGreaterThan(0, Activity::whereNotNull('suspended_at')->count(), 'Some seeded activities are suspended by an admin.');
+        $this->assertNotContains('pending_review', $statuses, 'Nobody approves activities, so nothing waits for approval.');
+        $this->assertNotContains('rejected', $statuses);
     }
 
     public function test_activities_are_distributed_across_multiple_providers_not_one(): void
@@ -64,16 +68,19 @@ class ActivitySeederTest extends TestCase
         $this->assertGreaterThan(5, $distinctProviders);
     }
 
-    public function test_rejected_activities_have_a_rejection_reason(): void
+    public function test_suspended_activities_say_why_and_were_live_before(): void
     {
         $this->seedFullChain();
 
-        $rejected = Activity::where('status', 'rejected')->get();
+        $suspended = Activity::whereNotNull('suspended_at')->get();
 
-        $this->assertGreaterThan(0, $rejected->count());
+        $this->assertGreaterThan(0, $suspended->count());
 
-        foreach ($rejected as $activity) {
-            $this->assertNotNull($activity->rejection_reason);
+        foreach ($suspended as $activity) {
+            $this->assertSame('inactive', $activity->status, 'A suspension is recorded apart from the status: the activity is off the site');
+            $this->assertNotNull($activity->suspension_reason);
+            $this->assertSame('published', $activity->suspended_from_status);
+            $this->assertNotNull($activity->published_at, 'It was live before it was suspended');
         }
     }
 

@@ -37,7 +37,9 @@ class ActivityResource extends JsonResource
             'max_participants' => $this->max_participants,
             'min_age' => $this->min_age,
             'status' => $this->status,
-            'rejection_reason' => $this->when($this->status === 'rejected', $this->rejection_reason),
+            // An admin stopped it: the provider sees why, and that only an admin can lift it.
+            'suspended' => $this->isSuspended(),
+            'suspension_reason' => $this->when($this->isSuspended(), $this->suspension_reason),
             'images' => ActivityImageResource::collection($this->images),
             'features' => ActivityFeatureResource::collection($this->featureValues),
             'options' => ActivityOptionResource::collection($this->options),

@@ -2,8 +2,7 @@
 
 namespace Database\Seeders\Bulk;
 
-use App\Notifications\Activities\ActivityPublishedNotification;
-use App\Notifications\Activities\ActivityRejectedNotification;
+use App\Notifications\Activities\ActivitySuspendedNotification;
 use App\Notifications\Providers\ProviderRejectedNotification;
 use App\Notifications\Providers\ProviderVerifiedNotification;
 use App\Notifications\Reservations\Admin\NewReservationAdminNotification;
@@ -116,22 +115,18 @@ class BulkNotificationSeeder extends BulkSeeder
         $last = 0;
         while (true) {
             $rows = DB::table('activities as a')->join('providers as p', 'p.id', '=', 'a.provider_id')
-                ->where('a.slug', 'like', '%'.self::ACTIVITY_SLUG_MARK.'%')->whereIn('a.status', ['published', 'rejected'])
+                ->where('a.slug', 'like', '%'.self::ACTIVITY_SLUG_MARK.'%')->whereNotNull('a.suspended_at')
                 ->where('a.id', '>', $last)->orderBy('a.id')->limit(2000)
-                ->get(['a.id', 'a.uuid', 'a.title', 'a.status', 'a.rejection_reason', 'a.published_at', 'a.updated_at', 'p.user_id as provider_user']);
+                ->get(['a.id', 'a.uuid', 'a.title', 'a.suspension_reason', 'a.suspended_at', 'p.user_id as provider_user']);
 
             if ($rows->isEmpty()) {
                 return;
             }
 
             foreach ($rows as $a) {
-                if ($a->status === 'published' && $a->id % 5 < 2) {
-                    yield $this->notice("a{$a->id}-published", ActivityPublishedNotification::class, $a->provider_user,
-                        ['type' => 'activity.published', 'activity_uuid' => $a->uuid, 'activity_title' => $a->title, 'message' => "Your activity \"{$a->title}\" is now live."], $a->published_at ?? $a->updated_at);
-                } elseif ($a->status === 'rejected') {
-                    yield $this->notice("a{$a->id}-rejected", ActivityRejectedNotification::class, $a->provider_user,
-                        ['type' => 'activity.rejected', 'activity_uuid' => $a->uuid, 'activity_title' => $a->title, 'rejection_reason' => $a->rejection_reason, 'message' => "Your activity \"{$a->title}\" was not approved. Reason: {$a->rejection_reason}"], $a->updated_at);
-                }
+                yield $this->notice("a{$a->id}-suspended", ActivitySuspendedNotification::class, $a->provider_user,
+                    ['type' => 'activity.suspended', 'activity_uuid' => $a->uuid, 'activity_title' => $a->title,
+                        'message' => "Your activity \"{$a->title}\" was suspended by an admin. Reason: {$a->suspension_reason}"], $a->suspended_at);
             }
 
             $last = $rows->last()->id;

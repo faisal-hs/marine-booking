@@ -137,16 +137,17 @@ class DashboardServiceTest extends TestCase
         $this->assertEquals(1, $stats['providers']['verified']);
     }
 
-    public function test_activity_stats_counts_published_and_pending_review(): void
+    public function test_activity_stats_counts_published_and_suspended(): void
     {
         $this->makeActivity('published');
-        $this->makeActivity('pending_review');
+        $this->makeActivity('inactive')->update(['suspended_at' => now(), 'suspension_reason' => 'A complaint', 'suspended_from_status' => 'published']);
+        $this->makeActivity('inactive');   // paused by its provider: not a suspension
         $this->makeActivity('draft');
 
         $stats = $this->service->getStats();
 
         $this->assertEquals(1, $stats['activities']['published']);
-        $this->assertEquals(1, $stats['activities']['pending_review']);
+        $this->assertEquals(1, $stats['activities']['suspended'], 'Only an admin\'s suspension counts');
     }
 
     public function test_reservation_stats_counts_today_and_upcoming(): void

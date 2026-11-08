@@ -101,8 +101,9 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
 
         Route::apiResource('activities', ActivityController::class);
-        Route::post('/activities/{activity}/submit-for-review', [ActivityController::class, 'submitForReview'])
-            ->name('activities.submit-for-review');
+        // The provider's publish request. `submit-for-review` is its old name, kept so existing apps keep working: nobody reviews activities any more.
+        Route::post('/activities/{activity}/publish', [ActivityController::class, 'publish'])->name('activities.publish');
+        Route::post('/activities/{activity}/submit-for-review', [ActivityController::class, 'publish'])->name('activities.submit-for-review');
 
         Route::post('/activities/{activity}/images', [ActivityImageController::class, 'store'])
             ->name('activities.images.store');

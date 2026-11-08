@@ -107,38 +107,40 @@ class DeletedRecipientTest extends TestCase
         $this->assertSame('expired', $reservation->fresh()->status->value);
     }
 
-    public function test_approving_an_activity_of_a_deleted_provider_is_refused_cleanly(): void
+    public function test_lifting_the_suspension_of_a_deleted_providers_activity_does_not_put_it_live(): void
     {
         $this->seed(RolesAndPermissionsSeeder::class);
         [$providerUser, $provider] = $this->makeProvider('verified');
-        $activity = $this->makeActivity($provider, 'pending_review');
+        $activity = $this->makeActivity($provider, 'published');
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin, 'web')->post(route('admin.activities.suspend', $activity), ['suspension_reason' => 'A complaint'])->assertSessionHasNoErrors();
         $this->deleteAccount($providerUser);
 
-        // A deleted account must not get a listing in front of customers. What matters here
-        // is HOW it is refused: a normal redirect with a message, not a server error.
-        $this->actingAs($this->makeAdmin(), 'web')
-            ->from('/admin/activities')
-            ->post(route('admin.activities.approve', $activity))
-            ->assertRedirect('/admin/activities')
-            ->assertSessionHasErrors('provider');
-
-        $this->assertSame('pending_review', $activity->fresh()->status);
-    }
-
-    public function test_rejecting_an_activity_of_a_deleted_provider_does_not_crash_the_notification(): void
-    {
-        $this->seed(RolesAndPermissionsSeeder::class);
-        [$providerUser, $provider] = $this->makeProvider('verified');
-        $activity = $this->makeActivity($provider, 'pending_review');
-        $this->deleteAccount($providerUser);
-
-        // Rejecting is still allowed, and tells the provider: there is nobody left to tell.
-        // A 500 would still have saved the new status first, so the response is what is checked.
-        $this->actingAs($this->makeAdmin(), 'web')
-            ->post(route('admin.activities.reject', $activity), ['rejection_reason' => 'Photos too dark'])
+        // A deleted account must not get a listing in front of customers, and lifting must not be a server error either:
+        // the suspension ends, the activity stays off the site, and nobody is left to tell.
+        $this->actingAs($admin, 'web')
+            ->post(route('admin.activities.lift', $activity))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('rejected', $activity->fresh()->status);
+        $activity->refresh();
+        $this->assertSame(['inactive', null], [$activity->status, $activity->suspended_at]);
+    }
+
+    public function test_suspending_an_activity_of_a_deleted_provider_does_not_crash_the_notification(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+        [$providerUser, $provider] = $this->makeProvider('verified');
+        $activity = $this->makeActivity($provider, 'published');
+        $this->deleteAccount($providerUser);
+
+        // Suspending still tells the provider: there is nobody left to tell.
+        // A 500 would still have saved the new state first, so the response is what is checked.
+        $this->actingAs($this->makeAdmin(), 'web')
+            ->post(route('admin.activities.suspend', $activity), ['suspension_reason' => 'Photos that are not theirs'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($activity->fresh()->isSuspended());
     }
 }

@@ -5,22 +5,19 @@ namespace App\Services\ProviderApp;
 use App\Exceptions\ProviderApiException;
 use App\Models\Activity;
 use App\Models\Provider;
-use App\Services\ActivityModerationService;
+use App\Services\ActivityPublishingService;
 use App\Support\ProviderApi\ErrorCode;
 
 /**
- * The provider turns an activity on or off. It never replaces the admin's approval: an activity that has not been approved cannot be
- * turned on, whatever the provider asks.
+ * PATCH /provider/activities/{id}/status: the provider turning their own activity on (`active`) or off (`paused`).
  *
- *   active   approved (waiting to be published)  -> published      the provider's own launch, when automatic publishing is off
- *            paused                              -> published      resume
- *   paused   published                           -> paused         hidden from customers; bookings already confirmed are NOT touched
- *
- * The platform's "inactive" and the spec's "paused" are the same state, shown to the app as "paused", and published is shown as "active".
+ *   active   a draft, a ready activity (publish requested while ACTIVITY_AUTO_PUBLISH is off) or one the provider paused goes live. Always live:
+ *            this is the provider's own decision. An activity an ADMIN suspended is refused, whatever the status it shows.
+ *   paused   a live activity comes off the site.
  */
 class ProviderActivityStatus
 {
-    public function __construct(private readonly ActivityModerationService $moderation) {}
+    public function __construct(private readonly ActivityPublishingService $publishing) {}
 
     public function change(Provider $provider, string $activityId, string $to): Activity
     {
@@ -30,12 +27,15 @@ class ProviderActivityStatus
             throw ProviderApiException::notFound('Activity not found.');
         }
 
+        if ($activity->isSuspended()) {
+            throw new ProviderApiException('This activity was suspended by an admin. Only an admin can lift the suspension.', 403, ErrorCode::ACTIVITY_SUSPENDED_BY_ADMIN);
+        }
+
         if ($to === 'active') {
             return match ($activity->status) {
-                'approved' => $this->moderation->publishApproved($activity),
-                'inactive' => $this->moderation->publish($activity),
+                'draft', 'approved', 'inactive' => $this->publishing->activate($activity),
                 'published' => throw ProviderApiException::conflict('This activity is already active.', ErrorCode::INVALID_STATUS_TRANSITION),
-                default => throw ProviderApiException::conflict("This activity is {$activity->status} and needs an admin's approval before it can be published.", ErrorCode::INVALID_STATUS_TRANSITION),
+                default => throw ProviderApiException::conflict("This activity is {$activity->status} and cannot be activated.", ErrorCode::INVALID_STATUS_TRANSITION),
             };
         }
 
@@ -43,15 +43,16 @@ class ProviderActivityStatus
             throw ProviderApiException::conflict("Only an active activity can be paused; this one is {$activity->status}.", ErrorCode::INVALID_STATUS_TRANSITION);
         }
 
-        return $this->moderation->deactivate($activity);
+        return $this->publishing->pause($activity);
     }
 
-    /** The status as the provider app names it. */
+    /** The provider app's word for each state. `ready` = publish was requested while automatic publishing is off: hidden until the provider activates it. */
     public static function label(string $status): string
     {
         return match ($status) {
             'published' => 'active',
             'inactive' => 'paused',
+            'approved' => 'ready',
             default => $status,
         };
     }

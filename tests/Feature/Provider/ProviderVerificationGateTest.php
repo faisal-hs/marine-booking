@@ -2,20 +2,17 @@
 
 namespace Tests\Feature\Provider;
 
+use App\Services\ProviderVerificationGate;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\BuildsProviderScenarios;
 use Tests\TestCase;
 
 /**
- * The public homepage promises that every provider is verified before their
- * activities go live. Nothing enforced it: verification_status was written by the
- * admin screen and counted on the dashboard, and that was all. These tests pin the
- * rule down: an unverified provider cannot get an activity into review, and an
- * unverified provider's activity cannot be approved or republished.
- *
- * Also covers resubmitting a rejected activity, which the rejection email has always
- * promised ("make the necessary changes and resubmit") but nothing allowed.
+ * The public homepage promises that every provider is verified before their activities go live. The admin approves the PROVIDER; nobody approves an
+ * activity. These tests pin the rule down: an unverified provider cannot publish, an activity only goes live while its provider is an approved
+ * account in good standing, and verifying the provider is what opens the flow.
  */
 class ProviderVerificationGateTest extends TestCase
 {
@@ -64,14 +61,14 @@ class ProviderVerificationGateTest extends TestCase
         $this->assertSame('Licence photo was unreadable', $profile->json('data.rejection_reason'));
     }
 
-    public function test_a_verified_provider_can_submit_an_activity(): void
+    public function test_a_verified_provider_can_publish_an_activity_by_themselves(): void
     {
         [, $provider, $token] = $this->makeProvider('verified');
         $activity = $this->makeActivity($provider, 'draft');
 
         $this->submit($token, $activity)->assertOk();
 
-        $this->assertSame('pending_review', $activity->fresh()->status);
+        $this->assertSame('published', $activity->fresh()->status, 'No admin looks at it first.');
     }
 
     public function test_an_unapproved_provider_cannot_build_a_draft_either(): void
@@ -88,11 +85,11 @@ class ProviderVerificationGateTest extends TestCase
         $this->assertSame(1, \App\Models\Activity::count(), 'Nothing new was created.');
     }
 
-    public function test_only_draft_or_rejected_activities_can_be_submitted(): void
+    public function test_only_a_draft_can_be_published_this_way(): void
     {
         [, $provider, $token] = $this->makeProvider('verified');
 
-        foreach (['pending_review', 'published', 'inactive'] as $status) {
+        foreach (['approved', 'published', 'inactive'] as $status) {
             $activity = $this->makeActivity($provider, $status);
 
             $this->submit($token, $activity)
@@ -103,64 +100,19 @@ class ProviderVerificationGateTest extends TestCase
         }
     }
 
-    // --- Resubmitting a rejected activity -----------------------------------
+    // --- Publishing ---------------------------------------------------------
 
-    public function test_a_rejected_activity_can_be_edited_and_resubmitted(): void
+    public function test_a_draft_can_be_edited_and_then_published(): void
     {
         [, $provider, $token] = $this->makeProvider('verified');
-        $activity = $this->makeActivity($provider, 'rejected', ['rejection_reason' => 'Photos are too dark']);
+        $activity = $this->makeActivity($provider, 'draft');
 
-        $this->asProvider($token)
-            ->putJson("/api/v1/provider/activities/{$activity->uuid}", ['description' => 'Fixed description'])
-            ->assertOk();
-        $this->assertSame('rejected', $activity->fresh()->status, 'Editing alone must not change the status.');
+        $this->asProvider($token)->putJson("/api/v1/provider/activities/{$activity->uuid}", ['description' => 'Fixed description'])->assertOk();
+        $this->assertSame('draft', $activity->fresh()->status, 'Editing alone must not change the status.');
 
         $this->submit($token, $activity)->assertOk();
-
-        $activity->refresh();
-        $this->assertSame('pending_review', $activity->status);
-        $this->assertNull($activity->rejection_reason, 'The reason belonged to the previous review.');
-    }
-
-    public function test_a_resubmitted_activity_can_be_approved_and_goes_live(): void
-    {
-        [, $provider, $token] = $this->makeProvider('verified');
-        $activity = $this->makeActivity($provider, 'rejected', ['rejection_reason' => 'Photos are too dark']);
-        $admin = $this->makeAdmin();
-
-        $this->submit($token, $activity)->assertOk();
-        $this->actingAs($admin, 'web')->post(route('admin.activities.approve', $activity))->assertSessionHasNoErrors();
 
         $this->assertSame('published', $activity->fresh()->status);
-    }
-
-    // --- Approving and republishing -----------------------------------------
-
-    public function test_an_activity_of_an_unverified_provider_cannot_be_approved(): void
-    {
-        [, $provider] = $this->makeProvider('pending');
-        $activity = $this->makeActivity($provider, 'pending_review');
-
-        $this->actingAs($this->makeAdmin(), 'web')
-            ->from('/admin/activities')
-            ->post(route('admin.activities.approve', $activity))
-            ->assertRedirect('/admin/activities')
-            ->assertSessionHasErrors('provider');
-
-        $this->assertSame('pending_review', $activity->fresh()->status);
-    }
-
-    public function test_an_inactive_activity_of_an_unverified_provider_cannot_be_republished(): void
-    {
-        [, $provider] = $this->makeProvider('pending');
-        $activity = $this->makeActivity($provider, 'inactive');
-
-        $this->actingAs($this->makeAdmin(), 'web')
-            ->from('/admin/activities')
-            ->post(route('admin.activities.publish', $activity))
-            ->assertSessionHasErrors('provider');
-
-        $this->assertSame('inactive', $activity->fresh()->status);
     }
 
     public function test_verifying_the_provider_unblocks_the_whole_flow(): void
@@ -172,42 +124,82 @@ class ProviderVerificationGateTest extends TestCase
         // 1. Blocked while pending.
         $this->submit($token, $activity)->assertForbidden();
 
-        // 2. An admin verifies the provider.
+        // 2. An admin verifies the provider. That is the ONLY approval there is.
         $this->actingAs($admin, 'web')->post(route('admin.providers.verify', $provider))->assertSessionHasNoErrors();
         $this->assertSame('verified', $provider->fresh()->verification_status);
 
-        // 3. Now the provider can submit, and the admin can approve. (Sanctum looks at the web guard
-        // first, so forget the admin this test just acted as.)
+        // 3. Now the provider publishes by themselves; no admin looks at the activity. (Sanctum looks at the web guard first, so forget the admin.)
         $this->app['auth']->forgetGuards();
         $this->submit($token, $activity)->assertOk();
-        $this->actingAs($admin, 'web')->post(route('admin.activities.approve', $activity))->assertSessionHasNoErrors();
 
         $this->assertSame('published', $activity->fresh()->status);
     }
 
-    // --- What admins see ----------------------------------------------------
+    // --- The gate itself: a backstop for every way of going live ----------------------
 
-    public function test_the_admin_list_flags_an_unverified_provider_and_offers_no_approve_button(): void
-    {
-        [, $provider] = $this->makeProvider('pending');
-        $activity = $this->makeActivity($provider, 'pending_review');
-
-        $page = $this->actingAs($this->makeAdmin(), 'web')->get(route('admin.activities.index'));
-
-        $page->assertOk()
-            ->assertSee(__('admin.activities.verify_provider_first'))
-            ->assertDontSee(route('admin.activities.approve', $activity));
-    }
-
-    public function test_the_admin_list_offers_approve_for_a_verified_provider(): void
+    public function test_the_gate_lets_a_verified_provider_in_good_standing_through(): void
     {
         [, $provider] = $this->makeProvider('verified');
-        $activity = $this->makeActivity($provider, 'pending_review');
+
+        app(ProviderVerificationGate::class)->assertCanPublish($provider->load('user'));
+
+        $this->assertTrue(true);
+    }
+
+    public function test_the_gate_stops_an_unverified_rejected_suspended_or_deleted_provider(): void
+    {
+        $gate = app(ProviderVerificationGate::class);
+        $refuse = function ($provider) use ($gate) {
+            try {
+                $gate->assertCanPublish($provider->fresh()->load('user'));
+            } catch (ValidationException $e) {
+                return $e->errors()['provider'][0];
+            }
+
+            return null;
+        };
+
+        [, $pending] = $this->makeProvider('pending');
+        $this->assertStringContainsString('waiting for verification', $refuse($pending));
+
+        [, $rejected] = $this->makeProvider('rejected');
+        $rejected->update(['rejection_reason' => 'Documents do not match']);
+        $this->assertStringContainsString('Documents do not match', $refuse($rejected));
+
+        [$suspendedUser, $suspended] = $this->makeProvider('verified');
+        $suspendedUser->update(['status' => 'suspended']);
+        $this->assertStringContainsString('suspended', $refuse($suspended));
+
+        [$deletedUser, $deleted] = $this->makeProvider('verified');
+        $deletedUser->delete();
+        $this->assertStringContainsString('deleted', $refuse($deleted));
+    }
+
+    public function test_an_activity_cannot_go_live_when_its_provider_stopped_being_in_good_standing(): void
+    {
+        [$user, $provider] = $this->makeProvider('verified');
+        $activity = $this->makeActivity($provider, 'draft');
+        $user->update(['status' => 'suspended']);
+
+        $this->expectException(ValidationException::class);
+
+        app(\App\Services\ActivityPublishingService::class)->requestPublication($activity->refresh());
+    }
+
+    // --- What admins see ----------------------------------------------------
+
+    public function test_the_admin_list_offers_no_approval_of_activities_only_suspension(): void
+    {
+        [, $provider] = $this->makeProvider('verified');
+        $live = $this->makeActivity($provider, 'published');
+        $draft = $this->makeActivity($provider, 'draft');
 
         $page = $this->actingAs($this->makeAdmin(), 'web')->get(route('admin.activities.index'));
 
         $page->assertOk()
-            ->assertSee(route('admin.activities.approve', $activity))
-            ->assertDontSee(__('admin.activities.verify_provider_first'));
+            ->assertSee(route('admin.activities.suspend', $live))
+            ->assertDontSee(route('admin.activities.suspend', $draft))
+            ->assertDontSee('/approve')
+            ->assertDontSee('/reject');
     }
 }

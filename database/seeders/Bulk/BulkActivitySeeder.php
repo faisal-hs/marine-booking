@@ -52,7 +52,11 @@ class BulkActivitySeeder extends BulkSeeder
 
             $status = $provider->verification_status !== 'verified'
                 ? 'draft'
-                : $this->weighted(['published' => 62, 'draft' => 12, 'pending_review' => 10, 'rejected' => 6, 'inactive' => 10]);
+                : $this->weighted(['published' => 64, 'draft' => 14, 'approved' => 6, 'inactive' => 10, 'suspended' => 6]);
+
+            // An admin's suspension is kept apart from the status (the activity is `inactive`, with the suspension recorded).
+            $suspended = $status === 'suspended';
+            $status = $suspended ? 'inactive' : $status;
 
             // As the app does when a provider is suspended or deleted: only what was PUBLISHED comes off the site.
             // Drafts and the rest stay as they were.
@@ -63,7 +67,7 @@ class BulkActivitySeeder extends BulkSeeder
             $deleted = $this->chance(3);
             $status = $deleted ? 'inactive' : $status;
 
-            $published = $status === 'published' ? $created->copy()->addDays($this->rand(1, 10)) : null;
+            $published = ($status === 'published' || $suspended) ? $created->copy()->addDays($this->rand(1, 10)) : null;
             if ($published && $published->greaterThan($this->now)) {
                 $published = $this->now->copy();
             }
@@ -87,7 +91,11 @@ class BulkActivitySeeder extends BulkSeeder
                 'reviews_count' => 0,
                 'min_age' => $this->pick([null, null, 6, 8, 12, 16]),
                 'status' => $status,
-                'rejection_reason' => $status === 'rejected' ? $this->pick($this->rejectionReasons()) : null,
+                'rejection_reason' => null,
+                'suspended_at' => $suspended ? $this->ts($published->copy()->addDays($this->rand(1, 30))->min($this->now)) : null,
+                'suspension_reason' => $suspended ? $this->pick($this->suspensionReasons()) : null,
+                'suspended_by_user_id' => null,
+                'suspended_from_status' => $suspended ? 'published' : null,
                 'published_at' => $published ? $this->ts($published) : null,
                 'deleted_at' => $deleted ? $this->ts($created->copy()->addDays($this->rand(20, 200))->min($this->now)) : null,
                 'created_at' => $this->ts($created),

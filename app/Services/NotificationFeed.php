@@ -2,10 +2,6 @@
 
 namespace App\Services;
 
-use App\Notifications\Activities\ActivityApprovedNotification;
-use App\Notifications\Activities\ActivityPublishedNotification;
-use App\Notifications\Activities\ActivityRejectedNotification;
-use App\Notifications\Activities\ActivitySentBackToReviewNotification;
 use App\Notifications\Payments\PaymentFailedNotification;
 use App\Notifications\Payments\PaymentRefundedNotification;
 use App\Notifications\Reservations\Provider\BookingCancelledProviderNotification;
@@ -46,10 +42,8 @@ class NotificationFeed
     public const PROVIDER_ONLY = [
         NewBookingProviderNotification::class,
         BookingCancelledProviderNotification::class,
-        ActivityApprovedNotification::class,
-        ActivityPublishedNotification::class,
-        ActivityRejectedNotification::class,
-        ActivitySentBackToReviewNotification::class,
+        \App\Notifications\Activities\ActivitySuspendedNotification::class,
+        \App\Notifications\Activities\ActivitySuspensionLiftedNotification::class,
         \App\Notifications\Providers\ProviderProfileChangeReviewedNotification::class,
         \App\Notifications\Wallet\WithdrawalStatusNotification::class,
     ];

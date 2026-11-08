@@ -9,7 +9,7 @@ use App\Models\Provider;
 use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\User;
-use App\Notifications\Activities\ActivityApprovedNotification;
+use App\Notifications\Activities\ActivitySuspendedNotification;
 use App\Services\Admin\UserManagementService;
 use App\Services\NotificationDispatchService;
 use App\Services\PaymentService;
@@ -135,7 +135,7 @@ class DeletedAccountsPagesTest extends TestCase
         $sent = app(NotificationDispatchService::class)->dispatchOnce(
             'test.trashed:1',
             $trashed,
-            new ActivityApprovedNotification($w['activity'])
+            new ActivitySuspendedNotification($w['activity'])
         );
 
         $this->assertFalse($sent);

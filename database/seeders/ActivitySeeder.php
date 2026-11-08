@@ -245,7 +245,9 @@ class ActivitySeeder extends Seeder
             return;
         }
 
-        $statusPlan = ['draft', 'draft', 'pending_review', 'pending_review', 'approved', 'approved', 'rejected', 'rejected', 'published', 'published', 'published', 'inactive'];
+        // 'suspended' is not a status: it is an admin's suspension of an activity that was live (stored as `inactive`, with the suspension recorded).
+        // The published slots (8, 9, 10) are where they have always been: other seeders count on which providers have a live activity.
+        $statusPlan = ['draft', 'draft', 'draft', 'draft', 'approved', 'approved', 'suspended', 'inactive', 'published', 'published', 'published', 'inactive'];
 
         $counts = ['activities' => 0, 'images' => 0, 'features' => 0, 'options' => 0, 'requirements' => 0, 'inclusions' => 0, 'exclusions' => 0, 'periods' => 0, 'overrides' => 0, 'booking_options' => 0, 'pricing_rules' => 0];
         $statusTally = [];
@@ -271,8 +273,8 @@ class ActivitySeeder extends Seeder
 
                 $existing = Activity::where('slug', $activitySlug)->first();
 
-                $isRejected = $status === 'rejected';
-                $isPublishedLike = in_array($status, ['published', 'inactive'], true);
+                $isSuspended = $status === 'suspended';
+                $isPublishedLike = in_array($status, ['published', 'inactive', 'suspended'], true);
 
                 $activity = Activity::firstOrCreate(
                     ['slug' => $activitySlug],
@@ -289,9 +291,12 @@ class ActivitySeeder extends Seeder
                         'min_participants' => $template['min_participants'][$this->globalIndex % count($template['min_participants'])],
                         'max_participants' => $template['max_participants'][$this->globalIndex % count($template['max_participants'])],
                         'min_age' => $template['min_age'][$this->globalIndex % count($template['min_age'])],
-                        'status' => $status,
-                        'rejection_reason' => $isRejected ? $this->rejectionReasonsPool()[$planIndex % count($this->rejectionReasonsPool())] : null,
+                        'status' => $isSuspended ? 'inactive' : $status,
+                        'rejection_reason' => null,
                         'published_at' => $isPublishedLike ? now()->subDays(($this->globalIndex % 60) + 1) : null,
+                        'suspended_at' => $isSuspended ? now()->subDays(($this->globalIndex % 10) + 1) : null,
+                        'suspension_reason' => $isSuspended ? 'Under review after a customer complaint.' : null,
+                        'suspended_from_status' => $isSuspended ? 'published' : null,
                     ]
                 );
 

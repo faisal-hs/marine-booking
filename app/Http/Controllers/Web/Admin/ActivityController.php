@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Web\Admin\Activity\RejectActivityRequest;
+use App\Http\Requests\Web\Admin\Activity\SuspendActivityRequest;
 use App\Http\Requests\Web\Admin\Activity\StoreActivityRequest;
 use App\Http\Requests\Web\Admin\Activity\StoreImagesRequest;
 use App\Http\Requests\Web\Admin\Activity\SyncFeaturesRequest;
@@ -19,7 +19,7 @@ use App\Repositories\Contracts\ProviderRepositoryInterface;
 use App\Services\ActivityFeatureService;
 use App\Services\ActivityImageService;
 use App\Services\ActivityInclusionService;
-use App\Services\ActivityModerationService;
+use App\Services\ActivityPublishingService;
 use App\Services\ActivityRequirementService;
 use App\Services\ActivityService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -33,7 +33,7 @@ class ActivityController extends Controller
     use AuthorizesRequests;
 
     public function __construct(
-        protected ActivityModerationService $service,
+        protected ActivityPublishingService $publishing,
         protected ActivityRepositoryInterface $repository,
         protected ActivityService $activities,
         protected ActivityFeatureService $features,
@@ -66,62 +66,36 @@ class ActivityController extends Controller
         return view('admin.activities.show', ['activity' => $activity]);
     }
 
-    public function approve(Activity $activity): RedirectResponse
+    /** Stops an activity (the provider cannot switch it back on: only lift() can). The admin approves providers, never activities. */
+    public function suspend(SuspendActivityRequest $request, Activity $activity): RedirectResponse
     {
-        $this->authorize('approve', $activity);
+        $this->authorize('suspend', $activity);
 
         try {
-            $approved = $this->service->approve($activity);
+            $this->publishing->suspend($activity, $request->validated('suspension_reason'), $request->user());
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('status', __($approved->status === 'published' ? 'admin.activities.approved' : 'admin.activities.approved_waiting'));
+        return back()->with('status', __('admin.activities.suspended'));
     }
 
-    public function reject(RejectActivityRequest $request, Activity $activity): RedirectResponse
+    public function lift(Activity $activity): RedirectResponse
     {
-        $this->authorize('reject', $activity);
+        $this->authorize('suspend', $activity);   // the same permission governs both directions
 
         try {
-            $this->service->reject($activity, $request->input('rejection_reason'));
+            $lifted = $this->publishing->lift($activity);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('status', __('admin.activities.rejected'));
-    }
-
-    public function publish(Activity $activity): RedirectResponse
-    {
-        $this->authorize('publish', $activity);
-
-        try {
-            $this->service->publish($activity);
-        } catch (ValidationException $e) {
-            return back()->withErrors($e->errors());
-        }
-
-        return back()->with('status', __('admin.activities.published'));
-    }
-
-    public function deactivate(Activity $activity): RedirectResponse
-    {
-        $this->authorize('publish', $activity); // same permission governs both directions of the toggle
-
-        try {
-            $this->service->deactivate($activity);
-        } catch (ValidationException $e) {
-            return back()->withErrors($e->errors());
-        }
-
-        return back()->with('status', __('admin.activities.deactivated'));
+        return back()->with('status', __($lifted->status === 'published' ? 'admin.activities.lifted_live' : 'admin.activities.lifted_hidden'));
     }
 
     // --- Staff create / edit / delete ------------------------------------------------
     //
-    // Staff edits do NOT send a live activity back to review (that rule, in
-    // LiveActivityContentGuard, is for providers): the staff are the reviewers.
+    // Staff edit an activity like its provider does: the change applies at once.
 
     public function create(): View
     {

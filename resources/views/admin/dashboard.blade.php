@@ -12,8 +12,8 @@
             <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.pending_verification') }}</p>
         </div>
         <div class="bg-[#FEF9E7] rounded-xl p-5">
-            <p class="text-2xl font-semibold text-slate-800">{{ $stats['activities']['pending_review'] }}</p>
-            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.pending_activities') }}</p>
+            <p class="text-2xl font-semibold text-slate-800">{{ $stats['activities']['suspended'] }}</p>
+            <p class="text-xs text-slate-600 mt-1">{{ __('admin.dashboard.suspended_activities') }}</p>
         </div>
         <div class="bg-[#EFF6FF] rounded-xl p-5">
             <p class="text-2xl font-semibold text-slate-800">{{ $stats['payments']['pending_count'] }}</p>

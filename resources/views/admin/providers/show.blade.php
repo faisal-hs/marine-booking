@@ -157,8 +157,6 @@
                     @php
                         $activityVariant = match ($activity->status) {
                             'published' => 'success',
-                            'pending_review' => 'warning',
-                            'rejected' => 'danger',
                             'inactive' => 'neutral',
                             default => 'info',
                         };

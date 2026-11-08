@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
-use App\Http\Controllers\Api\Provider\Concerns\GuardsLiveActivityContent;
+use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Provider\ActivityImage\ReorderActivityImagesRequest;
 use App\Http\Requests\Provider\ActivityImage\StoreActivityImagesRequest;
@@ -15,7 +15,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class ActivityImageController extends BaseApiController
 {
     use AuthorizesRequests;
-    use GuardsLiveActivityContent;
+    use AppliesActivityEdits;
 
     public function __construct(protected ActivityImageService $service) {}
 
@@ -23,7 +23,7 @@ class ActivityImageController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [$images, $message] = $this->editWithReviewGuard(
+        [$images, $message] = $this->applyEdit(
             $activity,
             fn() => $this->service->upload($activity, $request->file('images')),
             'Images uploaded successfully.'
@@ -37,7 +37,7 @@ class ActivityImageController extends BaseApiController
         $this->authorize('update', $activity);
         $this->abortIfImageDoesNotBelongToActivity($activity, $image);
 
-        [, $message] = $this->editWithReviewGuard($activity, fn() => $this->service->delete($image), 'Image deleted successfully.');
+        [, $message] = $this->applyEdit($activity, fn() => $this->service->delete($image), 'Image deleted successfully.');
 
         return $this->noContent($message);
     }
@@ -47,7 +47,7 @@ class ActivityImageController extends BaseApiController
         $this->authorize('update', $activity);
         $this->abortIfImageDoesNotBelongToActivity($activity, $image);
 
-        [, $message] = $this->editWithReviewGuard($activity, fn() => $this->service->setCover($activity, $image), 'Cover image updated successfully.');
+        [, $message] = $this->applyEdit($activity, fn() => $this->service->setCover($activity, $image), 'Cover image updated successfully.');
 
         return $this->success(null, $message);
     }
@@ -56,7 +56,7 @@ class ActivityImageController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [, $message] = $this->editWithReviewGuard(
+        [, $message] = $this->applyEdit(
             $activity,
             fn() => $this->service->reorder($activity, $request->input('order')),
             'Images reordered successfully.'

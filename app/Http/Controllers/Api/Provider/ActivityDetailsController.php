@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
-use App\Http\Controllers\Api\Provider\Concerns\GuardsLiveActivityContent;
+use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Provider\Activity\SyncActivityInclusionsRequest;
 use App\Http\Requests\Provider\Activity\SyncActivityOptionsRequest;
@@ -19,7 +19,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class ActivityDetailsController extends BaseApiController
 {
     use AuthorizesRequests;
-    use GuardsLiveActivityContent;
+    use AppliesActivityEdits;
 
     public function __construct(
         protected ActivityOptionService $optionService,
@@ -40,7 +40,7 @@ class ActivityDetailsController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [$requirements, $message] = $this->editWithReviewGuard(
+        [$requirements, $message] = $this->applyEdit(
             $activity,
             fn() => $this->requirementService->sync($activity, $request->input('requirements', [])),
             'Requirements updated successfully.'
@@ -53,7 +53,7 @@ class ActivityDetailsController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [$inclusions, $message] = $this->editWithReviewGuard(
+        [$inclusions, $message] = $this->applyEdit(
             $activity,
             fn() => $this->inclusionService->sync($activity, $request->input('inclusions', [])),
             'Inclusions updated successfully.'

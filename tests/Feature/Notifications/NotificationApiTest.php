@@ -133,15 +133,15 @@ class NotificationApiTest extends TestCase
             'category_id' => $category->id,
             'title' => 'Test Activity',
             'slug' => 'test-activity-' . uniqid(),
-            'status' => 'pending_review',
+            'status' => 'published',
         ]);
-        app(\App\Services\ActivityModerationService::class)->approve($activity);
+        app(\App\Services\ActivityPublishingService::class)->suspend($activity, 'A complaint was upheld', User::factory()->admin()->create());
 
         $token = $providerUser->createToken('test', ['provider'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)->getJson('/api/v1/provider/notifications');
 
         $response->assertOk()->assertJsonCount(1, 'data');
-        $this->assertEquals('activity.approved', $response->json('data.0.type'));
+        $this->assertEquals('activity.suspended', $response->json('data.0.type'));
     }
 }

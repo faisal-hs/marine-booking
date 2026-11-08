@@ -54,7 +54,7 @@ class DashboardService
     {
         return [
             'published' => Activity::where('status', 'published')->count(),
-            'pending_review' => Activity::where('status', 'pending_review')->count(),
+            'suspended' => Activity::whereNotNull('suspended_at')->count(),
         ];
     }
 

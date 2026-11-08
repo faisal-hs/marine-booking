@@ -4,7 +4,7 @@ namespace Tests\Feature\Account;
 
 use App\Models\Activity;
 use App\Models\Broadcast;
-use App\Notifications\Activities\ActivityApprovedNotification;
+use App\Notifications\Activities\ActivitySuspendedNotification;
 use App\Notifications\Broadcasts\BroadcastNotification;
 use App\Notifications\Payments\PaymentFailedNotification;
 use App\Notifications\Providers\ProviderRejectedNotification;
@@ -215,7 +215,7 @@ class DualAccountEffectsTest extends TestCase
         $this->giveNotification($user, ['type' => 'customer.thing', 'message' => 'Your reservation is confirmed'], ReservationConfirmedNotification::class);
         $this->giveNotification($user, ['type' => 'customer.pay', 'message' => 'Payment failed'], PaymentFailedNotification::class);
         $this->giveNotification($user, ['type' => 'provider.thing', 'message' => 'New booking received'], NewBookingProviderNotification::class);
-        $this->giveNotification($user, ['type' => 'provider.act', 'message' => 'Activity approved'], ActivityApprovedNotification::class);
+        $this->giveNotification($user, ['type' => 'provider.act', 'message' => 'Activity suspended'], ActivitySuspendedNotification::class);
         $this->giveNotification($user, ['type' => 'broadcast', 'message' => 'Winter schedule'], BroadcastNotification::class);
         $this->giveNotification($user, ['type' => 'provider.verified', 'message' => 'You are a provider now'], ProviderVerifiedNotification::class);
     }

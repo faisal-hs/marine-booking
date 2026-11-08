@@ -2,11 +2,9 @@
 
 namespace App\Providers;
 
-use App\Events\ActivityApproved;
-use App\Events\ActivityPublished;
-use App\Events\ActivityRejected;
-use App\Events\ActivitySentBackToReview;
 use App\Events\PaymentFailed;
+use App\Events\ActivitySuspended;
+use App\Events\ActivitySuspensionLifted;
 use App\Events\PaymentRefunded;
 use App\Events\ProviderRejected;
 use App\Events\ProviderRequestSubmitted;
@@ -15,11 +13,9 @@ use App\Events\ReservationCancelled;
 use App\Events\ReservationConfirmed;
 use App\Events\ReservationCreated;
 use App\Events\ReservationExpired;
-use App\Listeners\Notifications\SendActivityApprovedNotifications;
-use App\Listeners\Notifications\SendActivityPublishedNotifications;
-use App\Listeners\Notifications\SendActivityRejectedNotifications;
-use App\Listeners\Notifications\SendActivitySentBackToReviewNotifications;
 use App\Listeners\Notifications\SendPaymentFailedNotifications;
+use App\Listeners\Notifications\SendActivitySuspendedNotifications;
+use App\Listeners\Notifications\SendActivitySuspensionLiftedNotifications;
 use App\Listeners\Notifications\SendPaymentRefundedNotifications;
 use App\Listeners\Notifications\SendProviderRejectedNotifications;
 use App\Listeners\Notifications\SendProviderRequestSubmittedNotifications;
@@ -167,10 +163,8 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(PaymentRefunded::class, SendPaymentRefundedNotifications::class);
         Event::listen(PaymentRefunded::class, \App\Listeners\Wallet\SyncWalletOnRefund::class);
 
-        Event::listen(ActivityApproved::class, SendActivityApprovedNotifications::class);
-        Event::listen(ActivityRejected::class, SendActivityRejectedNotifications::class);
-        Event::listen(ActivityPublished::class, SendActivityPublishedNotifications::class);
-        Event::listen(ActivitySentBackToReview::class, SendActivitySentBackToReviewNotifications::class);
+        Event::listen(ActivitySuspended::class, SendActivitySuspendedNotifications::class);
+        Event::listen(ActivitySuspensionLifted::class, SendActivitySuspensionLiftedNotifications::class);
 
         Event::listen(ProviderVerified::class, SendProviderVerifiedNotifications::class);
         Event::listen(ProviderRequestSubmitted::class, SendProviderRequestSubmittedNotifications::class);

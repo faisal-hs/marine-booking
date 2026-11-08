@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
-use App\Http\Controllers\Api\Provider\Concerns\GuardsLiveActivityContent;
+use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Provider\Activity\SyncActivityFeaturesRequest;
 use App\Http\Resources\Activity\ActivityResource;
@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class ActivityFeatureController extends BaseApiController
 {
     use AuthorizesRequests;
-    use GuardsLiveActivityContent;
+    use AppliesActivityEdits;
 
     public function __construct(protected ActivityFeatureService $service) {}
 
@@ -21,7 +21,7 @@ class ActivityFeatureController extends BaseApiController
     {
         $this->authorize('update', $activity);
 
-        [, $message] = $this->editWithReviewGuard(
+        [, $message] = $this->applyEdit(
             $activity,
             fn() => $this->service->sync($activity, $request->input('features', [])),
             'Features updated successfully.'

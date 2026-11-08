@@ -42,8 +42,9 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 
 | Operation | Status | Notes |
 |---|---|---|
-| `PATCH /provider/activities/{id}/status` | **Built** | Publish, pause, resume. See the limitation on activity approval in section 7. |
-| `GET, POST /provider/activities`, `GET, PUT /provider/activities/{id}` | **Older** | Richer model (booking options, pricing rules, schedule), uuids. |
+| `PATCH /provider/activities/{id}/status` | **Built** | `active` turns an activity on (always live), `paused` takes it off. Refused with `403 ACTIVITY_SUSPENDED_BY_ADMIN` while an admin's suspension stands. |
+| `GET, POST /provider/activities`, `GET, PUT /provider/activities/{id}` | **Older** | Richer model (booking options, pricing rules, schedule), uuids. A provider's edit applies at once. |
+| `POST /provider/activities/{uuid}/publish` (old name `submit-for-review`) | **Built** | The provider's publish request: live at once, or *ready* and hidden, as `ACTIVITY_AUTO_PUBLISH` says. |
 
 ### Phase 4: earnings, wallet, withdrawals (all built)
 
@@ -93,7 +94,11 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - **Bank account.** Holder name, bank, IBAN (stored encrypted), optional SWIFT. A withdrawal keeps a copy of the account it was asked for.
 - **Profile changes.** Ordinary information changes at once. **Critical information** (`critical_profile_fields`: the business name and type) waits for an admin's approval; one waiting request at a time, replaced when asked again; the admin approves or rejects (with a reason) on the provider's page.
 - **Provider cancels a booking.** Confirmed bookings only, before the trip day has passed, with a mandatory reason; logged as `cancellation_source = provider`; refunded in full, all or nothing; the provider is not told of their own action.
-- **Automatic publishing** (`ACTIVITY_AUTO_PUBLISH`): see section 7, this is not yet the final rule.
+- **Publishing activities.** The admin approves the **provider account** only; **nobody approves an activity**. An approved provider creates, edits and publishes their own, and a provider's edit applies at once (a live activity stays live).
+  - **The publish request** (`POST /provider/activities/{uuid}/publish`, a draft only): with `ACTIVITY_AUTO_PUBLISH` on (the default) the activity is live at once; with it off the activity becomes **ready** (stored as `approved`, shown to the provider as `ready`) and stays hidden until the provider activates it. Activating (`PATCH .../status` with `active`), from a draft, from ready or from the provider's own pause, always makes it live.
+  - **Pausing** is the provider's: `paused` takes a live activity off the site and `active` brings it back. Confirmed bookings are untouched.
+  - **Admin suspension.** An admin can stop an activity that is live, ready or paused (a draft cannot be suspended), with a mandatory reason. It is recorded **apart from the provider's pause** (the activity is `inactive` with `suspended_at`, `suspension_reason`, `suspended_by_user_id` and `suspended_from_status` set), and **every way of going live refuses it**: a provider can never switch it off, whatever route they use, and an edit never clears it. Only an admin lifting the suspension (the same `activities.suspend` permission) ends it, and the activity goes back to what it was (live again only while its provider is still in good standing). The provider is told why, and when it is lifted; they are not told of their own publishing or pausing. "Pause or deactivate" is one admin act.
+  - Before an activity goes live its provider's account must be approved and in good standing (`ProviderVerificationGate::assertCanPublish`).
 - **Customer tiers**, from `config/provider_app.php`: completed spend 40, completed bookings 30, recent bookings 20, no recent cancellation 10; vip >= 70, regular >= 30. The weights, caps and thresholds are configuration.
 - **Seeders are deterministic.** The bulk seeders draw from **their own random engine** (`BulkSeeder::$random`), never from PHP's global generator. Faker's destructor reseeds the global generator whenever it is destroyed, and a seeder that depended on it gave different data from run to run depending on how much garbage earlier code had left. `SeederDeterminismTest` recreates that on purpose.
 
@@ -107,7 +112,7 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 | Earnings availability | A configurable waiting period | **Done** (default 0, see section 6) |
 | Withdrawals | The provider asks; the amount is reserved at once; an admin pays by hand and updates the status | **Done** |
 | Coupons | Provider-created and provider-funded; no platform-funded coupons or promotions | Not built |
-| Activity publishing | Admin approves the **provider** only; the provider creates, edits and publishes; `ACTIVITY_AUTO_PUBLISH` decides whether a publish request is live at once or kept hidden until the provider activates it; an admin can pause or deactivate, tracked separately from the provider's own pause | Not built (section 7) |
+| Activity publishing | Admin approves the **provider** only; the provider creates, edits and publishes; `ACTIVITY_AUTO_PUBLISH` decides whether a publish request is live at once or kept hidden until the provider activates it; an admin can pause or deactivate, tracked separately from the provider's own pause | **Done** |
 | Verification documents | Admin configures the document types, each mandatory or optional, can request an update, reviews, approves, rejects; the provider sees statuses, uploads, replaces | Not built |
 | Booking accept/decline | Replaced by the provider cancelling a confirmed booking | **Done** |
 | Availability | Stays per activity | **Done** |
@@ -133,7 +138,9 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 
 ## 7. Limitations
 
-- **Activity approval is not yet the final rule.** The code still has the admin approval of activities, with the `ACTIVITY_AUTO_PUBLISH` setting deciding whether approval also publishes. The final rule (admin approves the provider only, the provider publishes, admin pause tracked separately) is decided but not built.
+- **Publishing does not check that an activity is complete** (photos, schedule, pricing). The admin review that used to catch that is gone, and nothing replaces it yet.
+- **The `approved` status is kept** for an activity that is ready but hidden, because renaming it means altering a database enum. The provider app calls it `ready`; the admin sees "Ready (hidden until the provider activates it)". `pending_review` and `rejected` can no longer be reached; a migration moved what was in them (a waiting activity goes live or becomes ready, as `ACTIVITY_AUTO_PUBLISH` says; a rejected one becomes a draft).
+- **There is no admin API for suspending**: it is done in the admin panel, so the Postman collection cannot demonstrate it; the tests cover it.
 - **The statement is a CSV**, not a PDF (no PDF library is installed).
 - **The bank account endpoint `PUT` is an addition** to the spec, and a change needs no admin approval.
 - **Balances are written by posting on completion, on a refund, and by a nightly job** (`wallet:sync`, 00:30); reading earnings also posts anything missing for that provider.
@@ -149,3 +156,4 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - New tables: `wallet_entries`, `withdrawals`, `provider_profile_changes`, `category_provider`; reservations got `cancellation_source` and `cancelled_by_user_id`.
 - `BulkSeeder` and the bulk seeders that used `array_rand`, `mt_rand` or Faker directly now use the seeder's own engine; the helper test starts that engine instead of seeding the global generator.
 - The admin provider form has a commission type; the admin has a Withdrawals screen, in English and Arabic.
+- **Activities.** `ActivityPublishingService` replaces `ActivityModerationService` and `LiveActivityContentGuard`; the admin approve, reject, publish and deactivate actions (and the `activities.approve`, `activities.reject`, `activities.publish` permissions) are replaced by suspend and lift (`activities.suspend`); the approval notifications and events (approved, rejected, sent back to review, published) are replaced by suspended and suspension-lifted. Migrations: the four suspension columns on `activities`, and the retirement of `pending_review` and `rejected`. The demo and bulk seeders create admin-suspended activities.

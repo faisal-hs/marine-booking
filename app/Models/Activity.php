@@ -32,6 +32,10 @@ class Activity extends Model
         'status',
         'rejection_reason',
         'published_at',
+        'suspended_at',
+        'suspension_reason',
+        'suspended_by_user_id',
+        'suspended_from_status',
         'average_rating',
         'reviews_count',
     ];
@@ -40,8 +44,20 @@ class Activity extends Model
         'lat' => 'decimal:7',
         'lng' => 'decimal:7',
         'published_at' => 'datetime',
+        'suspended_at' => 'datetime',
         'average_rating' => 'decimal:2',
     ];
+
+    /** Stopped by an admin. Only an admin lifting the suspension can put the activity back; the provider's own pausing does not set this. */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    public function suspendedBy()
+    {
+        return $this->belongsTo(User::class, 'suspended_by_user_id');
+    }
 
     public function provider()
     {

@@ -36,9 +36,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'activities.create',
         'activities.update',
         'activities.delete',
-        'activities.approve',
-        'activities.reject',
-        'activities.publish',
+        'activities.suspend',
         'feature_definitions.view',
         'feature_definitions.create',
         'feature_definitions.update',
@@ -66,6 +64,9 @@ class RolesAndPermissionsSeeder extends Seeder
     public function run(): void
     {
         Cache::forget('spatie.permission.cache');
+
+        // Retired: admins no longer approve, reject or publish activities (they suspend them). Installs that had these keep none of them.
+        Permission::whereIn('name', ['activities.approve', 'activities.reject', 'activities.publish'])->delete();
 
         foreach ($this->allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -118,9 +119,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'reviews.view',
             'reviews.moderate',
             'reports.view',
-            'activities.approve',
-            'activities.reject',
-            'activities.publish',
+            'activities.suspend',
         ]);
 
         $supportAdmin = Role::firstOrCreate(['name' => 'support_admin', 'guard_name' => 'web']);

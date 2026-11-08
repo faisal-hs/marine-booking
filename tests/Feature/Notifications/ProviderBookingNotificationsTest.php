@@ -8,7 +8,7 @@ use App\Models\Customer;
 use App\Models\Device;
 use App\Models\Reservation;
 use App\Models\User;
-use App\Notifications\Activities\ActivitySentBackToReviewNotification;
+use App\Notifications\Activities\ActivitySuspensionLiftedNotification;
 use App\Notifications\Reservations\Provider\BookingCancelledProviderNotification;
 use App\Notifications\Reservations\Provider\NewBookingProviderNotification;
 use App\Services\PaymentService;
@@ -182,7 +182,7 @@ class ProviderBookingNotificationsTest extends TestCase
 
     public function test_the_new_notifications_are_queued_with_the_shared_retry_policy(): void
     {
-        foreach ([NewBookingProviderNotification::class, BookingCancelledProviderNotification::class, ActivitySentBackToReviewNotification::class] as $class) {
+        foreach ([NewBookingProviderNotification::class, BookingCancelledProviderNotification::class, ActivitySuspensionLiftedNotification::class] as $class) {
             $this->assertTrue(is_subclass_of($class, ShouldQueue::class), "{$class} should be queued.");
 
             $defaults = (new ReflectionClass($class))->getDefaultProperties();

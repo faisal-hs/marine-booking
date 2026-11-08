@@ -129,7 +129,10 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
         $query = $this->model->newQuery()
             ->with(['category', 'provider']);
 
-        if (! empty($filters['status'])) {
+        // "suspended" is not a status: it is an admin's suspension, kept apart from the status (see ActivityPublishingService).
+        if (($filters['status'] ?? null) === 'suspended') {
+            $query->whereNotNull('suspended_at');
+        } elseif (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 

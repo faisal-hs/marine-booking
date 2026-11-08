@@ -12,7 +12,7 @@ use App\Models\Customer;
 use App\Models\Device;
 use App\Models\Provider;
 use App\Models\User;
-use App\Notifications\Activities\ActivityApprovedNotification;
+use App\Notifications\Activities\ActivitySuspendedNotification;
 use App\Notifications\Payments\PaymentFailedNotification;
 use App\Notifications\Providers\ProviderVerifiedNotification;
 use App\Notifications\Reservations\Admin\NewReservationAdminNotification;
@@ -262,7 +262,7 @@ class NotificationFailureIsolationTest extends TestCase
         $queued = [
             ReservationConfirmedNotification::class,
             PaymentFailedNotification::class,
-            ActivityApprovedNotification::class,
+            ActivitySuspendedNotification::class,
             ProviderVerifiedNotification::class,
         ];
 

@@ -88,7 +88,7 @@ class ActivityManagementTest extends TestCase
 
         $response->assertStatus(403);
     }
-    public function test_provider_can_submit_draft_for_review(): void
+    public function test_provider_can_publish_a_draft_by_themselves(): void
     {
         [$user, $provider, $token] = $this->authenticatedProvider();
         $category = Category::create(['name' => 'Diving', 'slug' => 'diving', 'status' => 'active']);
@@ -100,7 +100,11 @@ class ActivityManagementTest extends TestCase
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson('/api/v1/provider/activities/' . $activity['uuid'] . '/submit-for-review');
 
-        $response->assertOk()->assertJsonPath('data.status', 'pending_review');
+        $response->assertOk()->assertJsonPath('data.status', 'published');
+
+        // `publish` is the route's name now; `submit-for-review` is its old one and still works.
+        $draft = $this->withHeader('Authorization', 'Bearer ' . $token)->postJson('/api/v1/provider/activities', ['category_id' => $category->id, 'title' => 'Wreck Dive'])->json('data');
+        $this->withHeader('Authorization', 'Bearer ' . $token)->postJson('/api/v1/provider/activities/' . $draft['uuid'] . '/publish')->assertOk()->assertJsonPath('data.status', 'published');
     }
 
     public function test_cannot_submit_non_draft_activity_for_review(): void
