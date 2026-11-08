@@ -26,7 +26,7 @@ class ReviewRepository extends BaseRepository implements ReviewRepositoryInterfa
         return $this->model->newQuery()
             ->where('activity_id', $activityId)
             ->where('is_hidden', false)
-            ->with('customer.user')
+            ->with(['customer.user', 'reply'])
             ->latest()
             ->paginate($perPage, ['*'], 'current_page')
             ->withQueryString();

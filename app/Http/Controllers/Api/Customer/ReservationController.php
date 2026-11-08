@@ -72,9 +72,11 @@ class ReservationController extends BaseApiController
             $request->input('participants'),
             $request->input('quantity'),
             $request->input('duration'),
+            $request->input('coupon_code'),
+            \App\Services\ActivityViewTracker::source($request),
         );
 
-        $reservation->load(['activity', 'bookingOption', 'schedulePeriod']);
+        $reservation->load(['activity', 'bookingOption', 'schedulePeriod', 'couponRedemption']);
 
         return $this->created(new ReservationResource($reservation), 'Reservation created successfully. Complete payment before the hold expires.');
     }
@@ -106,6 +108,35 @@ class ReservationController extends BaseApiController
     protected function abortIfNotOwnReservation(Request $request, Reservation $reservation): void
     {
         abort_if($reservation->customer_id !== $request->user()->customer->id, 404);
+    }
+
+    /**
+     * What a coupon would take off this booking, without creating one: the discount, the price before and after. It refuses for the same reasons a
+     * booking would (unknown, expired, not for this activity, too small, used up).
+     */
+    public function checkCoupon(\App\Http\Requests\Customer\Reservation\CheckCouponRequest $request)
+    {
+        $activity = $this->activityRepository->findByIdOrUuidOrSlug($request->input('activity'));
+
+        if (! $activity || $activity->status !== 'published') {
+            return $this->error('Activity not found.', 404);
+        }
+
+        $bookingOption = $this->resolveBookingOption($request->input('booking_option'));
+
+        if (! $bookingOption) {
+            return $this->error('Booking option not found.', 404);
+        }
+
+        $schedulePeriod = $request->filled('schedule_period') ? $this->resolveSchedulePeriod($request->input('schedule_period')) : null;
+        $quote = app(\App\Services\ActivityPricingService::class)->quote($activity, $bookingOption, $schedulePeriod, $request->input('participants'), $request->input('quantity'), $request->input('duration'));
+
+        ['coupon' => $coupon, 'discount' => $discount] = app(\App\Services\CouponService::class)->resolve($activity, $request->input('coupon_code'), (float) $quote['subtotal']);
+
+        return $this->success([
+            'code' => $coupon->code, 'type' => $coupon->type, 'value' => $coupon->value, 'currency' => $quote['currency'],
+            'subtotal' => (float) $quote['subtotal'], 'discount' => $discount, 'total' => round((float) $quote['subtotal'] - $discount + (float) $quote['tax'], 2),
+        ], 'Coupon applies to this booking.');
     }
 
     protected function resolveBookingOption(string $value): ?ActivityBookingOption

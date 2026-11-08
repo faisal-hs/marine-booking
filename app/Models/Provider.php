@@ -63,6 +63,11 @@ class Provider extends Model
     }
 
 
+    public function coupons()
+    {
+        return $this->hasMany(Coupon::class);
+    }
+
     public function walletEntries()
     {
         return $this->hasMany(WalletEntry::class);

@@ -42,6 +42,8 @@ class ReservationResource extends JsonResource
             'currency' => $this->currency,
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
+            // The coupon this booking used and what it took off (null when none; only when the relation is loaded).
+            'coupon' => $this->whenLoaded('couponRedemption', fn () => $this->couponRedemption ? ['code' => $this->couponRedemption->code, 'discount' => (float) $this->couponRedemption->discount_amount] : null),
             'tax' => (float) $this->tax,
             'total' => (float) $this->total,
             'pricing_breakdown' => $this->pricing_breakdown,

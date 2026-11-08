@@ -20,6 +20,8 @@ class PublicReviewResource extends JsonResource
             'customer_name' => $this->customer->user->name,
             'rating' => $this->rating,
             'comment' => $this->comment,
+            // What the provider answered, if they did.
+            'provider_reply' => $this->whenLoaded('reply', fn () => $this->reply ? ['text' => $this->reply->text, 'created_at' => $this->reply->created_at->toIso8601String()] : null),
             'created_at' => $this->created_at->toIso8601String(),
         ];
     }

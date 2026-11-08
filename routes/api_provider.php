@@ -3,13 +3,16 @@
 use App\Http\Controllers\Api\ProviderApp\ActivityStatusController;
 use App\Http\Controllers\Api\ProviderApp\ApplicationController;
 use App\Http\Controllers\Api\ProviderApp\BookingController;
+use App\Http\Controllers\Api\ProviderApp\AnalyticsController;
 use App\Http\Controllers\Api\ProviderApp\BankAccountController;
 use App\Http\Controllers\Api\ProviderApp\CalendarController;
 use App\Http\Controllers\Api\ProviderApp\CategoryController;
 use App\Http\Controllers\Api\ProviderApp\CustomerController;
+use App\Http\Controllers\Api\ProviderApp\CouponController;
 use App\Http\Controllers\Api\ProviderApp\DashboardController;
 use App\Http\Controllers\Api\ProviderApp\EarningsController;
 use App\Http\Controllers\Api\ProviderApp\ProfileController;
+use App\Http\Controllers\Api\ProviderApp\ReviewController;
 use App\Http\Controllers\Api\ProviderApp\VerificationController;
 use App\Http\Controllers\Api\ProviderApp\WithdrawalController;
 use Illuminate\Support\Facades\Route;
@@ -86,6 +89,17 @@ Route::group([
         Route::post('/withdrawals', [WithdrawalController::class, 'store'])->middleware('throttle:provider-withdrawals')->name('withdrawals.store');
         Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');
         Route::get('/withdrawals/{id}', [WithdrawalController::class, 'show'])->name('withdrawals.show');
+
+        // Coupons the provider funds themselves (deactivated, never deleted), the reviews of their activities with their replies, and analytics.
+        Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
+        Route::post('/coupons', [CouponController::class, 'store'])->middleware('throttle:provider-coupons')->name('coupons.store');
+        Route::patch('/coupons/{id}', [CouponController::class, 'update'])->middleware('throttle:provider-coupons')->name('coupons.update');
+        Route::delete('/coupons/{id}', [CouponController::class, 'destroy'])->middleware('throttle:provider-coupons')->name('coupons.destroy');
+        Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/{id}/reply', [ReviewController::class, 'store'])->middleware('throttle:provider-review-replies')->name('reviews.reply.store');
+        Route::patch('/reviews/{id}/reply', [ReviewController::class, 'update'])->middleware('throttle:provider-review-replies')->name('reviews.reply.update');
+        Route::delete('/reviews/{id}/reply', [ReviewController::class, 'destroy'])->middleware('throttle:provider-review-replies')->name('reviews.reply.destroy');
+        Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics.show');
 
         // (routes go here)
     });

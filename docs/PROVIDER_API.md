@@ -5,10 +5,9 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 
 | | Operations |
 |---|---|
-| **Built** | 19, plus 1 that replaces two (booking cancellation) |
+| **Built** | 28, plus 1 that replaces two (booking cancellation) |
 | **Decided: the current system stays** | 3 (availability) |
 | **Answered by an older endpoint** | 5 (`GET /provider/profile` and the four activity operations) |
-| **Decided, not built yet** | 9 (coupons 4, reviews 4, analytics 1) |
 
 ## 1. Every operation, and where it stands
 
@@ -64,14 +63,21 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 | Operation | Status | Notes |
 |---|---|---|
 | `GET /provider/customers` | **Built** | Tiers from a configurable score. |
-| `GET, POST /provider/coupons`, `PATCH, DELETE /provider/coupons/{id}` | Not built | Provider-funded only (decided); needs the customer booking flow to apply a coupon. |
-| `GET /provider/reviews`, `POST, PATCH, DELETE /provider/reviews/{id}/reply` | Not built | Needs no decision. |
+| `GET /provider/coupons` | **Built** | The provider's own coupons, `status` filter, `used_count` of the bookings still alive. |
+| `POST /provider/coupons` | **Built** | Percent (more than 0, at most 100) or fixed; the code in capitals, unique among the provider's own; optional limit, cap, smallest booking, expiry, activities. |
+| `PATCH /provider/coupons/{id}` | **Built** | Percent and fixed can be swapped; the code never changes; the limit cannot go below the uses taken. |
+| `DELETE /provider/coupons/{id}` | **Built** | Deactivates; nothing is deleted. |
+| `POST /customer/coupons/validate` | **Built (customer side, not in the spec)** | What a coupon would take off a booking, before booking. A coupon is used by sending `coupon_code` with `POST /customer/reservations`. |
+| `GET /provider/reviews` | **Built** | Rating, how the ratings are spread, and the reviews of the provider's own activities with their replies; hidden reviews are not counted. |
+| `POST /provider/reviews/{id}/reply` | **Built** | One reply stands per review (a second answers 409). |
+| `PATCH /provider/reviews/{id}/reply` | **Built** | Edits the standing reply. |
+| `DELETE /provider/reviews/{id}/reply` | **Built** | Deletes it and keeps an audit record; the review can be answered again. |
 
 ### Phase 6: analytics
 
 | Operation | Status | Notes |
 |---|---|---|
-| `GET /provider/analytics` | Not built | Financial figures must come from the ledger; the platform records no page views yet. |
+| `GET /provider/analytics` | **Built** | Page views, conversion, rating, response rate, top activities (from the ledger) and booking sources, for a period of at most a year. Every figure is defined in section 3. |
 
 ## 2. Conventions of the provider app API
 
@@ -107,6 +113,12 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
   - **Admin suspension.** An admin can stop an activity that is live, ready or paused (a draft cannot be suspended), with a mandatory reason. It is recorded **apart from the provider's pause** (the activity is `inactive` with `suspended_at`, `suspension_reason`, `suspended_by_user_id` and `suspended_from_status` set), and **every way of going live refuses it**: a provider can never switch it off, whatever route they use, and an edit never clears it. Only an admin lifting the suspension (the same `activities.suspend` permission) ends it, and the activity goes back to what it was (live again only while its provider is still in good standing). The provider is told why, and when it is lifted; they are not told of their own publishing or pausing. "Pause or deactivate" is one admin act.
   - Before an activity goes live its provider's account must be approved and in good standing (`ProviderVerificationGate::assertCanPublish`).
 - **Customer tiers**, from `config/provider_app.php`: completed spend 40, completed bookings 30, recent bookings 20, no recent cancellation 10; vip >= 70, regular >= 30. The weights, caps and thresholds are configuration.
+- **Coupons.** A coupon is **funded by the provider** that made it: the customer pays less, and the provider earns on what the customer paid (the platform's commission is on that too). There are no platform-funded coupons. One coupon per booking.
+  - **The coupon.** `percent` (more than 0 and at most 100, optionally capped by `max_discount`) or `fixed` (a positive amount); optional `usage_limit`, `min_order_amount` and `expires_at`; limited to some of the provider's activities, or, with none listed, **all** of them. The code is kept in capitals and is **unique among the provider's own** (a booking is for one activity, so its provider is always known). Percent and fixed can be swapped; the code never changes; the limit cannot be set below the uses already taken. A coupon is **deactivated, never deleted**.
+  - **Using one.** A customer sends `coupon_code` with the booking (`POST /customer/reservations`), or checks it first with `POST /customer/coupons/validate` (rate limited, because it is a way to guess codes). It works when it is active, not expired, for that activity, the booking is large enough, and it has uses left. The discount is the percentage (never above the cap) or the fixed amount, never more than the booking, and **a booking never costs less than `COUPON_MINIMUM_TOTAL`** (default 1): a bigger discount is cut back. It is checked, and its last use taken, **under a lock**, so two bookings cannot both have it. A refused coupon books nothing; an unknown and a switched-off code are answered alike.
+  - **Its used count** is the bookings it is on that are **still alive** (not cancelled, not expired): a use is given back when a booking is not kept, and a pending booking holds its use. The booking stores the discount, the total after it and a `coupon_redemptions` row; the ledger records the discount on the booking's income.
+- **Reviews.** A provider sees the reviews of **their own** activities (an admin-hidden one is not counted or shown) with the rating (two decimals), how the ratings are spread (every star 5 to 1) and each review's reply. **One reply stands per review**; it can be edited; deleting it keeps the row (when, and by whom) as an audit record and lets the review be answered again; the database allows only one active reply. Someone else's review, a hidden one and a made-up id are all `404`, and the review is looked up **before** the text is checked. Customers see the reply with the review; admins see it on the review page.
+- **Analytics.** Every figure has one definition (`ProviderAnalytics`): **page_views** are visitors per day looking at a live activity (a refresh adds nothing; the provider's own looks and robots do not count; the visitor is a hash that cannot be turned back into a person); **conversion_rate** is the bookings made in the period (confirmed or completed: a cancelled or expired one is not a booking) over the page views in it, times 100, 0 when nobody looked; **page_views_change** and **conversion_change** compare with the period of the same length just before (percent, and percentage points; `null` when that period had no page views); **avg_rating** is the average of all visible reviews (`null` when none); **response_rate** is the share of the period's visible reviews the provider replied to (`null` when none); **top_activities** are the activities whose trips took place in the period, best gross first, at most five, **from the wallet ledger** (so the revenue is the revenue everywhere else: gross is what customers paid, net what the provider keeps); **booking_sources** are the share of the period's bookings from each of `direct`, `category`, `recommendations`, `social`, adding up to exactly 100. The default period is the last 30 days; a period is at most a year. `?source=` (or the `X-Booking-Source` header) on a visit or a booking says how the customer arrived; anything else is `direct`.
 - **Seeders are deterministic.** The bulk seeders draw from **their own random engine** (`BulkSeeder::$random`), never from PHP's global generator. Faker's destructor reseeds the global generator whenever it is destroyed, and a seeder that depended on it gave different data from run to run depending on how much garbage earlier code had left. `SeederDeterminismTest` recreates that on purpose.
 
 ## 4. Decisions (final business decisions of 7 November)
@@ -118,7 +130,9 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 | Commission | Per provider, `percentage` or `fixed`, same for all their activities; no per-activity rates | **Done** |
 | Earnings availability | A configurable waiting period | **Done** (default 0, see section 6) |
 | Withdrawals | The provider asks; the amount is reserved at once; an admin pays by hand and updates the status | **Done** |
-| Coupons | Provider-created and provider-funded; no platform-funded coupons or promotions | Not built |
+| Coupons | Provider-created and provider-funded; no platform-funded coupons or promotions | **Done** |
+| Reviews and replies | One reply stands per review; edit and delete (kept for audit) | **Done** |
+| Analytics | Page views, conversion, ratings, response rate, top activities, booking sources; revenue from the ledger | **Done** |
 | Activity publishing | Admin approves the **provider** only; the provider creates, edits and publishes; `ACTIVITY_AUTO_PUBLISH` decides whether a publish request is live at once or kept hidden until the provider activates it; an admin can pause or deactivate, tracked separately from the provider's own pause | **Done** |
 | Verification documents | Admin configures the document types, each mandatory or optional, can request an update, reviews, approves, rejects; the provider sees statuses, uploads, replaces | **Done** |
 | Booking accept/decline | Replaced by the provider cancelling a confirmed booking | **Done** |
@@ -143,6 +157,10 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 4. **Bank account fields**: holder name, bank, IBAN, optional SWIFT are my choice.
 5. **Capacity per departure**: today `max_participants` belongs to the activity. Not touched.
 
+6. **Coupon codes: unique among the provider's own** (my choice; the spec leaves platform-wide or provider-wide to confirm). Two providers can both have `SUMMER20`.
+7. **A coupon with no activities listed works for all of the provider's activities** (the spec asks to confirm this).
+8. **The definition of conversion** (bookings over page views, a cancelled or expired booking not counted): the spec asks for it to be defined, and this is my definition.
+
 ## 7. Limitations
 
 - **Publishing does not check that an activity is complete** (photos, schedule, pricing). The admin review that used to catch that is gone, and nothing replaces it yet.
@@ -153,6 +171,13 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - **Which documents are asked for does not depend on the provider's activity type or jurisdiction** (the spec lists that as open): one list for everyone.
 - **A document's expiry is optional and set by the admin when approving**; nothing is sent when one is about to expire, it simply shows as `expired` afterwards.
 - **`update_requested` is a status of its own** (not in the spec's list): it is what tells a provider with an approved document that an admin wants a new one.
+- **Coupons have no admin screen.** An admin cannot see or deactivate a provider's coupons from the panel; the provider manages them through the API.
+- **The provider's bookings list does not show the coupon** a booking used (the discount is in the booking's totals and the ledger).
+- **A customer is not notified when a provider replies to their review**; they see the reply on the review.
+- **The booking source is what the client says it is** (`?source=` or the header); it is not verified, so it is as trustworthy as the apps that send it. Bookings made before this existed have no source and count as `direct`.
+- **Page views are kept without limit** (one row per visitor per day per activity); there is no clean-up of old ones.
+- **A review's average rating in the analytics is over all time**, not the period; the response rate is for the period.
+- **Coupons and the customer web site:** the customer web pages do not offer a coupon field; coupons are used through the customer API.
 - **The statement is a CSV**, not a PDF (no PDF library is installed).
 - **The bank account endpoint `PUT` is an addition** to the spec, and a change needs no admin approval.
 - **Balances are written by posting on completion, on a refund, and by a nightly job** (`wallet:sync`, 00:30); reading earnings also posts anything missing for that provider.
@@ -168,5 +193,6 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - New tables: `wallet_entries`, `withdrawals`, `provider_profile_changes`, `category_provider`; reservations got `cancellation_source` and `cancelled_by_user_id`.
 - `BulkSeeder` and the bulk seeders that used `array_rand`, `mt_rand` or Faker directly now use the seeder's own engine; the helper test starts that engine instead of seeding the global generator.
 - The admin provider form has a commission type; the admin has a Withdrawals screen, in English and Arabic.
+- **Coupons, reviews, analytics.** New tables `coupons` (with `activity_coupon`), `coupon_redemptions`, `review_replies`, `activity_views`; `reservations.source`. `ReservationService::create` takes a coupon code and the source; the ledger's booking income records the discount; the public activity pages record a page view; the reservation response shows the coupon. A named rate limiter for each new write endpoint and for the coupon check. Four bulk seeders (coupons, redemptions applied before the payments, review replies, page views) and a demo seeder `ProviderDemoReviewSeeder` (run after `ProviderMonthlyReservationSeeder`). `NotificationFailureIsolationTest` now tells its queue worker not to quit on memory: it quit once a full test run had used 128 MB, which these tests did not depend on by design.
 - **Verification documents.** New tables `verification_document_types` and `provider_document_events`; `provider_documents` gained `status`, `review_note`, `reviewed_by_user_id`, `reviewed_at`, `expires_at` and `superseded_at` (existing documents are backfilled: a verified provider's are approved, the rest pending, with their history). `config/providers.php` no longer lists the types; everything reads them through `VerificationDocumentTypes`. Replacing a document now keeps the old version instead of deleting it (so three older tests that expected deletion were updated). The older `/provider/documents` API shows each document's status. Three bulk seeders (document types, reviewed documents, their history).
 - **Activities.** `ActivityPublishingService` replaces `ActivityModerationService` and `LiveActivityContentGuard`; the admin approve, reject, publish and deactivate actions (and the `activities.approve`, `activities.reject`, `activities.publish` permissions) are replaced by suspend and lift (`activities.suspend`); the approval notifications and events (approved, rejected, sent back to review, published) are replaced by suspended and suspension-lifted. Migrations: the four suspension columns on `activities`, and the retirement of `pending_review` and `rejected`. The demo and bulk seeders create admin-suspended activities.

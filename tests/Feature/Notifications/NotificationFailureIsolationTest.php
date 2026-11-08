@@ -312,7 +312,9 @@ class NotificationFailureIsolationTest extends TestCase
 
     protected function runQueueWorker(): void
     {
-        Artisan::call('queue:work', ['--stop-when-empty' => true, '--sleep' => 0]);
+        // The worker quits without doing anything once the PROCESS has used its --memory limit (128 MB by default), and a full test run is a long process
+        // that gets there: these tests are about retries, so they must not depend on how much memory the rest of the suite happened to use.
+        Artisan::call('queue:work', ['--stop-when-empty' => true, '--sleep' => 0, '--memory' => 8192]);
     }
 
     public function test_a_flaky_channel_is_retried_on_its_own_and_never_repeats_the_in_app_notification(): void

@@ -104,6 +104,18 @@ trait BuildsProviderAppScenarios
         return $id;
     }
 
+    /** A customer's review of an activity (one per customer and activity). */
+    protected function makeReview(\App\Models\Activity $activity, \App\Models\Customer $customer, int $rating = 5, ?string $comment = 'A wonderful trip', array $attrs = []): \App\Models\Review
+    {
+        $review = \App\Models\Review::create(['customer_id' => $customer->id, 'activity_id' => $activity->id, 'rating' => $rating, 'comment' => $comment] + array_diff_key($attrs, ['created_at' => 1]));
+
+        if (isset($attrs['created_at'])) {
+            $review->forceFill(['created_at' => $attrs['created_at'], 'updated_at' => $attrs['created_at']])->save();
+        }
+
+        return $review;
+    }
+
     /** A bank account as the API stores it. */
     protected function bankAccount(array $overrides = []): array
     {

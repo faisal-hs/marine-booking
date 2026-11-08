@@ -31,6 +31,7 @@ class Reservation extends Model
         'hold_expires_at',
         'pricing_model',
         'currency',
+        'source',
         'subtotal',
         'discount',
         'tax',
@@ -76,6 +77,12 @@ class Reservation extends Model
     public function schedulePeriod()
     {
         return $this->belongsTo(ActivitySchedulePeriod::class, 'schedule_period_id');
+    }
+
+    /** The coupon this booking used, if any (at most one). */
+    public function couponRedemption()
+    {
+        return $this->hasOne(CouponRedemption::class);
     }
 
     public function walletEntries()

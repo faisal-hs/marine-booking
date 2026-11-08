@@ -38,6 +38,7 @@ class ReservationService
         protected ReservationRepositoryInterface $repository,
         protected AvailabilityService $availabilityService,
         protected ActivityPricingService $pricingService,
+        protected CouponService $coupons,
     ) {}
 
     public function create(
@@ -49,6 +50,8 @@ class ReservationService
         ?array $participants = null,
         ?int $quantity = null,
         ?int $duration = null,
+        ?string $couponCode = null,
+        ?string $source = null,
     ): Reservation {
         if ($bookingOption->activity_id !== $activity->id) {
             throw ValidationException::withMessages([
@@ -85,7 +88,7 @@ class ReservationService
         // (missing rule, inactive option, etc.) should never hold a lock.
         $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration);
 
-        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote) {
+        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source) {
             // Guarantees a lockable row exists even for the very first
             // reservation attempt on this exact slot — see
             // ReservationCapacityLock's class doc comment for why a plain
@@ -100,7 +103,16 @@ class ReservationService
 
             $this->assertCapacityAvailable($bookingOption, $schedulePeriod, $date, $participants, $quantity);
 
-            return $this->repository->create([
+            // A coupon is checked, and its last use taken, under a lock: two bookings cannot both have it. The provider funds the discount, so what the
+            // customer pays (and what the provider earns on) is the total after it.
+            $coupon = null;
+            $discount = (float) $quote['discount'];
+            if ($couponCode !== null && trim($couponCode) !== '') {
+                ['coupon' => $coupon, 'discount' => $couponDiscount] = $this->coupons->resolve($activity, $couponCode, (float) $quote['subtotal'], lock: true);
+                $discount = round($discount + $couponDiscount, 2);
+            }
+
+            $reservation = $this->repository->create([
                 'activity_id' => $activity->id,
                 'activity_booking_option_id' => $bookingOption->id,
                 'customer_id' => $customer->id,
@@ -113,12 +125,19 @@ class ReservationService
                 'hold_expires_at' => now()->addMinutes((int) config('reservations.hold_minutes')),
                 'pricing_model' => $quote['pricing_model'],
                 'currency' => $quote['currency'],
+                'source' => $source,
                 'subtotal' => $quote['subtotal'],
-                'discount' => $quote['discount'],
+                'discount' => $discount,
                 'tax' => $quote['tax'],
-                'total' => $quote['total'],
+                'total' => round((float) $quote['subtotal'] - $discount + (float) $quote['tax'], 2),
                 'pricing_breakdown' => $quote['breakdown'],
             ]);
+
+            if ($coupon) {
+                \App\Models\CouponRedemption::create(['coupon_id' => $coupon->id, 'reservation_id' => $reservation->id, 'customer_id' => $customer->id, 'code' => $coupon->code, 'discount_amount' => $couponDiscount, 'created_at' => now()]);
+            }
+
+            return $reservation;
         });
 
         event(new ReservationCreated($reservation));

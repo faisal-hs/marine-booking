@@ -69,7 +69,7 @@ class LedgerService
         $rows = [];
 
         if (! $income) {
-            $rows[] = $common + ['type' => WalletEntry::BOOKING_INCOME, 'amount' => $total, 'description' => $label, 'reference' => "booking:{$reservation->id}:income", 'meta' => ['gross' => $total]];
+            $rows[] = $common + ['type' => WalletEntry::BOOKING_INCOME, 'amount' => $total, 'description' => $label, 'reference' => "booking:{$reservation->id}:income", 'meta' => ['gross' => $total, 'discount' => round((float) $reservation->discount, 2)]];
         }
 
         $postedRefund = round(-$entries->where('type', WalletEntry::REFUND)->sum('amount'), 2);

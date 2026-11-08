@@ -29,11 +29,13 @@ class ActivityController extends Controller
         ]);
     }
 
-    public function show(string $activity): View
+    public function show(\Illuminate\Http\Request $request, string $activity): View
     {
         $activityModel = $this->activityRepository->findByIdOrUuidOrSlug($activity);
 
         abort_if(! $activityModel || $activityModel->status !== 'published', 404);
+
+        app(\App\Services\ActivityViewTracker::class)->record($activityModel, $request);
 
         $activityModel->load([
             'category',

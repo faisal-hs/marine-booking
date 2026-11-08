@@ -464,6 +464,7 @@ return [
         'no_reviews' => 'No reviews found.',
         'rating' => 'Rating',
         'comment' => 'Comment',
+        'provider_reply' => 'Provider reply',
         'details_title' => 'Review Details',
         'hide' => 'Hide Review',
         'unhide' => 'Unhide Review',

@@ -30,6 +30,17 @@ class Review extends Model
         'hidden_at' => 'datetime',
     ];
 
+    /** The provider's reply that stands (a deleted one is kept as an audit record, not shown). */
+    public function reply()
+    {
+        return $this->hasOne(ReviewReply::class)->where('is_active', true);
+    }
+
+    public function replies()
+    {
+        return $this->hasMany(ReviewReply::class);
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class);

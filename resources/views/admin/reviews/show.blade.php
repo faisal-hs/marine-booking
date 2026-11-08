@@ -24,6 +24,12 @@
                             <dd>{{ $review->comment }}</dd>
                         </div>
                     @endif
+                    @if ($review->reply)
+                        <div>
+                            <dt class="text-slate-400">{{ __('admin.reviews.provider_reply') }}</dt>
+                            <dd>{{ $review->reply->text }} <span class="text-xs text-slate-400">· {{ $review->reply->created_at->format('Y-m-d H:i') }}</span></dd>
+                        </div>
+                    @endif
                     @if ($review->is_hidden && $review->hidden_reason)
                         <div>
                             <dt class="text-slate-400">{{ __('admin.reviews.hidden_reason') }}</dt>

@@ -29,6 +29,9 @@ class StoreReservationRequest extends FormRequest
 
             'quantity' => ['nullable', 'integer', 'min:1'],
             'duration' => ['nullable', 'integer', 'min:1'],
+
+            // One coupon per booking, the code of the provider's coupon (any case).
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ];
     }
 }

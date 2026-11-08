@@ -29,13 +29,16 @@ class ActivityController extends BaseApiController
         return $this->success(ActivityListResource::collection($activities));
     }
 
-    public function show(string $activity)
+    public function show(\Illuminate\Http\Request $request, string $activity)
     {
         $activityModel = $this->repository->findByIdOrUuidOrSlug($activity);
 
         if (! $activityModel || $activityModel->status !== 'published') {
             return $this->error('Activity not found.', 404);
         }
+
+        // A look at a live activity is a page view (one per visitor per day): the provider's analytics are made of these.
+        app(\App\Services\ActivityViewTracker::class)->record($activityModel, $request);
 
         $activityModel->load(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'bookingOptions.pricingRules']);
 

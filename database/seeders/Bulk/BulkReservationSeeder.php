@@ -192,6 +192,8 @@ class BulkReservationSeeder extends BulkSeeder
             'hold_expires_at' => $hold ? $this->ts($hold) : null,
             'pricing_model' => $option->booking_model,
             'currency' => config('platform.currency'),
+            // How the customer reached the activity (what a provider's booking sources are made of).
+            'source' => $this->weighted(['direct' => 45, 'category' => 30, 'recommendations' => 17, 'social' => 8]),
             'subtotal' => $price['total'],
             'discount' => 0,
             'tax' => 0,

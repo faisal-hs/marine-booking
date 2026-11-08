@@ -177,6 +177,11 @@ Route::middleware(['auth:sanctum', 'ability:customer'])->prefix('customer')->nam
     Route::post('/reservations/{reservation}/cancel', [App\Http\Controllers\Api\Customer\ReservationController::class, 'cancel'])
         ->name('reservations.cancel');
 
+    // What a provider's coupon would take off a booking, before booking. Rate limited: it is a way to guess codes.
+    Route::post('/coupons/validate', [App\Http\Controllers\Api\Customer\ReservationController::class, 'checkCoupon'])
+        ->middleware('throttle:coupon-check')
+        ->name('coupons.validate');
+
     Route::post('/reservations/{reservation}/payments', [PaymentController::class, 'store'])
         ->middleware('throttle:payments')
         ->name('payments.store');

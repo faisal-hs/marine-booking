@@ -50,7 +50,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_table_has_data_and_the_main_volumes_follow_the_scale(): void
     {
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
             'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
             'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
             'notifications', 'broadcasts'] as $table) {
@@ -74,7 +74,7 @@ class BulkDataIntegrityTest extends TestCase
     {
         $now = Carbon::now()->addMinutes(1)->toDateTimeString();
 
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
             $this->assertSame(0, DB::table($table)->where('created_at', '>', $now)->count(), "{$table} has rows created in the future");
         }
         $this->assertSame(0, DB::table('provider_requests')->whereNotNull('reviewed_at')->where('reviewed_at', '>', $now)->count());
@@ -232,6 +232,100 @@ class BulkDataIntegrityTest extends TestCase
         $this->assertSame(['commercial_registration', 'insurance_certificate', 'safety_certification'], collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->sort()->values()->all(), 'Nothing mandatory was added');
         $this->assertGreaterThanOrEqual(11, DB::table('verification_document_types')->count());
         $this->assertSame(1, DB::table('verification_document_types')->where('is_active', false)->count(), 'One of the extras is switched off');
+    }
+
+    public function test_coupons_are_valid_and_belong_to_providers_that_were_verified(): void
+    {
+        $this->assertGreaterThan(0, DB::table('coupons')->count());
+        $this->assertSame(0, DB::table('coupons')->join('providers', 'providers.id', '=', 'coupons.provider_id')->where('providers.verification_status', '!=', 'verified')->count());
+        $this->assertSame(0, DB::table('coupons')->whereNotIn('type', ['percent', 'fixed'])->count());
+        $this->assertSame(0, DB::table('coupons')->where('value', '<=', 0)->count());
+        $this->assertSame(0, DB::table('coupons')->where('type', 'percent')->where('value', '>', 100)->count());
+        $this->assertSame(0, DB::table('coupons')->where('type', 'fixed')->whereNotNull('max_discount')->count(), 'A cap only means something for a percentage');
+        $this->assertSame(0, DB::table('coupons')->whereRaw('code != UPPER(code)')->count(), 'Codes are in capitals');
+        $this->assertSame(0, DB::table('coupons')->selectRaw('provider_id, code, COUNT(*) AS n')->groupBy('provider_id', 'code')->having('n', '>', 1)->get()->count(), 'A code is unique among the provider\'s own');
+        $this->assertGreaterThan(0, DB::table('coupons')->where('expires_at', '<', now()->toDateTimeString())->count(), 'Some have expired');
+        $this->assertGreaterThan(0, DB::table('coupons')->where('is_active', 0)->count(), 'Some are switched off');
+    }
+
+    public function test_a_coupon_is_limited_only_to_activities_of_its_own_provider(): void
+    {
+        $this->assertGreaterThan(0, DB::table('activity_coupon')->count());
+        $this->assertSame(0, DB::table('activity_coupon as ac')->join('coupons as c', 'c.id', '=', 'ac.coupon_id')->join('activities as a', 'a.id', '=', 'ac.activity_id')->whereColumn('a.provider_id', '!=', 'c.provider_id')->count());
+    }
+
+    public function test_every_redemption_is_valid_for_its_booking(): void
+    {
+        $this->assertGreaterThan(0, DB::table('coupon_redemptions')->count());
+        $rows = DB::table('coupon_redemptions as r')->join('coupons as c', 'c.id', '=', 'r.coupon_id')->join('reservations as b', 'b.id', '=', 'r.reservation_id')->join('activities as a', 'a.id', '=', 'b.activity_id')
+            ->get(['r.id', 'r.code', 'r.discount_amount', 'r.customer_id', 'c.code as coupon_code', 'c.provider_id as coupon_provider', 'c.created_at as coupon_made', 'c.expires_at', 'c.min_order_amount', 'c.id as coupon_id',
+                'b.subtotal', 'b.discount', 'b.total', 'b.tax', 'b.customer_id as booking_customer', 'b.created_at as booked', 'a.provider_id as activity_provider', 'b.activity_id']);
+        $restricted = DB::table('activity_coupon')->get()->groupBy('coupon_id')->map(fn ($r) => $r->pluck('activity_id')->all());
+
+        $wrong = [];
+        foreach ($rows as $r) {
+            $problems = [];
+            $r->coupon_provider === $r->activity_provider || $problems[] = 'a coupon of another provider';
+            $r->code === $r->coupon_code || $problems[] = 'the code differs';
+            abs((float) $r->discount_amount - (float) $r->discount) < 0.005 || $problems[] = 'the redemption and the booking disagree on the discount';
+            (float) $r->discount > 0 || $problems[] = 'no discount';
+            (float) $r->total >= (float) config('coupons.minimum_total') - 0.005 || $problems[] = 'a booking cheaper than the minimum';
+            $r->customer_id === $r->booking_customer || $problems[] = 'another customer';
+            $r->booked >= $r->coupon_made || $problems[] = 'used before the coupon existed';
+            ($r->expires_at === null || $r->booked <= $r->expires_at) || $problems[] = 'used after it expired';
+            ($r->min_order_amount === null || (float) $r->subtotal >= (float) $r->min_order_amount) || $problems[] = 'smaller than its smallest booking';
+            (! isset($restricted[$r->coupon_id]) || in_array($r->activity_id, $restricted[$r->coupon_id], true)) || $problems[] = 'an activity the coupon does not cover';
+            $problems === [] || $wrong[] = "redemption {$r->id}: ".implode(', ', $problems);
+        }
+
+        $this->assertSame([], array_slice($wrong, 0, 10), count($wrong).' redemptions are not valid for their booking');
+    }
+
+    public function test_no_coupon_was_used_more_often_than_its_limit_among_the_bookings_still_alive(): void
+    {
+        $over = DB::table('coupon_redemptions as r')->join('coupons as c', 'c.id', '=', 'r.coupon_id')->join('reservations as b', 'b.id', '=', 'r.reservation_id')
+            ->whereNotIn('b.status', ['cancelled', 'expired'])->whereNotNull('c.usage_limit')->groupBy('c.id', 'c.usage_limit')->havingRaw('COUNT(*) > c.usage_limit')->select('c.id')->get();
+
+        $this->assertSame(0, $over->count());
+    }
+
+    public function test_a_booking_without_a_coupon_has_no_discount_and_one_with_a_coupon_has_exactly_one(): void
+    {
+        $this->assertSame(0, DB::table('reservations')->where('discount', '>', 0)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('coupon_redemptions as r')->whereColumn('r.reservation_id', 'reservations.id'))->count());
+        $this->assertSame(0, DB::table('coupon_redemptions')->selectRaw('reservation_id, COUNT(*) AS n')->groupBy('reservation_id')->having('n', '>', 1)->get()->count());
+    }
+
+    public function test_every_booking_says_how_the_customer_arrived(): void
+    {
+        $this->assertSame(0, DB::table('reservations')->whereNull('source')->orWhereNotIn('source', ['direct', 'category', 'recommendations', 'social'])->count());
+        $this->assertSame(4, DB::table('reservations')->distinct()->count('source'), 'All four sources occur');
+    }
+
+    public function test_replies_are_by_the_activitys_provider_after_the_review_and_never_to_a_hidden_one(): void
+    {
+        $this->assertGreaterThan(0, DB::table('review_replies')->count());
+        $join = fn () => DB::table('review_replies as p')->join('reviews as r', 'r.id', '=', 'p.review_id')->join('activities as a', 'a.id', '=', 'r.activity_id');
+
+        $this->assertSame(0, $join()->whereColumn('a.provider_id', '!=', 'p.provider_id')->count(), 'Only the activity\'s own provider answers');
+        $this->assertSame(0, $join()->whereColumn('p.created_at', '<', 'r.created_at')->count(), 'Nothing is answered before it was written');
+        $this->assertSame(0, $join()->where('r.is_hidden', 1)->count(), 'A hidden review is never answered');
+        $this->assertSame(0, DB::table('review_replies')->where('is_active', 1)->selectRaw('review_id, COUNT(*) AS n')->groupBy('review_id')->having('n', '>', 1)->get()->count(), 'One reply stands per review');
+        $this->assertSame(0, DB::table('review_replies')->where('is_active', 1)->whereNotNull('deleted_at')->count());
+        $this->assertSame(0, DB::table('review_replies')->whereNull('is_active')->whereNull('deleted_at')->count(), 'A deleted reply says when');
+        $this->assertSame(0, DB::table('review_replies')->whereNull('is_active')->whereNull('deleted_by_user_id')->count(), 'and by whom');
+        $this->assertGreaterThan(0, DB::table('review_replies')->whereNull('is_active')->count(), 'Some replies were deleted');
+        $this->assertSame(0, DB::table('review_replies')->where('created_at', '>', now()->toDateTimeString())->count(), 'No reply from the future');
+    }
+
+    public function test_page_views_are_of_published_activities_one_per_visitor_per_day_and_never_in_the_future(): void
+    {
+        $this->assertGreaterThan(0, DB::table('activity_views')->count());
+        $this->assertSame(0, DB::table('activity_views as v')->join('activities as a', 'a.id', '=', 'v.activity_id')->where('a.status', '!=', 'published')->count());
+        $this->assertSame(0, DB::table('activity_views')->where('viewed_on', '>', now()->toDateString())->count());
+        $this->assertSame(0, DB::table('activity_views')->where('viewed_on', '<', now()->subDays(60)->toDateString())->count(), 'Within the last sixty days');
+        $this->assertSame(0, DB::table('activity_views')->whereNotIn('source', ['direct', 'category', 'recommendations', 'social'])->count());
+        $this->assertSame(0, DB::table('activity_views')->selectRaw('activity_id, visitor_hash, viewed_on, COUNT(*) AS n')->groupBy('activity_id', 'visitor_hash', 'viewed_on')->having('n', '>', 1)->get()->count());
+        $this->assertSame(0, DB::table('activity_views')->whereRaw('LENGTH(visitor_hash) != 40')->count());
     }
 
     // --- Activities -----------------------------------------------------------------------------------
@@ -424,9 +518,10 @@ class BulkDataIntegrityTest extends TestCase
 
             $problems = [];
             $r->pricing_model === $r->booking_model || $problems[] = 'pricing model differs from the option';
-            abs($sum - (float) $r->total) < 0.005 || $problems[] = "breakdown sums to {$sum}, total is {$r->total}";
-            abs((float) $r->subtotal - (float) $r->total) < 0.005 || $problems[] = 'subtotal differs from total';
-            ((float) $r->discount === 0.0 && (float) $r->tax === 0.0) || $problems[] = 'unexpected discount or tax';
+            abs($sum - (float) $r->subtotal) < 0.005 || $problems[] = "breakdown sums to {$sum}, subtotal is {$r->subtotal}";
+            // What the customer pays is the subtotal less any coupon (the provider funds it); there is no tax.
+            abs((float) $r->subtotal - (float) $r->discount + (float) $r->tax - (float) $r->total) < 0.005 || $problems[] = 'total is not subtotal - discount + tax';
+            ((float) $r->discount >= 0.0 && (float) $r->tax === 0.0) || $problems[] = 'unexpected discount or tax';
             $r->currency === config('platform.currency') || $problems[] = 'currency';
 
             foreach ($breakdown as $line) {
