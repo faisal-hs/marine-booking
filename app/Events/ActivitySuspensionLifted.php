@@ -10,5 +10,11 @@ class ActivitySuspensionLifted
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Activity $activity) {}
+    /** Identifies THIS occurrence, so a listener registered twice tells the provider once, and two suspensions in the same second are still two. */
+    public string $occurrence;
+
+    public function __construct(public Activity $activity)
+    {
+        $this->occurrence = (string) \Illuminate\Support\Str::uuid();
+    }
 }

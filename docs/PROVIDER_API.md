@@ -5,10 +5,10 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 
 | | Operations |
 |---|---|
-| **Built** | 17, plus 1 that replaces two (booking cancellation) |
+| **Built** | 19, plus 1 that replaces two (booking cancellation) |
 | **Decided: the current system stays** | 3 (availability) |
 | **Answered by an older endpoint** | 5 (`GET /provider/profile` and the four activity operations) |
-| **Decided, not built yet** | 11 (verification documents 2, coupons 4, reviews 4, analytics 1) |
+| **Decided, not built yet** | 9 (coupons 4, reviews 4, analytics 1) |
 
 ## 1. Every operation, and where it stands
 
@@ -23,7 +23,8 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 | `POST /provider/apply` | **Built** | Multipart. The three documents keep the names the platform uses. Several categories (many to many). |
 | `GET /provider/apply` | **Built** | Latest application, the admin's note, `can_resubmit`. 404 when there is none. |
 | `POST /provider/apply/resubmit` | **Built** | Latest rejected application only; creates a NEW application, the rejected one stays as history. |
-| `GET /provider/verification`, `POST /provider/verification/{key}` | Not built | Decided (section 4). Until then the older `/provider/documents` endpoints list and upload. |
+| `GET /provider/verification` | **Built** | One row per document an admin asks for: `status` (`missing`, `pending`, `approved`, `rejected`, `expired`, and `update_requested`), `is_done`, a signed expiring `file_url`, the `review_note`, `is_mandatory`. Open to a provider not yet approved. |
+| `POST /provider/verification/{key}` | **Built** | Uploads or replaces one document (multipart `file`); it is `pending` until an admin decides. An approved document nobody asked to update answers 409. |
 | `GET /provider/profile` | **Older, kept** | Unchanged, plus the business details and `pending_profile_change`. |
 | `PATCH /provider/profile` | **Built** | Ordinary fields change at once; critical ones wait for an admin (section 3). The older `PUT` follows the same rule. |
 
@@ -93,6 +94,12 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - **Withdrawal fee** (`WALLET_WITHDRAWAL_FEE_PERCENT`, default **0**) and the **smallest withdrawal** (`WALLET_MIN_WITHDRAWAL`, default 0) are configuration. The spec's `fee` and `net_amount` exist and are 0 until a fee is decided.
 - **Bank account.** Holder name, bank, IBAN (stored encrypted), optional SWIFT. A withdrawal keeps a copy of the account it was asked for.
 - **Profile changes.** Ordinary information changes at once. **Critical information** (`critical_profile_fields`: the business name and type) waits for an admin's approval; one waiting request at a time, replaced when asked again; the admin approves or rejects (with a reason) on the provider's page.
+- **Verification documents.** Uploading and an admin's approval are separate steps.
+  - **Which documents are asked for** is configured by an admin on the dashboard (`verification_document_types`, no longer a list in the config): each type has a key, a name in English and Arabic, an optional description, mandatory or optional, active or switched off, and an order. The migration creates the same eight types as before, with the same three mandatory. **Applying as a provider needs a file for every active mandatory type** (a type an admin adds is asked for by its key), so what is configured is what the application form asks for. A type documents use is switched off, never deleted; its key never changes.
+  - **Status.** Each uploaded file is `pending`, `approved` or `rejected` (with a note); an approval may carry a valid-until date, after which it shows as `expired`. What a provider sees per document type is worked out, never stored: `update_requested` (an admin asked for a new version and nothing has been uploaded since) beats everything; then `missing`, `expired`, and the status of the version in force. `is_done` is true only for `approved`.
+  - **Uploading** (`POST /provider/verification/{key}`): allowed when nothing is on file, while it waits, after a rejection, once it expired, and whenever an admin asked for an update. A new version **replaces** the one in force, which is **kept** as history (marked replaced), because it may be what an approval was based on. A provider cannot delete a replaced version, nor the mandatory documents of an approved provider.
+  - **The admin** reviews from a queue (Document review) and on each provider's page: **approve** (optionally until a date), **reject** (a reason is mandatory), or **ask for an update** of any document type, with a reason, even one nothing was uploaded for. Only something the provider sent in can be approved or rejected; to take an approval back, ask for an update. Every upload and decision is in the **review history** with who made it and why. The provider is told of each decision; the admins who review are told of each upload. Verifying the provider approves the documents still waiting, with a note in the history.
+  - The files are **private**: a provider reads their own through a signed link that expires (`WALLET_STATEMENT_LINK_MINUTES`), an admin through the download route. Permissions: `provider_documents.review`, `document_types.manage`.
 - **Provider cancels a booking.** Confirmed bookings only, before the trip day has passed, with a mandatory reason; logged as `cancellation_source = provider`; refunded in full, all or nothing; the provider is not told of their own action.
 - **Publishing activities.** The admin approves the **provider account** only; **nobody approves an activity**. An approved provider creates, edits and publishes their own, and a provider's edit applies at once (a live activity stays live).
   - **The publish request** (`POST /provider/activities/{uuid}/publish`, a draft only): with `ACTIVITY_AUTO_PUBLISH` on (the default) the activity is live at once; with it off the activity becomes **ready** (stored as `approved`, shown to the provider as `ready`) and stays hidden until the provider activates it. Activating (`PATCH .../status` with `active`), from a draft, from ready or from the provider's own pause, always makes it live.
@@ -113,7 +120,7 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 | Withdrawals | The provider asks; the amount is reserved at once; an admin pays by hand and updates the status | **Done** |
 | Coupons | Provider-created and provider-funded; no platform-funded coupons or promotions | Not built |
 | Activity publishing | Admin approves the **provider** only; the provider creates, edits and publishes; `ACTIVITY_AUTO_PUBLISH` decides whether a publish request is live at once or kept hidden until the provider activates it; an admin can pause or deactivate, tracked separately from the provider's own pause | **Done** |
-| Verification documents | Admin configures the document types, each mandatory or optional, can request an update, reviews, approves, rejects; the provider sees statuses, uploads, replaces | Not built |
+| Verification documents | Admin configures the document types, each mandatory or optional, can request an update, reviews, approves, rejects; the provider sees statuses, uploads, replaces | **Done** |
 | Booking accept/decline | Replaced by the provider cancelling a confirmed booking | **Done** |
 | Availability | Stays per activity | **Done** |
 | Customer tiers | The spec's weights, thresholds configurable | **Done** |
@@ -125,7 +132,7 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 |---|---|---|
 | `GET /provider/profile` | `GET /provider/profile` | the spec's has `category_ids`, `commercial_data_status`, `logo`; the platform says `verified` |
 | `GET, POST /provider/activities`, `GET, PUT /provider/activities/{id}` | the same paths | uuids, richer fields, options, pricing rules |
-| `/provider/verification` | `/provider/documents` | document status and history |
+| `/provider/verification` | `/provider/documents` | both exist: the older one lists and uploads files as they come (several per type, as before) and now shows each document's review status; the new one is the spec's contract, keyed by document type |
 | `/provider/bookings` | `/provider/reservations` | both exist; the new one is the spec's contract |
 
 ## 6. Still to be confirmed (each is configurable or neutral until then)
@@ -141,6 +148,11 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - **Publishing does not check that an activity is complete** (photos, schedule, pricing). The admin review that used to catch that is gone, and nothing replaces it yet.
 - **The `approved` status is kept** for an activity that is ready but hidden, because renaming it means altering a database enum. The provider app calls it `ready`; the admin sees "Ready (hidden until the provider activates it)". `pending_review` and `rejected` can no longer be reached; a migration moved what was in them (a waiting activity goes live or becomes ready, as `ACTIVITY_AUTO_PUBLISH` says; a rejected one becomes a draft).
 - **There is no admin API for suspending**: it is done in the admin panel, so the Postman collection cannot demonstrate it; the tests cover it.
+- **Document titles in the provider API come back in English**: the platform picks a language only from the admin and public sessions. The Arabic names exist and are shown to admins in Arabic.
+- **Approving a provider does not require its documents to be approved first.** Verifying the provider approves the ones still waiting; an admin who wants to hold a provider back until each mandatory document is approved has to do it by hand.
+- **Which documents are asked for does not depend on the provider's activity type or jurisdiction** (the spec lists that as open): one list for everyone.
+- **A document's expiry is optional and set by the admin when approving**; nothing is sent when one is about to expire, it simply shows as `expired` afterwards.
+- **`update_requested` is a status of its own** (not in the spec's list): it is what tells a provider with an approved document that an admin wants a new one.
 - **The statement is a CSV**, not a PDF (no PDF library is installed).
 - **The bank account endpoint `PUT` is an addition** to the spec, and a change needs no admin approval.
 - **Balances are written by posting on completion, on a refund, and by a nightly job** (`wallet:sync`, 00:30); reading earnings also posts anything missing for that provider.
@@ -156,4 +168,5 @@ The source is *Provider platform API specification v1.0* (6 November 2026): 38 o
 - New tables: `wallet_entries`, `withdrawals`, `provider_profile_changes`, `category_provider`; reservations got `cancellation_source` and `cancelled_by_user_id`.
 - `BulkSeeder` and the bulk seeders that used `array_rand`, `mt_rand` or Faker directly now use the seeder's own engine; the helper test starts that engine instead of seeding the global generator.
 - The admin provider form has a commission type; the admin has a Withdrawals screen, in English and Arabic.
+- **Verification documents.** New tables `verification_document_types` and `provider_document_events`; `provider_documents` gained `status`, `review_note`, `reviewed_by_user_id`, `reviewed_at`, `expires_at` and `superseded_at` (existing documents are backfilled: a verified provider's are approved, the rest pending, with their history). `config/providers.php` no longer lists the types; everything reads them through `VerificationDocumentTypes`. Replacing a document now keeps the old version instead of deleting it (so three older tests that expected deletion were updated). The older `/provider/documents` API shows each document's status. Three bulk seeders (document types, reviewed documents, their history).
 - **Activities.** `ActivityPublishingService` replaces `ActivityModerationService` and `LiveActivityContentGuard`; the admin approve, reject, publish and deactivate actions (and the `activities.approve`, `activities.reject`, `activities.publish` permissions) are replaced by suspend and lift (`activities.suspend`); the approval notifications and events (approved, rejected, sent back to review, published) are replaced by suspended and suspension-lifted. Migrations: the four suspension columns on `activities`, and the retirement of `pending_review` and `rejected`. The demo and bulk seeders create admin-suspended activities.

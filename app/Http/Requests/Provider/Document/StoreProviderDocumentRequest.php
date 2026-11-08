@@ -15,7 +15,7 @@ class StoreProviderDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', Rule::in(config('providers.documents.types'))],
+            'type' => ['required', 'string', Rule::in(app(\App\Services\VerificationDocumentTypes::class)->keys())],
             'title' => ['nullable', 'string', 'max:120'],
             // mimes: (not "file" alone) so an SVG or HTML file is rejected by content type.
             'file' => [

@@ -346,7 +346,7 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $first = $fingerprint();
 
         foreach (['payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options', 'activity_schedule_periods', 'activity_images', 'activity_options', 'activity_feature_values',
-            'activity_requirements', 'activity_inclusions', 'activity_availability_overrides', 'activities', 'provider_documents', 'providers', 'customers', 'admins', 'model_has_roles', 'users', 'feature_definitions', 'categories'] as $table) {
+            'activity_requirements', 'activity_inclusions', 'activity_availability_overrides', 'activities', 'provider_document_events', 'provider_documents', 'providers', 'customers', 'admins', 'model_has_roles', 'users', 'feature_definitions', 'categories'] as $table) {
             DB::table($table)->delete();
         }
         DB::statement('delete from sqlite_sequence');

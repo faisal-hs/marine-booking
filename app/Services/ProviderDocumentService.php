@@ -2,15 +2,21 @@
 
 namespace App\Services;
 
+use App\Exceptions\ProviderApiException;
 use App\Models\Provider;
 use App\Models\ProviderDocument;
+use App\Models\ProviderDocumentEvent;
+use App\Models\User;
+use App\Notifications\Providers\Admin\ProviderDocumentUploadedAdminNotification;
 use App\Repositories\Contracts\ProviderDocumentRepositoryInterface;
+use App\Support\ProviderApi\ErrorCode;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -19,13 +25,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ProviderDocumentService
 {
-    public function __construct(protected ProviderDocumentRepositoryInterface $repository) {}
+    public function __construct(
+        protected ProviderDocumentRepositoryInterface $repository,
+        protected NotificationDispatchService $dispatcher,
+        protected VerificationDocumentTypes $types,
+        protected ProviderDocumentStatuses $statuses,
+    ) {}
 
-    /**
-     * $replacing is how many existing documents this upload is about to replace, so a provider at the
-     * limit can still swap one document for another.
-     */
-    public function upload(Provider $provider, UploadedFile $file, string $type, ?string $title, int $replacing = 0): ProviderDocument
+    /** Stores a file as a NEW document: pending, with the upload written to the review history. */
+    public function upload(Provider $provider, UploadedFile $file, string $type, ?string $title, int $replacing = 0, bool $notify = true): ProviderDocument
     {
         $limit = (int) config('providers.documents.max_per_provider');
 
@@ -43,7 +51,7 @@ class ProviderDocumentService
             throw new RuntimeException('The document could not be stored.');
         }
 
-        return $this->repository->create([
+        $document = $this->repository->create([
             'provider_id' => $provider->id,
             'type' => $type,
             'title' => $title,
@@ -51,38 +59,58 @@ class ProviderDocumentService
             'path' => $path,
             'mime_type' => (string) $file->getMimeType(),
             'size_bytes' => (int) $file->getSize(),
+            'status' => ProviderDocument::PENDING,
         ]);
+
+        ProviderDocumentEvent::create(['provider_id' => $provider->id, 'document_type' => $type, 'provider_document_id' => $document->id, 'action' => ProviderDocumentEvent::SUBMITTED, 'created_at' => now()]);
+
+        if ($notify) {
+            $this->tellReviewers($provider, $document);
+        }
+
+        return $document;
     }
 
     /**
-     * Stores a new document of a type and retires the ones it replaces. The old FILES are deleted only
-     * after the surrounding transaction commits: if anything later fails and the rows roll back, the
-     * old documents are still there to be read.
+     * A new version of a document type: the one in force is KEPT, marked as replaced, because it may be what an approval was based on.
+     * Replaced versions leave the provider's list and count; an admin still sees them in the history.
      */
-    public function replace(Provider $provider, string $type, UploadedFile $file): ProviderDocument
+    public function replace(Provider $provider, string $type, UploadedFile $file, bool $notify = true): ProviderDocument
     {
         $old = $provider->documents()->where('type', $type)->get();
 
-        $document = $this->upload($provider, $file, $type, null, $old->count());
+        $document = $this->upload($provider, $file, $type, null, $old->count(), $notify);
 
         foreach ($old as $previous) {
-            $this->repository->delete($previous);
+            $previous->update(['superseded_at' => now()]);
         }
 
-        $paths = $old->pluck('path')->all();
-        DB::afterCommit(fn() => $this->disk()->delete($paths));
-
         return $document;
+    }
+
+    /**
+     * What a provider does from the app: upload (or replace) the document for one type. Allowed when nothing is on file, while it waits, after a
+     * rejection, once it expired, and whenever an admin asked for an update. An approved document that nobody asked to update stays as it is.
+     */
+    public function submitForType(Provider $provider, string $key, UploadedFile $file): ProviderDocument
+    {
+        $type = $this->types->find($key) ?? throw ProviderApiException::notFound('Unknown document.');
+
+        if ($this->statuses->of($provider, $type)['status'] === ProviderDocumentStatuses::APPROVED) {
+            throw ProviderApiException::conflict('This document is approved. It can be replaced once an admin asks for an update.', ErrorCode::INVALID_STATUS_TRANSITION);
+        }
+
+        return $this->replace($provider, $key, $file);
     }
 
     public function delete(ProviderDocument $document): void
     {
         // Once verified, the documents are the record that verification was based on.
-        // The three required documents are what the approval was based on, so they stay once the
+        // The mandatory documents are what the approval was based on, so they stay once the
         // provider is approved. Anything else a provider added later can be removed.
-        if ($document->provider->isVerified() && in_array($document->type, config('providers.documents.required_types', []), true)) {
+        if ($document->provider->isVerified() && in_array($document->type, app(VerificationDocumentTypes::class)->mandatoryKeys(), true)) {
             throw ValidationException::withMessages([
-                'document' => ['The commercial registration, safety certification and insurance certificate of an approved provider cannot be removed, because they are the record the approval was based on.'],
+                'document' => ['The mandatory documents of an approved provider cannot be removed, because they are the record the approval was based on.'],
             ]);
         }
 
@@ -100,12 +128,25 @@ class ProviderDocumentService
         ]);
     }
 
+    /** The admins who review documents are told a provider uploaded one. */
+    private function tellReviewers(Provider $provider, ProviderDocument $document): void
+    {
+        try {
+            $reviewers = User::permission('provider_documents.review')->get();
+        } catch (PermissionDoesNotExist) {
+            return;
+        }
+
+        foreach ($reviewers as $admin) {
+            $this->dispatcher->dispatchOnce("admin.provider_document.uploaded:{$document->id}", $admin, new ProviderDocumentUploadedAdminNotification($provider, $document));
+        }
+    }
+
     private function disk(): Filesystem
     {
         return Storage::disk(config('providers.documents.disk'));
     }
 
-    /** A safe label for screens and download names: no path parts, no control characters. */
     private function displayName(UploadedFile $file): string
     {
         $name = preg_replace('/[^\pL\pN\s._-]+/u', '_', basename($file->getClientOriginalName()));

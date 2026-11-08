@@ -12,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class ProviderVerificationService
 {
-    public function __construct(protected ProviderRepositoryInterface $repository) {}
+    public function __construct(
+        protected ProviderRepositoryInterface $repository,
+        protected ProviderDocumentReviewService $documentReview,
+    ) {}
 
     public function verify(Provider $provider, ?User $reviewer = null): Provider
     {
@@ -28,6 +31,9 @@ class ProviderVerificationService
         ]);
 
         $this->closePendingRequest($provider, 'approved', $reviewer, null);
+
+        // The documents the admin verified the provider on are approved with it, and say so in their history.
+        $this->documentReview->approveAllPending($provider, $reviewer);
 
         event(new ProviderVerified($provider));
 

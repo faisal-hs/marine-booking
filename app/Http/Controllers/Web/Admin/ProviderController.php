@@ -50,6 +50,8 @@ class ProviderController extends Controller
 
         return view('admin.providers.show', [
             'provider' => $provider,
+            'documentRows' => app(\App\Services\ProviderDocumentStatuses::class)->all($provider),
+            'documentHistory' => $provider->documentEvents()->with('actor')->get()->reverse()->values(),
             'summary' => $this->management->summary($provider),
             'activities' => $provider->activities()->with('category')->latest()->limit(10)->get(),
         ]);
@@ -156,8 +158,14 @@ class ProviderController extends Controller
      * scoped to the provider in the URL, so a document id paired with the wrong
      * provider is a 404, and the policy limits it to admins who may view providers.
      */
-    public function downloadDocument(Provider $provider, ProviderDocument $document): StreamedResponse
+    public function downloadDocument(Provider $provider, string $document): StreamedResponse
     {
+        // Permission first, so a refused caller cannot tell a real document id from a made-up one.
+        $this->authorize('viewAny', Provider::class);
+
+        // Looked up among EVERY version this provider uploaded (a replaced one is still the record an earlier decision was based on), and only theirs.
+        $document = $provider->documentVersions()->where('uuid', $document)->firstOrFail();
+
         $this->authorize('download', $document);
 
         return $this->documents->download($document);

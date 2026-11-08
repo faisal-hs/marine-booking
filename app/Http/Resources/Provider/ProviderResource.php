@@ -31,7 +31,7 @@ class ProviderResource extends JsonResource
             // Critical information the provider asked to change, waiting for an admin (null when nothing is). The live values above are unchanged meanwhile.
             'pending_profile_change' => $this->pendingChangeData(),
             // The three documents a provider request needs: the latest of each, or null.
-            ...collect(config('providers.documents.required_types'))->mapWithKeys(function (string $type) {
+            ...collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->mapWithKeys(function (string $type) {
                 $document = $this->documentOfType($type);
 
                 return [$type => $document ? (new ProviderDocumentResource($document))->resolve() : null];

@@ -40,7 +40,8 @@ class DocumentController extends BaseApiController
     {
         // Someone else's document is answered as "not found", not "forbidden", so
         // document ids cannot be probed.
-        abort_if($document->provider_id !== $request->user()->provider->id, 404);
+        // A replaced version is the record an earlier decision was based on: it is not the provider's to delete, and is answered as not found.
+        abort_if($document->provider_id !== $request->user()->provider->id || $document->superseded_at !== null, 404);
 
         $this->service->delete($document);
 

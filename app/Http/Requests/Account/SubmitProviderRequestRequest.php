@@ -28,7 +28,7 @@ class SubmitProviderRequestRequest extends FormRequest
 
         $provider = $this->user()->provider;
 
-        foreach (config('providers.documents.required_types') as $type) {
+        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
             $onFile = $provider?->documents()->where('type', $type)->exists() ?? false;
 
             $rules[$type] = [
@@ -52,7 +52,7 @@ class SubmitProviderRequestRequest extends FormRequest
     /** @return array<string, \Illuminate\Http\UploadedFile|null> */
     public function documents(): array
     {
-        return collect(config('providers.documents.required_types'))
+        return collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())
             ->mapWithKeys(fn(string $type) => [$type => $this->file($type)])
             ->all();
     }

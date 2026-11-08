@@ -17,6 +17,7 @@ class ProviderDocumentRepository extends BaseRepository implements ProviderDocum
     {
         return $this->model->newQuery()
             ->where('provider_id', $providerId)
+            ->current()
             ->latest()
             ->latest('id')
             ->get();
@@ -24,6 +25,6 @@ class ProviderDocumentRepository extends BaseRepository implements ProviderDocum
 
     public function countForProvider(int $providerId): int
     {
-        return $this->model->newQuery()->where('provider_id', $providerId)->count();
+        return $this->model->newQuery()->where('provider_id', $providerId)->current()->count();
     }
 }

@@ -63,11 +63,11 @@ class ProviderRequestService
                 $source = $user->user_type === 'provider' ? ProviderRequest::SOURCE_REGISTRATION : ProviderRequest::SOURCE_CUSTOMER_UPGRADE;
                 $provider = $this->saveProvider($user, $provider, $data);
 
-                foreach (config('providers.documents.required_types') as $type) {
+                foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
                     $file = $files[$type] ?? null;
 
                     if ($file instanceof UploadedFile) {
-                        $stored[] = $this->documents->replace($provider, $type, $file)->path;
+                        $stored[] = $this->documents->replace($provider, $type, $file, notify: false)->path;
                     } elseif (! $provider->documents()->where('type', $type)->exists()) {
                         throw ValidationException::withMessages([$type => ['This document is required.']]);
                     }

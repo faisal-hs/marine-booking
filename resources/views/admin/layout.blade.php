@@ -22,6 +22,8 @@
                         ['key' => 'dashboard', 'route' => 'admin.dashboard', 'permission' => null, 'icon' => 'home'],
                         ['key' => 'users', 'route' => 'admin.users.index', 'permission' => 'users.view', 'icon' => 'users'],
                         ['key' => 'provider_requests', 'route' => 'admin.provider-requests.index', 'permission' => 'provider_requests.view', 'icon' => 'inbox'],
+                        ['key' => 'verification_documents', 'route' => 'admin.verification-documents.index', 'permission' => 'provider_documents.review', 'icon' => 'inbox'],
+                        ['key' => 'document_types', 'route' => 'admin.document-types.index', 'permission' => 'document_types.manage', 'icon' => 'tag'],
                         ['key' => 'providers', 'route' => 'admin.providers.index', 'permission' => 'providers.view', 'icon' => 'building'],
                         ['key' => 'customers', 'route' => 'admin.customers.index', 'permission' => 'customers.view', 'icon' => 'user'],
                         ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],

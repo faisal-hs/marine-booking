@@ -128,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('provider-apply', fn (Request $request) => Limit::perMinute(20)->by('provider-apply:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('provider-booking-cancel', fn (Request $request) => Limit::perMinute(30)->by('provider-booking-cancel:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('provider-bank-account', fn (Request $request) => Limit::perMinute(20)->by('provider-bank-account:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('provider-verification', fn (Request $request) => Limit::perMinute(20)->by('provider-verification:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('provider-withdrawals', fn (Request $request) => Limit::perMinute(10)->by('provider-withdrawals:'.($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('otp-request', function (Request $request) {

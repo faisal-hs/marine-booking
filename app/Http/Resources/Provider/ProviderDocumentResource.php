@@ -21,6 +21,10 @@ class ProviderDocumentResource extends JsonResource
             'original_name' => $this->original_name,
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
+            // Where the admin's review stands: pending, approved or rejected (and why), and until when an approval holds.
+            'status' => $this->isExpired() ? 'expired' : $this->status,
+            'review_note' => $this->status === 'rejected' ? $this->review_note : null,
+            'expires_at' => $this->expires_at?->toDateString(),
             'created_at' => $this->created_at->toIso8601String(),
         ];
     }

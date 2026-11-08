@@ -52,7 +52,7 @@ class ProviderApplicationApiTest extends TestCase
     /** An existing application of $provider, with its three documents on file, as the admin left it. */
     private function applicationOf(array $p, string $status, ?string $reason = null, string $submitted = '2026-10-20 11:00:00'): int
     {
-        foreach (config('providers.documents.required_types') as $type) {
+        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
             DB::table('provider_documents')->insertOrIgnore(['uuid' => (string) Str::uuid(), 'provider_id' => $p['provider']->id, 'type' => $type, 'original_name' => "{$type}.pdf",
                 'path' => "provider-documents/{$type}.pdf", 'mime_type' => 'application/pdf', 'size_bytes' => 10, 'created_at' => now(), 'updated_at' => now()]);
         }
@@ -231,7 +231,9 @@ class ProviderApplicationApiTest extends TestCase
         $this->assertSame('Abdullah Marine Services (new name)', $provider->business_name, 'What was sent is applied');
         $this->assertSame(['Diving center', 'Obhur Marina', '+966551112233'], [$provider->business_type, $provider->marina_name, $provider->contact_phone], 'What was not sent is kept');
         $this->assertEqualsCanonicalizing($categories, $provider->categories()->pluck('categories.id')->all());
-        $this->assertSame(3, DB::table('provider_documents')->where('provider_id', $provider->id)->count());
+        // One of each is in force; the replaced commercial registration is kept as history (superseded), not deleted.
+        $this->assertSame(3, DB::table('provider_documents')->where('provider_id', $provider->id)->whereNull('superseded_at')->count());
+        $this->assertSame(4, DB::table('provider_documents')->where('provider_id', $provider->id)->count());
     }
 
     public function test_only_the_latest_rejected_application_can_be_resubmitted(): void

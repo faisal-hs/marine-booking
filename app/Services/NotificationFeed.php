@@ -42,6 +42,7 @@ class NotificationFeed
     public const PROVIDER_ONLY = [
         NewBookingProviderNotification::class,
         BookingCancelledProviderNotification::class,
+        \App\Notifications\Providers\ProviderDocumentReviewedNotification::class,
         \App\Notifications\Activities\ActivitySuspendedNotification::class,
         \App\Notifications\Activities\ActivitySuspensionLiftedNotification::class,
         \App\Notifications\Providers\ProviderProfileChangeReviewedNotification::class,

@@ -21,7 +21,7 @@ class ProviderRequestStatusResource extends JsonResource
         $user = $this->resource;
         $provider = $user->provider;
         $latest = $provider?->latestRequest;
-        $required = config('providers.documents.required_types');
+        $required = app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys();
 
         return [
             // none (no provider account) | not_submitted | pending | approved | rejected

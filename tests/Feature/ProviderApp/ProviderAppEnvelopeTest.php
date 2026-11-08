@@ -142,7 +142,7 @@ class ProviderAppEnvelopeTest extends TestCase
             'GET api/v1/provider/dashboard', 'PATCH api/v1/provider/activities/{id}/status', 'PATCH api/v1/provider/profile', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
             'POST api/v1/provider/bookings/{id}/cancel', 'GET api/v1/provider/earnings', 'GET api/v1/provider/earnings/report', 'GET api/v1/provider/earnings/statement',
             'GET api/v1/provider/earnings/statement/download', 'GET api/v1/provider/bank-account', 'PUT api/v1/provider/bank-account',
-            'POST api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals/{id}',
+            'POST api/v1/provider/withdrawals', 'GET api/v1/provider/verification', 'POST api/v1/provider/verification/{key}', 'GET api/v1/provider/verification/files/{document}', 'GET api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals/{id}',
         ];
         sort($expected);
 

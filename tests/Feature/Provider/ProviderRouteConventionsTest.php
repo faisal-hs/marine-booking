@@ -110,11 +110,14 @@ class ProviderRouteConventionsTest extends TestCase
             'GET api/v1/provider/apply',
             'POST api/v1/provider/apply',
             'POST api/v1/provider/apply/resubmit',
+            // The verification documents: part of getting approved, and an approved provider may be asked for a new version.
+            'GET api/v1/provider/verification',
+            'POST api/v1/provider/verification/{key}',
         ];
 
         // The one provider route with no token on purpose: the statement a signed, expiring link points to (it is opened by a browser or a PDF viewer).
         // It is allowed ONLY if it is really signed.
-        $signedLinks = ['GET api/v1/provider/earnings/statement/download'];
+        $signedLinks = ['GET api/v1/provider/earnings/statement/download', 'GET api/v1/provider/verification/files/{document}'];
 
         $provider = array_filter($this->routes(), fn (LaravelRoute $r) => $r->uri() === 'api/v1/provider' || str_starts_with($r->uri(), 'api/v1/provider/'));
         $this->assertGreaterThan(40, count($provider), 'Expected the provider routes to be present');

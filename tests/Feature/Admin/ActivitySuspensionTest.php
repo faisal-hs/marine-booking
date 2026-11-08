@@ -2,11 +2,16 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Events\ActivitySuspended;
+use App\Events\ActivitySuspensionLifted;
+use App\Listeners\Notifications\SendActivitySuspendedNotifications;
+use App\Listeners\Notifications\SendActivitySuspensionLiftedNotifications;
 use App\Models\Activity;
 use App\Models\User;
 use App\Notifications\Activities\ActivitySuspendedNotification;
 use App\Notifications\Activities\ActivitySuspensionLiftedNotification;
 use App\Services\DashboardService;
+use Carbon\Carbon;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -248,6 +253,38 @@ class ActivitySuspensionTest extends TestCase
             $this->travel(1)->seconds();
             $this->lift($activity);
         }
+
+        $this->assertSame(2, $this->providerUser->notifications()->where('type', ActivitySuspendedNotification::class)->count());
+        $this->assertSame(2, $this->providerUser->notifications()->where('type', ActivitySuspensionLiftedNotification::class)->count());
+    }
+
+    public function test_one_event_handled_twice_tells_the_provider_once_even_when_a_second_ticks_between(): void
+    {
+        $activity = $this->makeActivity($this->provider, 'published');
+        $this->suspend($activity);
+        $activity->refresh();
+
+        foreach ([ActivitySuspended::class => SendActivitySuspendedNotifications::class, ActivitySuspensionLifted::class => SendActivitySuspensionLiftedNotifications::class] as $event => $listener) {
+            $once = new $event($activity);
+            app($listener)->handle($once);
+            $this->travel(2)->seconds();
+            app($listener)->handle($once);   // the second registration of the same listener, a moment later
+        }
+
+        $this->assertSame(2, $this->providerUser->notifications()->where('type', ActivitySuspendedNotification::class)->count(), 'The setup suspension, plus the new event once although it was handled twice');
+        $this->assertSame(1, $this->providerUser->notifications()->where('type', ActivitySuspensionLiftedNotification::class)->count());
+    }
+
+    public function test_two_suspensions_in_the_very_same_second_are_both_told(): void
+    {
+        Carbon::setTestNow('2026-11-15 12:00:00');
+        $activity = $this->makeActivity($this->provider, 'published');
+
+        foreach ([1, 2] as $round) {
+            $this->suspend($activity, "Reason {$round}");
+            $this->lift($activity);
+        }
+        Carbon::setTestNow();
 
         $this->assertSame(2, $this->providerUser->notifications()->where('type', ActivitySuspendedNotification::class)->count());
         $this->assertSame(2, $this->providerUser->notifications()->where('type', ActivitySuspensionLiftedNotification::class)->count());

@@ -101,9 +101,22 @@ class Provider extends Model
         return $this->hasMany(Activity::class);
     }
 
+    /** The versions in force: one per upload nobody has replaced. */
     public function documents()
     {
+        return $this->hasMany(ProviderDocument::class)->whereNull('superseded_at')->latest()->latest('id');
+    }
+
+    /** Every version ever uploaded, replaced ones too: the record an approval was based on. */
+    public function documentVersions()
+    {
         return $this->hasMany(ProviderDocument::class)->latest()->latest('id');
+    }
+
+    /** The review history of this provider's documents, oldest first. */
+    public function documentEvents()
+    {
+        return $this->hasMany(ProviderDocumentEvent::class)->oldest()->oldest('id');
     }
 
     public function requests()

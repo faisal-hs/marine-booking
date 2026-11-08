@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ProviderApp\CustomerController;
 use App\Http\Controllers\Api\ProviderApp\DashboardController;
 use App\Http\Controllers\Api\ProviderApp\EarningsController;
 use App\Http\Controllers\Api\ProviderApp\ProfileController;
+use App\Http\Controllers\Api\ProviderApp\VerificationController;
 use App\Http\Controllers\Api\ProviderApp\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +62,9 @@ Route::group([
     Route::get('/apply', [ApplicationController::class, 'show'])->name('apply.show');
     Route::post('/apply', [ApplicationController::class, 'store'])->middleware('throttle:provider-apply')->name('apply.store');
     Route::post('/apply/resubmit', [ApplicationController::class, 'resubmit'])->middleware('throttle:provider-apply')->name('apply.resubmit');
+    // The documents verification is based on: open to an unapproved provider too (they are part of getting approved), and to an approved one (an admin may ask for a new version).
+    Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
+    Route::post('/verification/{key}', [VerificationController::class, 'upload'])->middleware('throttle:provider-verification')->name('verification.upload');
 
     // --- Everything below needs an APPROVED provider. ---
     Route::middleware('provider.approved')->group(function () {
@@ -91,4 +95,6 @@ Route::group([
 // a PDF viewer opens it): the SIGNATURE proves the link was issued for that provider and that month, and it stops working after a few minutes.
 Route::group(['prefix' => 'provider', 'as' => 'provider.', 'envelope' => 'provider-app'], function () {
     Route::get('/earnings/statement/download', [EarningsController::class, 'download'])->middleware('signed')->name('earnings.statement.download');
+    // A provider's own verification file, through the expiring link GET /provider/verification hands out (documents are private).
+    Route::get('/verification/files/{document}', [VerificationController::class, 'file'])->middleware('signed')->name('verification.file');
 });

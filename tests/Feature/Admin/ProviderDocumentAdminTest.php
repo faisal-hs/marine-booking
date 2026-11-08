@@ -62,7 +62,7 @@ class ProviderDocumentAdminTest extends TestCase
         $page->assertOk()
             ->assertSee('Dive centre licence')
             ->assertSee('licence.pdf')
-            ->assertSee(__('admin.providers.document_types.business_license'))
+            ->assertSee('Business licence')
             ->assertSee($this->downloadUrl($provider, $document));
     }
 

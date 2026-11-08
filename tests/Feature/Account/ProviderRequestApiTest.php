@@ -269,7 +269,7 @@ class ProviderRequestApiTest extends TestCase
         $this->assertSame(['rejected', 'pending'], ProviderRequest::orderBy('id')->pluck('status')->all());
     }
 
-    public function test_replacing_a_document_removes_the_old_one_from_the_database_and_the_disk(): void
+    public function test_replacing_a_document_keeps_the_old_version_as_history_and_lists_only_the_new_one(): void
     {
         [$user] = $this->makeCustomer();
         $token = $this->tokenFor($user, 'customer');
@@ -279,10 +279,13 @@ class ProviderRequestApiTest extends TestCase
 
         $this->submit($token)->assertCreated();
 
-        $this->assertSame(3, ProviderDocument::count(), 'Still one of each, not six.');
-        $this->assertNull(ProviderDocument::find($old->id));
-        Storage::disk('local')->assertMissing($old->path);
-        $this->assertCount(3, Storage::disk('local')->allFiles());
+        // The version an earlier decision was based on is KEPT (marked as replaced), so the record survives; only one of each is in force.
+        $this->assertSame(6, ProviderDocument::count());
+        $this->assertSame(3, ProviderDocument::current()->count(), 'One of each in force, not six.');
+        $this->assertNotNull($old->refresh()->superseded_at);
+        Storage::disk('local')->assertExists($old->path);
+        $this->assertCount(6, Storage::disk('local')->allFiles());
+        $this->assertSame(3, \App\Models\Provider::firstOrFail()->documents()->count(), 'The provider\'s own list shows only what is in force.');
     }
 
     public function test_replacing_documents_works_even_at_the_document_limit(): void
@@ -295,7 +298,7 @@ class ProviderRequestApiTest extends TestCase
 
         $this->submit($token)->assertCreated();
 
-        $this->assertSame(3, ProviderDocument::count());
+        $this->assertSame(3, ProviderDocument::current()->count());
     }
 
     // --- Telling the admins --------------------------------------------------------------------

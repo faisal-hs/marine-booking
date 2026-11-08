@@ -50,7 +50,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_table_has_data_and_the_main_volumes_follow_the_scale(): void
     {
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
             'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
             'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
             'notifications', 'broadcasts'] as $table) {
@@ -164,7 +164,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_provider_with_a_request_has_the_three_required_documents_and_the_files_exist(): void
     {
-        $required = config('providers.documents.required_types');
+        $required = app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys();
 
         $providers = DB::table('provider_requests')->distinct()->pluck('provider_id');
         $this->assertGreaterThan(0, $providers->count());
@@ -178,7 +178,60 @@ class BulkDataIntegrityTest extends TestCase
         foreach (DB::table('provider_documents')->limit(300)->get(['path']) as $document) {
             $this->assertTrue($disk->exists($document->path), "File missing for {$document->path}");
         }
-        $this->assertSame(0, DB::table('provider_documents')->whereNotIn('type', config('providers.documents.types'))->count(), 'Unknown document type');
+        $this->assertSame(0, DB::table('provider_documents')->whereNotIn('type', array_keys(app(\App\Services\VerificationDocumentTypes::class)->titles()))->count(), 'Unknown document type');
+    }
+
+    public function test_document_statuses_agree_with_the_providers_verification(): void
+    {
+        $byStatus = fn (string $verification) => DB::table('provider_documents')->join('providers', 'providers.id', '=', 'provider_documents.provider_id')
+            ->where('providers.verification_status', $verification)->whereNull('provider_documents.superseded_at')->selectRaw('provider_documents.status, COUNT(*) AS total')->groupBy('provider_documents.status')->pluck('total', 'status')->all();
+
+        $this->assertSame(['approved'], array_keys($byStatus('verified')), 'An admin verified these providers on their documents');
+        $this->assertSame(['pending'], array_keys($byStatus('pending')), 'A waiting provider\'s documents are waiting too');
+        $this->assertSame(['rejected'], array_keys($byStatus('rejected')));
+    }
+
+    public function test_every_decided_document_says_who_decided_and_a_rejection_says_why(): void
+    {
+        $this->assertSame(0, DB::table('provider_documents')->where('status', 'pending')->whereNotNull('reviewed_at')->count(), 'A waiting document has not been decided');
+        $this->assertSame(0, DB::table('provider_documents')->whereIn('status', ['approved', 'rejected'])->whereNull('reviewed_at')->count());
+        $this->assertSame(0, DB::table('provider_documents')->where('status', 'rejected')->whereNull('review_note')->count(), 'A rejection has a reason');
+        $this->assertSame(0, DB::table('provider_documents')->whereColumn('reviewed_at', '<', 'created_at')->count(), 'Nothing is decided before it was uploaded');
+        $this->assertSame(0, DB::table('provider_documents')->whereNotIn('status', ['pending', 'approved', 'rejected'])->count());
+        $this->assertSame(0, DB::table('provider_documents')->where('status', '!=', 'approved')->whereNotNull('expires_at')->count(), 'Only an approved document has a valid-until date');
+        $this->assertGreaterThan(0, DB::table('provider_documents')->where('status', 'approved')->whereNotNull('expires_at')->where('expires_at', '<', now()->toDateString())->count(), 'Some approved documents have already expired');
+    }
+
+    public function test_at_most_one_version_of_each_document_is_in_force_and_replaced_ones_were_rejected(): void
+    {
+        $duplicates = DB::table('provider_documents')->whereNull('superseded_at')->selectRaw('provider_id, type, COUNT(*) AS total')->groupBy('provider_id', 'type')->having('total', '>', 1)->count();
+        $this->assertSame(0, $duplicates, 'One version in force per provider and type');
+
+        $this->assertGreaterThan(0, DB::table('provider_documents')->whereNotNull('superseded_at')->count(), 'Some documents were replaced');
+        $this->assertSame(0, DB::table('provider_documents')->whereNotNull('superseded_at')->where('status', '!=', 'rejected')->count(), 'What was replaced had been rejected');
+    }
+
+    public function test_the_review_history_agrees_with_the_documents(): void
+    {
+        $this->assertSame(0, DB::table('provider_documents')->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('provider_document_events as e')
+            ->whereColumn('e.provider_document_id', 'provider_documents.id')->where('e.action', 'submitted'))->count(), 'Every document was uploaded, and the history says so');
+
+        foreach (['approved', 'rejected'] as $decision) {
+            $this->assertSame(0, DB::table('provider_documents')->where('status', $decision)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('provider_document_events as e')
+                ->whereColumn('e.provider_document_id', 'provider_documents.id')->where('e.action', $decision))->count(), "Every {$decision} document has that decision in its history");
+        }
+
+        $this->assertSame(0, DB::table('provider_document_events')->where('created_at', '>', now()->toDateTimeString())->count(), 'No history in the future');
+        $this->assertGreaterThan(0, DB::table('provider_document_events')->where('action', 'update_requested')->count());
+        $this->assertSame(0, DB::table('provider_document_events as e')->join('provider_documents as d', 'd.id', '=', 'e.provider_document_id')->where('e.action', 'update_requested')
+            ->where(fn ($q) => $q->where('d.status', '!=', 'approved')->orWhereNotNull('d.superseded_at'))->count(), 'Only an approved version in force is asked to be updated');
+    }
+
+    public function test_the_extra_document_types_are_optional_and_the_platform_ones_are_untouched(): void
+    {
+        $this->assertSame(['commercial_registration', 'insurance_certificate', 'safety_certification'], collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->sort()->values()->all(), 'Nothing mandatory was added');
+        $this->assertGreaterThanOrEqual(11, DB::table('verification_document_types')->count());
+        $this->assertSame(1, DB::table('verification_document_types')->where('is_active', false)->count(), 'One of the extras is switched off');
     }
 
     // --- Activities -----------------------------------------------------------------------------------

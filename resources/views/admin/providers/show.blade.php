@@ -103,34 +103,114 @@
                 </dl>
             </div>
 
-            <div class="bg-white rounded-xl border border-slate-200 p-6">
+            @php
+                $titles = app(\App\Services\VerificationDocumentTypes::class)->titles();
+                $activeKeys = $documentRows->map(fn ($row) => $row['type']->key)->all();
+                $otherDocuments = $provider->documents->reject(fn ($d) => in_array($d->type, $activeKeys, true));
+                $canReview = auth()->user()->can('review', \App\Models\ProviderDocument::class);
+            @endphp
+            <div id="documents" class="bg-white rounded-xl border border-slate-200 p-6">
                 <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.documents_title') }}</h2>
 
                 @if ($provider->documents->isEmpty())
-                    <p class="text-sm {{ $provider->verification_status === 'pending' ? 'text-amber-600' : 'text-slate-400' }}">
-                        {{ __('admin.providers.no_documents') }}
-                    </p>
-                @else
-                    <ul class="text-sm divide-y divide-slate-100">
-                        @foreach ($provider->documents as $document)
-                            <li class="py-2.5 flex items-center justify-between gap-4">
-                                <div>
-                                    <p class="text-slate-800">
-                                        {{ $document->title ?: __('admin.providers.document_types.' . $document->type) }}</p>
+                    <p class="text-sm mb-2 {{ $provider->verification_status === 'pending' ? 'text-amber-600' : 'text-slate-400' }}">{{ __('admin.providers.no_documents') }}</p>
+                @endif
+
+                @foreach ($documentRows as $row)
+                    @php
+                        $type = $row['type'];
+                        $document = $row['document'];
+                        $status = $row['status'];
+                        $variant = match ($status) { 'approved' => 'success', 'rejected', 'expired' => 'danger', 'pending' => 'warning', 'update_requested' => 'info', default => 'neutral' };
+                    @endphp
+                    <div class="py-3 border-b border-slate-100 text-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-slate-800">
+                                    {{ $type->title() }}
+                                    <x-admin.status-badge :variant="$variant" :label="__('admin.verification_documents.statuses.' . $status)" />
+                                    @if ($type->is_mandatory)
+                                        <x-admin.status-badge variant="warning" :label="__('admin.document_types.mandatory')" />
+                                    @endif
+                                </p>
+                                @if ($document)
                                     <p class="text-xs text-slate-400">
-                                        {{ __('admin.providers.document_types.' . $document->type) }}
-                                        · {{ $document->original_name }}
-                                        · {{ number_format($document->size_bytes / 1024, 0) }} KB
-                                        · {{ $document->created_at->toFormattedDateString() }}
+                                        @if ($document->title) {{ $document->title }} · @endif{{ $document->original_name }} · {{ number_format($document->size_bytes / 1024, 0) }} KB · {{ $document->created_at->toFormattedDateString() }}
+                                        @if ($document->expires_at) · {{ __('admin.verification_documents.expires') }} {{ $document->expires_at->toFormattedDateString() }} @endif
                                     </p>
-                                </div>
+                                    @if ($document->status === 'rejected' && $document->review_note)
+                                        <p class="text-xs text-red-600 mt-1">{{ $document->review_note }}</p>
+                                    @endif
+                                @else
+                                    <p class="text-xs {{ $type->is_mandatory && $provider->verification_status === 'pending' ? 'text-amber-600' : 'text-slate-400' }}">{{ __('admin.verification_documents.not_uploaded') }}</p>
+                                @endif
+                                @if ($row['request'])
+                                    <p class="text-xs text-sky-700 mt-1">{{ __('admin.verification_documents.update_waiting') }}: {{ $row['request']->note }}</p>
+                                @endif
+                            </div>
+                            @if ($document)
                                 <a href="{{ route('admin.providers.documents.download', ['provider' => $provider, 'document' => $document->uuid]) }}"
                                     class="text-xs text-slate-500 underline whitespace-nowrap">{{ __('admin.providers.download') }}</a>
+                            @endif
+                        </div>
+
+                        @if ($canReview)
+                            <div class="mt-2 flex flex-wrap items-start gap-3">
+                                @if ($document && $document->status === 'pending')
+                                    <form method="POST" action="{{ route('admin.providers.documents.approve', ['provider' => $provider, 'document' => $document->uuid]) }}" class="flex gap-2">
+                                        @csrf
+                                        <input type="date" name="expires_at" title="{{ __('admin.verification_documents.expires_optional') }}" class="border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                                        <button type="submit" class="bg-emerald-600 text-white rounded-lg px-3 py-1 text-xs">{{ __('admin.verification_documents.approve') }}</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.providers.documents.reject', ['provider' => $provider, 'document' => $document->uuid]) }}" class="flex gap-2">
+                                        @csrf
+                                        <input type="text" name="note" required placeholder="{{ __('admin.verification_documents.reason_placeholder') }}" class="border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                                        <button type="submit" class="bg-red-600 text-white rounded-lg px-3 py-1 text-xs">{{ __('admin.verification_documents.reject') }}</button>
+                                    </form>
+                                @endif
+                                @unless ($row['request'])
+                                    <form method="POST" action="{{ route('admin.providers.documents.request-update', $provider) }}" class="flex gap-2">
+                                        @csrf
+                                        <input type="hidden" name="document_type" value="{{ $type->key }}">
+                                        <input type="text" name="reason" required placeholder="{{ __('admin.verification_documents.reason_placeholder') }}" class="border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                                        <button type="submit" class="bg-sky-600 text-white rounded-lg px-3 py-1 text-xs">{{ __('admin.verification_documents.request_update') }}</button>
+                                    </form>
+                                @endunless
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+
+                @if ($otherDocuments->isNotEmpty())
+                    <h3 class="text-xs font-semibold text-slate-500 mt-4 mb-2">{{ __('admin.verification_documents.other_documents') }}</h3>
+                    <ul class="text-sm divide-y divide-slate-100">
+                        @foreach ($otherDocuments as $document)
+                            <li class="py-2 flex items-center justify-between gap-4">
+                                <div>
+                                    <p class="text-slate-800">{{ $document->title ?: ($titles[$document->type] ?? $document->type) }}</p>
+                                    <p class="text-xs text-slate-400">{{ $titles[$document->type] ?? $document->type }} · {{ $document->original_name }} · {{ $document->created_at->toFormattedDateString() }}</p>
+                                </div>
+                                <a href="{{ route('admin.providers.documents.download', ['provider' => $provider, 'document' => $document->uuid]) }}" class="text-xs text-slate-500 underline whitespace-nowrap">{{ __('admin.providers.download') }}</a>
                             </li>
                         @endforeach
                     </ul>
                 @endif
-                        </div>
+
+                @if ($documentHistory->isNotEmpty())
+                    <h3 class="text-xs font-semibold text-slate-500 mt-5 mb-2">{{ __('admin.verification_documents.history') }}</h3>
+                    <ul class="text-xs text-slate-600 space-y-1">
+                        @foreach ($documentHistory as $event)
+                            <li>
+                                <span class="text-slate-400">{{ $event->created_at?->format('Y-m-d H:i') }}</span>
+                                · {{ $titles[$event->document_type] ?? $event->document_type }}
+                                · <strong>{{ __('admin.verification_documents.events.' . $event->action) }}</strong>
+                                @if ($event->actor) · {{ $event->actor->name }} @endif
+                                @if ($event->note) · {{ $event->note }} @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
 
             <div class="bg-white rounded-xl border border-slate-200 p-6">
                 <h2 class="text-sm font-semibold text-slate-800 mb-4">{{ __('admin.providers.summary_title') }}</h2>

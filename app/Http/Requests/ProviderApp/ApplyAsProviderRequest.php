@@ -36,7 +36,7 @@ class ApplyAsProviderRequest extends FormRequest
 
         $provider = $this->user()->provider;
 
-        foreach (config('providers.documents.required_types') as $type) {
+        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
             $onFile = $provider?->documents()->where('type', $type)->exists() ?? false;
 
             $rules[$type] = [Rule::requiredIf(! $onFile), 'nullable', 'file', 'mimes:'.implode(',', config('providers.documents.mimes')), 'max:'.config('providers.documents.max_kb')];
@@ -56,6 +56,6 @@ class ApplyAsProviderRequest extends FormRequest
     /** @return array<string, UploadedFile|null> */
     public function documents(): array
     {
-        return collect(config('providers.documents.required_types'))->mapWithKeys(fn (string $type) => [$type => $this->file($type)])->all();
+        return collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->mapWithKeys(fn (string $type) => [$type => $this->file($type)])->all();
     }
 }

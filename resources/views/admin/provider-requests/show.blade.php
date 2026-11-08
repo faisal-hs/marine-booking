@@ -12,7 +12,8 @@
             'rejected' => 'danger',
             default => 'warning',
         };
-        $required = config('providers.documents.required_types');
+        $documentTitles = app(\App\Services\VerificationDocumentTypes::class)->titles();
+        $required = app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys();
         // The three required documents first, then anything else the provider has on file.
         $documents = $provider->documents->sortBy(fn ($d) => in_array($d->type, $required, true) ? array_search($d->type, $required) : 99)->values();
     @endphp
@@ -74,7 +75,7 @@
                 @forelse ($documents as $document)
                     <div class="flex items-center justify-between py-2 border-b border-slate-50 text-sm">
                         <div>
-                            <p class="text-slate-800">{{ __('admin.providers.document_types.' . $document->type) }}</p>
+                            <p class="text-slate-800">{{ $documentTitles[$document->type] ?? $document->type }}</p>
                             <p class="text-xs text-slate-400">{{ $document->original_name }} · {{ number_format($document->size_bytes / 1024, 0) }} KB · {{ $document->created_at->format('Y-m-d') }}</p>
                         </div>
                         <x-admin.button pill variant="info" href="{{ route('admin.provider-requests.documents.download', [$providerRequest, $document]) }}">{{ __('admin.provider_requests.download') }}</x-admin.button>
@@ -84,7 +85,7 @@
                 @endforelse
                 @foreach ($required as $type)
                     @unless ($documents->contains('type', $type))
-                        <p class="mt-2 text-xs text-red-600">{{ __('admin.provider_requests.missing', ['type' => __('admin.providers.document_types.' . $type)]) }}</p>
+                        <p class="mt-2 text-xs text-red-600">{{ __('admin.provider_requests.missing', ['type' => $documentTitles[$type] ?? $type]) }}</p>
                     @endunless
                 @endforeach
             </div>

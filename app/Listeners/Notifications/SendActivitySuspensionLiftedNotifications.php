@@ -15,7 +15,7 @@ class SendActivitySuspensionLiftedNotifications
         $activity = $event->activity;
 
         $this->dispatcher->dispatchOnce(
-            "activity.lifted:{$activity->id}:".now()->timestamp,
+            "activity.lifted:{$activity->id}:{$event->occurrence}",
             $activity->provider->user,
             new ActivitySuspensionLiftedNotification($activity)
         );
