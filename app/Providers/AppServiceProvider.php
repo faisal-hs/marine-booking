@@ -131,6 +131,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('provider-coupons', fn (Request $request) => Limit::perMinute(30)->by('provider-coupons:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('provider-review-replies', fn (Request $request) => Limit::perMinute(30)->by('provider-review-replies:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('coupon-check', fn (Request $request) => Limit::perMinute(20)->by('coupon-check:'.($request->user()?->id ?? $request->ip())));
+        foreach (['customer-app-read' => 120, 'customer-app-message' => 30, 'customer-app-review' => 10, 'customer-app-booking' => 10, 'customer-app-summary' => 30, 'customer-app-support' => 5, 'customer-app-account' => 3] as $name => $perMinute) {
+            RateLimiter::for($name, fn (Request $request) => Limit::perMinute($perMinute)->by($name.':'.($request->user()?->id ?? $request->ip())));
+        }
         RateLimiter::for('provider-verification', fn (Request $request) => Limit::perMinute(20)->by('provider-verification:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('provider-withdrawals', fn (Request $request) => Limit::perMinute(10)->by('provider-withdrawals:'.($request->user()?->id ?? $request->ip())));
 

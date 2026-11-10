@@ -25,11 +25,14 @@ final class ProviderEnvelope
 
     public const NAME = 'provider-app';
 
+    /** The customer app's routes answer in the same shape. */
+    public const CUSTOMER_NAME = 'customer-app';
+
     public static function applies(?Request $request): bool
     {
         $route = $request?->route();
 
-        return $route instanceof Route && $route->getAction(self::ROUTE_ATTRIBUTE) === self::NAME;
+        return $route instanceof Route && in_array($route->getAction(self::ROUTE_ATTRIBUTE), [self::NAME, self::CUSTOMER_NAME], true);
     }
 
     /** @param  array<string, int>|null  $meta */

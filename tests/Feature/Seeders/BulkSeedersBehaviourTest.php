@@ -23,7 +23,7 @@ class BulkSeedersBehaviourTest extends TestCase
     use RefreshDatabase;
 
     /** Every table the seeders fill. */
-    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'verification_document_types', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+    private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'cities', 'conversations', 'messages', 'support_tickets', 'verification_document_types', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
         'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
         'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
         'notifications', 'broadcasts', 'model_has_roles'];
@@ -223,7 +223,7 @@ class BulkSeedersBehaviourTest extends TestCase
         $this->seed(BulkDatabaseSeeder::class);
         $first = $fingerprint();
 
-        foreach (['notifications', 'otps', 'devices', 'favorites', 'review_replies', 'reviews', 'withdrawals', 'wallet_entries', 'coupon_redemptions', 'coupons', 'activity_views', 'payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options',
+        foreach (['notifications', 'otps', 'devices', 'favorites', 'messages', 'conversations', 'support_tickets', 'review_replies', 'reviews', 'withdrawals', 'wallet_entries', 'coupon_redemptions', 'coupons', 'activity_views', 'cities', 'payments', 'reservation_capacity_locks', 'reservations', 'activity_pricing_rules', 'activity_booking_options',
             'activity_availability_overrides', 'activity_schedule_periods', 'activity_options', 'activity_inclusions', 'activity_requirements', 'activity_feature_values', 'activity_images',
             'activities', 'provider_document_events', 'provider_documents', 'provider_profile_changes', 'provider_requests', 'providers', 'customers', 'admins', 'model_has_roles', 'broadcasts', 'users', 'feature_definitions', 'categories'] as $table) {
             DB::table($table)->delete();

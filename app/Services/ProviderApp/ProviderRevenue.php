@@ -62,11 +62,14 @@ class ProviderRevenue
     {
         $rows = DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')
             ->where('a.provider_id', $provider->id)->whereNull('r.deleted_at')->where('r.status', 'confirmed')
-            ->selectRaw('r.total, COALESCE((SELECT SUM(p.refunded_amount) FROM payments p WHERE p.reservation_id = r.id), 0) AS refunded')->get();
+            ->selectRaw('r.total, r.service_fee, r.tax, COALESCE((SELECT SUM(p.refunded_amount) FROM payments p WHERE p.reservation_id = r.id), 0) AS refunded')->get();
 
         $net = 0.0;
         foreach ($rows as $row) {
-            $kept = max(0, round((float) $row->total - (float) $row->refunded, 2));
+            // The provider's share of the booking is the price after the coupon (not the service fee or the VAT), and a refund takes back the same share of it.
+            $paid = (float) $row->total;
+            $base = round($paid - (float) $row->service_fee - (float) $row->tax, 2);
+            $kept = max(0, round($base - ($paid > 0 ? (float) $row->refunded * $base / $paid : 0), 2));
             $net += $kept - $provider->commissionOn($kept);
         }
 

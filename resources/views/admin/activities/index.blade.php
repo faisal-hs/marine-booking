@@ -97,6 +97,12 @@
                                 @endif
                                 @unless ($activity->trashed())
                                 @can('suspend', $activity)
+                                    @can('feature', $activity)
+                                        <form method="POST" action="{{ route('admin.activities.feature', $activity) }}">
+                                            @csrf
+                                            <x-admin.button pill variant="{{ $activity->is_featured ? 'neutral' : 'info' }}" type="submit">{{ $activity->is_featured ? __('admin.activities.unfeature') : __('admin.activities.feature') }}</x-admin.button>
+                                        </form>
+                                    @endcan
                                     @if ($activity->isSuspended())
                                         <form method="POST" action="{{ route('admin.activities.lift', $activity) }}">
                                             @csrf

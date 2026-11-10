@@ -15,4 +15,8 @@ return [
     |
     */
     'currency' => strtoupper((string) env('PLATFORM_CURRENCY', 'SAR')),
+
+    // The timezone the times of an activity's schedule are in (a departure at 09:00 is 09:00 here), and so the timezone customer-facing times are
+    // turned into UTC from.
+    'timezone' => (string) env('PLATFORM_TIMEZONE', 'Asia/Riyadh'),
 ];

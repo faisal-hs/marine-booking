@@ -56,8 +56,12 @@ class LedgerService
      */
     public function plan(Reservation $reservation, Provider $provider, \Illuminate\Support\Collection $entries, float $refunded): array
     {
-        $total = round((float) $reservation->total, 2);
-        $refunded = min($total, round($refunded, 2));
+        // What the customer paid, and the part of it that is the provider's (the price after the coupon: the service fee and the VAT are not).
+        $paid = round((float) $reservation->total, 2);
+        $total = $reservation->providerAmount();
+        $refunded = min($paid, round($refunded, 2));
+        // A refund of some of what was paid takes back the same share of the provider's part (all of it when nothing but the price was charged).
+        $refunded = $paid > 0 ? round($refunded * $total / $paid, 2) : 0.0;
         $income = $entries->firstWhere('type', WalletEntry::BOOKING_INCOME);
 
         // The same moment for every row of the booking, fixed by the first one.
@@ -69,7 +73,7 @@ class LedgerService
         $rows = [];
 
         if (! $income) {
-            $rows[] = $common + ['type' => WalletEntry::BOOKING_INCOME, 'amount' => $total, 'description' => $label, 'reference' => "booking:{$reservation->id}:income", 'meta' => ['gross' => $total, 'discount' => round((float) $reservation->discount, 2)]];
+            $rows[] = $common + ['type' => WalletEntry::BOOKING_INCOME, 'amount' => $total, 'description' => $label, 'reference' => "booking:{$reservation->id}:income", 'meta' => ['gross' => $total, 'discount' => round((float) $reservation->discount, 2), 'service_fee' => round((float) $reservation->service_fee, 2), 'vat' => round((float) $reservation->tax, 2)]];
         }
 
         $postedRefund = round(-$entries->where('type', WalletEntry::REFUND)->sum('amount'), 2);

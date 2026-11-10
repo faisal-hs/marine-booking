@@ -50,7 +50,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_table_has_data_and_the_main_volumes_follow_the_scale(): void
     {
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'cities', 'conversations', 'messages', 'support_tickets', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
             'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
             'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
             'notifications', 'broadcasts'] as $table) {
@@ -74,7 +74,7 @@ class BulkDataIntegrityTest extends TestCase
     {
         $now = Carbon::now()->addMinutes(1)->toDateTimeString();
 
-        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
+        foreach (['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'cities', 'conversations', 'messages', 'support_tickets', 'activities', 'reservations', 'payments', 'reviews', 'notifications', 'otps', 'broadcasts', 'devices'] as $table) {
             $this->assertSame(0, DB::table($table)->where('created_at', '>', $now)->count(), "{$table} has rows created in the future");
         }
         $this->assertSame(0, DB::table('provider_requests')->whereNotNull('reviewed_at')->where('reviewed_at', '>', $now)->count());
@@ -326,6 +326,53 @@ class BulkDataIntegrityTest extends TestCase
         $this->assertSame(0, DB::table('activity_views')->whereNotIn('source', ['direct', 'category', 'recommendations', 'social'])->count());
         $this->assertSame(0, DB::table('activity_views')->selectRaw('activity_id, visitor_hash, viewed_on, COUNT(*) AS n')->groupBy('activity_id', 'visitor_hash', 'viewed_on')->having('n', '>', 1)->get()->count());
         $this->assertSame(0, DB::table('activity_views')->whereRaw('LENGTH(visitor_hash) != 40')->count());
+    }
+
+    public function test_cities_are_unique_and_every_activity_is_in_its_providers_city_and_only_published_ones_are_featured(): void
+    {
+        $this->assertGreaterThan(0, DB::table('cities')->count());
+        $this->assertSame(0, DB::table('cities')->selectRaw('slug, COUNT(*) AS n')->groupBy('slug')->having('n', '>', 1)->get()->count());
+
+        $placed = DB::table('activities as a')->join('providers as p', 'p.id', '=', 'a.provider_id')->join('cities as c', 'c.id', '=', 'a.city_id')->whereRaw('LOWER(TRIM(c.name_en)) != LOWER(TRIM(p.city))')->count();
+        $this->assertSame(0, $placed, 'An activity is in its provider\'s city');
+        $this->assertGreaterThan(0, DB::table('activities')->whereNotNull('city_id')->count());
+        $this->assertSame(0, DB::table('activities')->where('is_featured', 1)->where('status', '!=', 'published')->count());
+        $this->assertGreaterThan(0, DB::table('activities')->where('is_featured', 1)->count());
+        $this->assertSame(0, DB::table('activities')->where('is_featured', 1)->whereNotNull('suspended_at')->count());
+    }
+
+    public function test_conversations_are_between_a_customer_and_the_provider_of_an_activity_they_booked_and_unique(): void
+    {
+        $this->assertGreaterThan(0, DB::table('conversations')->count());
+        $this->assertSame(0, DB::table('conversations as c')->join('activities as a', 'a.id', '=', 'c.activity_id')->whereColumn('a.provider_id', '!=', 'c.provider_id')->count(), 'The activity is the provider\'s');
+        $this->assertSame(0, DB::table('conversations as c')->join('providers as p', 'p.id', '=', 'c.provider_id')->where('p.verification_status', '!=', 'verified')->count());
+        $this->assertSame(0, DB::table('conversations')->selectRaw('customer_id, provider_id, activity_id, COUNT(*) AS n')->groupBy('customer_id', 'provider_id', 'activity_id')->having('n', '>', 1)->get()->count());
+        $this->assertSame(0, DB::table('conversations as c')->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('reservations as r')->whereColumn('r.customer_id', 'c.customer_id')->whereColumn('r.activity_id', 'c.activity_id'))->count(), 'Only people who booked');
+    }
+
+    public function test_messages_alternate_run_forward_in_time_never_in_the_future_and_the_unread_ones_are_the_recent_ones(): void
+    {
+        $this->assertGreaterThan(0, DB::table('messages')->count());
+        $this->assertSame(0, DB::table('messages')->whereNotIn('sender_type', ['customer', 'provider'])->count());
+        $this->assertSame(0, DB::table('messages')->where('created_at', '>', now()->toDateTimeString())->count());
+        $this->assertSame(0, DB::table('messages as m')->join('conversations as c', 'c.id', '=', 'm.conversation_id')->whereColumn('m.created_at', '<', 'c.created_at')->count(), 'Nothing before the conversation began');
+        $this->assertSame(0, DB::table('messages')->whereNotNull('read_at')->whereColumn('read_at', '<', 'created_at')->count());
+        $this->assertSame(0, DB::table('messages')->whereNull('read_at')->where('created_at', '<', now()->subDay()->toDateTimeString())->count(), 'Anything over a day old has been read');
+        $this->assertGreaterThan(0, DB::table('messages')->whereNull('read_at')->where('sender_type', 'provider')->count(), 'Some provider messages are unread');
+        $first = DB::table('messages')->selectRaw('conversation_id, MIN(id) AS first_id')->groupBy('conversation_id')->pluck('first_id');
+        $this->assertSame(0, DB::table('messages')->whereIn('id', $first)->where('sender_type', '!=', 'customer')->count(), 'The customer writes first');
+        $this->assertSame(0, DB::table('conversations as c')->whereRaw('c.last_message_at IS NOT (SELECT MAX(created_at) FROM messages WHERE conversation_id = c.id)')->whereExists(fn ($q) => $q->select(DB::raw(1))->from('messages')->whereColumn('conversation_id', 'c.id'))->count(), 'The last-message time is the newest message');
+    }
+
+    public function test_support_tickets_are_the_customers_own_on_a_known_topic_and_after_they_joined(): void
+    {
+        $this->assertGreaterThan(0, DB::table('support_tickets')->count());
+        $this->assertSame(0, DB::table('support_tickets')->whereNotIn('topic', config('customer_app.support_topics'))->count());
+        $this->assertSame(0, DB::table('support_tickets')->whereNotIn('status', ['open', 'answered', 'closed'])->count());
+        $this->assertSame(0, DB::table('support_tickets as t')->join('reservations as r', 'r.id', '=', 't.reservation_id')->whereColumn('r.customer_id', '!=', 't.customer_id')->count(), 'A booking is the ticket writer\'s own');
+        $this->assertSame(0, DB::table('support_tickets as t')->join('customers as c', 'c.id', '=', 't.customer_id')->whereColumn('t.created_at', '<', 'c.created_at')->count());
+        $this->assertSame(0, DB::table('support_tickets')->where('created_at', '>', now()->toDateTimeString())->count());
+        $this->assertSame(3, DB::table('support_tickets')->distinct()->count('status'), 'Open, answered and closed all occur');
     }
 
     // --- Activities -----------------------------------------------------------------------------------

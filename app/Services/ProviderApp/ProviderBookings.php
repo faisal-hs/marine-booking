@@ -34,7 +34,7 @@ class ProviderBookings
             ->leftJoin('activity_schedule_periods as s', 's.id', '=', 'r.schedule_period_id')
             ->where('a.provider_id', $provider->id)
             ->whereNull('r.deleted_at')
-            ->select('r.id', 'r.status', 'r.reservation_date', 'r.participants', 'r.quantity', 'r.total', 'a.title as activity', 'u.name as customer_name', 's.start_time');
+            ->select('r.id', 'r.status', 'r.reservation_date', 'r.participants', 'r.quantity', DB::raw('ROUND(r.total - r.service_fee - r.tax, 2) AS total'), 'a.title as activity', 'u.name as customer_name', 's.start_time');
     }
 
     /** @param  array{filter?: string, status?: string, from?: string, to?: string}  $filters */

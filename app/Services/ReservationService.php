@@ -52,6 +52,7 @@ class ReservationService
         ?int $duration = null,
         ?string $couponCode = null,
         ?string $source = null,
+        array $attributes = [],
     ): Reservation {
         if ($bookingOption->activity_id !== $activity->id) {
             throw ValidationException::withMessages([
@@ -88,7 +89,7 @@ class ReservationService
         // (missing rule, inactive option, etc.) should never hold a lock.
         $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration);
 
-        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source) {
+        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source, $attributes) {
             // Guarantees a lockable row exists even for the very first
             // reservation attempt on this exact slot — see
             // ReservationCapacityLock's class doc comment for why a plain
@@ -112,6 +113,9 @@ class ReservationService
                 $discount = round($discount + $couponDiscount, 2);
             }
 
+            // The service fee and VAT (0 unless configured) are worked out from the price and the coupon, by the one shared formula.
+            $totals = \App\Support\Money\CheckoutTotals::compute((float) $quote['subtotal'], $discount);
+
             $reservation = $this->repository->create([
                 'activity_id' => $activity->id,
                 'activity_booking_option_id' => $bookingOption->id,
@@ -128,10 +132,11 @@ class ReservationService
                 'source' => $source,
                 'subtotal' => $quote['subtotal'],
                 'discount' => $discount,
-                'tax' => $quote['tax'],
-                'total' => round((float) $quote['subtotal'] - $discount + (float) $quote['tax'], 2),
+                'service_fee' => $totals['service_fee'],
+                'tax' => round((float) $quote['tax'] + $totals['vat'], 2),
+                'total' => round($totals['total'] + (float) $quote['tax'], 2),
                 'pricing_breakdown' => $quote['breakdown'],
-            ]);
+            ] + \Illuminate\Support\Arr::only($attributes, ['contact_name', 'contact_phone', 'contact_email', 'idempotency_key', 'payment_method']));
 
             if ($coupon) {
                 \App\Models\CouponRedemption::create(['coupon_id' => $coupon->id, 'reservation_id' => $reservation->id, 'customer_id' => $customer->id, 'code' => $coupon->code, 'discount_amount' => $couponDiscount, 'created_at' => now()]);

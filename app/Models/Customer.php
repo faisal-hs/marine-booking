@@ -13,10 +13,16 @@ class Customer extends Model
         'user_id',
         'date_of_birth',
         'preferred_language',
+        'notify_email',
+        'notify_sms',
+        'notify_marketing',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'notify_email' => 'boolean',
+        'notify_sms' => 'boolean',
+        'notify_marketing' => 'boolean',
     ];
 
     /**
@@ -42,6 +48,16 @@ class Customer extends Model
     public function favoriteActivities()
     {
         return $this->belongsToMany(Activity::class, 'favorites');
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class);
     }
 
     public function reviews()

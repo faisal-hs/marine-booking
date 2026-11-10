@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             FeatureDefinitionSeeder::class,
             ActivitySeeder::class,
+            CitySeeder::class,
         ]);
     }
 }

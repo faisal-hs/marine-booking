@@ -18,6 +18,8 @@ class Activity extends Model
     protected $fillable = [
         'provider_id',
         'category_id',
+        'city_id',
+        'is_featured',
         'title',
         'slug',
         'description',
@@ -44,6 +46,7 @@ class Activity extends Model
         'lat' => 'decimal:7',
         'lng' => 'decimal:7',
         'published_at' => 'datetime',
+        'is_featured' => 'boolean',
         'suspended_at' => 'datetime',
         'average_rating' => 'decimal:2',
     ];
@@ -62,6 +65,11 @@ class Activity extends Model
     public function provider()
     {
         return $this->belongsTo(Provider::class);
+    }
+
+    public function city()
+    {
+        return $this->belongsTo(City::class);
     }
 
     public function category()

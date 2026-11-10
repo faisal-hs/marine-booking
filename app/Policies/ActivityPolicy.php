@@ -40,6 +40,12 @@ class ActivityPolicy
         return $user->can('activities.suspend');
     }
 
+    /** Featuring an activity on the customer app's home screen, and taking it off again. */
+    public function feature(User $user): bool
+    {
+        return $user->can('activities.feature');
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->can('activities.view');

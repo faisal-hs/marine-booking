@@ -70,7 +70,7 @@ class ProviderCustomers
             ->selectRaw("c.id AS id, u.name AS name,
                 SUM(CASE WHEN r.status IN ('confirmed', 'completed') THEN 1 ELSE 0 END) AS bookings_count,
                 SUM(CASE WHEN r.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
-                SUM(CASE WHEN r.status = 'completed' THEN r.total ELSE 0 END) AS total_spent,
+                SUM(CASE WHEN r.status = 'completed' THEN r.total - r.service_fee - r.tax ELSE 0 END) AS total_spent,
                 SUM(CASE WHEN r.status IN ('confirmed', 'completed') AND r.created_at >= ? THEN 1 ELSE 0 END) AS recent_count,
                 SUM(CASE WHEN r.status = 'cancelled' AND r.cancelled_at >= ? THEN 1 ELSE 0 END) AS recent_cancellations,
                 MAX(CASE WHEN r.status IN ('confirmed', 'completed') THEN r.reservation_date END) AS last_booking,

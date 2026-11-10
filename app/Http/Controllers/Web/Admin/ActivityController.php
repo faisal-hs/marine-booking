@@ -67,6 +67,20 @@ class ActivityController extends Controller
     }
 
     /** Stops an activity (the provider cannot switch it back on: only lift() can). The admin approves providers, never activities. */
+    /** Features or un-features an activity. Only a live one can be featured (the home screen shows only what can be booked); taking one off always works. */
+    public function feature(Activity $activity): RedirectResponse
+    {
+        $this->authorize('feature', $activity);
+
+        if (! $activity->is_featured && ($activity->status !== 'published' || $activity->isSuspended())) {
+            return back()->withErrors(['activity' => __('admin.activities.feature_needs_live')]);
+        }
+
+        $activity->update(['is_featured' => ! $activity->is_featured]);
+
+        return back()->with('status', $activity->is_featured ? __('admin.activities.featured') : __('admin.activities.unfeatured'));
+    }
+
     public function suspend(SuspendActivityRequest $request, Activity $activity): RedirectResponse
     {
         $this->authorize('suspend', $activity);

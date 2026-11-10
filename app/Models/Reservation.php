@@ -32,6 +32,12 @@ class Reservation extends Model
         'pricing_model',
         'currency',
         'source',
+        'service_fee',
+        'payment_method',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
+        'idempotency_key',
         'subtotal',
         'discount',
         'tax',
@@ -77,6 +83,15 @@ class Reservation extends Model
     public function schedulePeriod()
     {
         return $this->belongsTo(ActivitySchedulePeriod::class, 'schedule_period_id');
+    }
+
+    /**
+     * What the PROVIDER's earnings are made of: the price after any coupon. The service fee is the platform's and the VAT is the tax authority's, so
+     * neither is the provider's, though both are part of what the customer paid.
+     */
+    public function providerAmount(): float
+    {
+        return round((float) $this->total - (float) $this->service_fee - (float) $this->tax, 2);
     }
 
     /** The coupon this booking used, if any (at most one). */

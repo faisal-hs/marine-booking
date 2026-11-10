@@ -27,6 +27,7 @@
                         ['key' => 'providers', 'route' => 'admin.providers.index', 'permission' => 'providers.view', 'icon' => 'building'],
                         ['key' => 'customers', 'route' => 'admin.customers.index', 'permission' => 'customers.view', 'icon' => 'user'],
                         ['key' => 'categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view', 'icon' => 'tag'],
+                        ['key' => 'cities', 'route' => 'admin.cities.index', 'permission' => 'cities.manage', 'icon' => 'map'],
                         ['key' => 'activities', 'route' => 'admin.activities.index', 'permission' => 'activities.view', 'icon' => 'map'],
                         ['key' => 'feature_definitions', 'route' => 'admin.feature-definitions.index', 'permission' => 'feature_definitions.view', 'icon' => 'tag'],
                         ['key' => 'reservations', 'route' => 'admin.reservations.index', 'permission' => 'reservations.view', 'icon' => 'calendar'],

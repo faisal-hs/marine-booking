@@ -33,10 +33,13 @@ class BulkActivitySeeder extends BulkSeeder
         $approved = array_values(array_filter($providers, fn ($p) => $p->verification_status === 'verified' && $p->user_status === 'active' && $p->user_deleted_at === null));
         $categories = DB::table('categories')->where('status', 'active')->whereNull('deleted_at')->get(['id', 'name'])->all();
 
-        $this->insert('activities', $this->rows($this->scaled(15000), $providers, $approved, $categories));
+        // Each activity is in its provider's city (the provider's city name, matched to a city).
+        $cities = DB::table('cities')->get(['id', 'name_en'])->mapWithKeys(fn ($c) => [mb_strtolower(trim($c->name_en)) => $c->id])->all();
+
+        $this->insert('activities', $this->rows($this->scaled(15000), $providers, $approved, $categories, $cities));
     }
 
-    private function rows(int $count, array $providers, array $approved, array $categories): \Generator
+    private function rows(int $count, array $providers, array $approved, array $categories, array $cities = []): \Generator
     {
         for ($i = 0; $i < $count; $i++) {
             // Almost all belong to an approved provider.
@@ -76,6 +79,8 @@ class BulkActivitySeeder extends BulkSeeder
                 'uuid' => $this->uuid('activity', $i),
                 'provider_id' => $provider->id,
                 'category_id' => $category->id,
+                'city_id' => $cities[mb_strtolower(trim((string) ($provider->city ?? '')))] ?? null,
+                'is_featured' => $status === 'published' && ! $suspended && $this->chance(10),
                 'title' => $title,
                 'slug' => Str::slug($title).self::ACTIVITY_SLUG_MARK.$i,
                 'description' => $this->activityDescription($category->name, $provider->city ?? 'Hurghada'),

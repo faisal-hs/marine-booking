@@ -26,6 +26,22 @@ class ReviewService
         protected ActivityRepositoryInterface $activityRepository,
     ) {}
 
+    /** A review of one specific completed booking of this customer's, for the activity that booking was for. */
+    public function createForReservation(Customer $customer, Activity $activity, Reservation $reservation, int $rating, ?string $comment): Review
+    {
+        $review = $this->repository->create([
+            'customer_id' => $customer->id,
+            'activity_id' => $activity->id,
+            'reservation_id' => $reservation->id,
+            'rating' => $rating,
+            'comment' => $comment,
+        ]);
+
+        $this->recalculateActivityRating($activity);
+
+        return $review;
+    }
+
     public function create(Customer $customer, Activity $activity, int $rating, ?string $comment): Review
     {
         $completedReservation = Reservation::where('customer_id', $customer->id)

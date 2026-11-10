@@ -78,6 +78,7 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
 
         Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
         Route::post('/activities/{activity}/suspend', [ActivityController::class, 'suspend'])->name('activities.suspend');
+        Route::post('/activities/{activity}/feature', [ActivityController::class, 'feature'])->name('activities.feature');
         Route::post('/activities/{activity}/lift-suspension', [ActivityController::class, 'lift'])->name('activities.lift');
         // "create" must come before {activity}, or it would be read as an activity id.
         Route::get('/activities/create', [ActivityController::class, 'create'])->name('activities.create');
@@ -167,6 +168,7 @@ Route::prefix('admin')->name('admin.')->middleware('locale')->group(function () 
         Route::post('/providers/{provider}/documents/{document}/reject', [ProviderDocumentReviewController::class, 'reject'])->name('providers.documents.reject');
         Route::post('/providers/{provider}/document-update-requests', [ProviderDocumentReviewController::class, 'requestUpdate'])->name('providers.documents.request-update');
         Route::resource('document-types', DocumentTypeController::class)->except('show')->parameters(['document-types' => 'documentType']);
+        Route::resource('cities', \App\Http\Controllers\Web\Admin\CityController::class)->except('show');
         Route::post('/providers/{provider}/verify', [ProviderController::class, 'verify'])->name('providers.verify');
         Route::post('/providers/{provider}/reject', [ProviderController::class, 'reject'])->name('providers.reject');
         Route::post('/providers/{provider}/profile-changes/{change:uuid}/approve', [ProviderProfileChangeController::class, 'approve'])->withoutScopedBindings()->name('providers.profile-changes.approve');
