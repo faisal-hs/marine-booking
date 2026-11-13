@@ -35,12 +35,40 @@ class ProviderRevenue
     /** @return array{gross: float, net: float} for the trips that took place between two dates (inclusive) */
     public function between(Provider $provider, string $from, string $to): array
     {
-        $entries = WalletEntry::query()->where('provider_id', $provider->id)->whereIn('type', WalletEntry::BOOKING_TYPES)->whereBetween('occurred_on', [$from, $to]);
+        $entries = WalletEntry::query()->where('provider_id', $provider->id)->whereIn('type', WalletEntry::BOOKING_TYPES)
+            // By DATE: the ledger stores a day as 2026-11-07 00:00:00 on SQLite, so a plain BETWEEN ending on 2026-11-07 would leave that last day out.
+            ->whereDate('occurred_on', '>=', $from)->whereDate('occurred_on', '<=', $to);
 
         return [
             'gross' => round((float) (clone $entries)->where('type', WalletEntry::BOOKING_INCOME)->sum('amount'), 2),
             'net' => round((float) $entries->sum('amount'), 2),
         ];
+    }
+
+    /**
+     * Gross revenue week by week, oldest first, ending with the current week (so far): $weeks numbers. A week is PLATFORM_WEEK_STARTS_ON to six days later,
+     * and a week's revenue is that of the trips that took place in it.
+     *
+     * @return list<float>
+     */
+    public function weekly(Provider $provider, \DateTimeInterface $now, int $weeks = 4): array
+    {
+        $this->ledger->syncProvider($provider);
+        $thisWeek = Carbon::instance($now)->startOfWeek((int) config('platform.week_starts_on'));
+        $out = [];
+
+        for ($i = $weeks - 1; $i >= 0; $i--) {
+            $start = $thisWeek->copy()->subWeeks($i);
+            $out[] = $this->between($provider, $start->toDateString(), $start->copy()->addDays(6)->toDateString())['gross'];
+        }
+
+        return $out;
+    }
+
+    /** How much more (or less) $now is than $before, in percent (one decimal); null when there was nothing before to compare with. */
+    public static function changePercent(float $now, float $before): ?float
+    {
+        return $before > 0 ? round(($now - $before) / $before * 100, 1) : null;
     }
 
     public function available(Provider $provider): float

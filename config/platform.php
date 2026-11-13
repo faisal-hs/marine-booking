@@ -19,4 +19,8 @@ return [
     // The timezone the times of an activity's schedule are in (a departure at 09:00 is 09:00 here), and so the timezone customer-facing times are
     // turned into UTC from.
     'timezone' => (string) env('PLATFORM_TIMEZONE', 'Asia/Riyadh'),
+
+    // The day a week starts on, for "this week": 0 is Sunday (the week starts on Sunday in Saudi Arabia), 1 Monday, 6 Saturday. The provider's "this
+    // week" bookings and the dashboard's weekly revenue both use it.
+    'week_starts_on' => (int) env('PLATFORM_WEEK_STARTS_ON', 0),
 ];

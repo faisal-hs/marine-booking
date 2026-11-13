@@ -14,7 +14,7 @@ class BookingController extends ProviderAppController
     public function index(ListBookingsRequest $request)
     {
         $provider = $this->provider($request);
-        $page = $this->bookings->paginate($provider, $request->only(['filter', 'status', 'from', 'to']), $request->perPage(), $request->page());
+        $page = $this->bookings->paginate($provider, $request->only(['filter', 'status', 'from', 'to', 'date']), $request->perPage(), $request->page());
 
         return $this->page($page, [
             'counts' => $this->bookings->counts($provider),

@@ -60,15 +60,15 @@ class ProviderDashboardApiTest extends TestCase
 
     public function test_it_has_exactly_the_specs_fields(): void
     {
-        $this->assertSame(['business_name', 'rating', 'reviews_count', 'is_verified', 'unread_notifications', 'month_revenue', 'available_balance', 'pending_balance',
-            'month_bookings', 'needs_action', 'todays_bookings'], array_keys($this->dashboard()));
+        $this->assertSame(['business_name', 'rating', 'reviews_count', 'is_verified', 'unread_notifications', 'month_revenue', 'weekly_revenue', 'available_balance', 'pending_balance',
+            'month_bookings', 'month_bookings_change', 'today_revenue', 'today_revenue_change_percent', 'needs_action', 'todays_bookings', 'performance', 'rating_distribution'], array_keys($this->dashboard()));
     }
 
     public function test_gross_is_completed_bookings_this_month_and_net_is_after_refunds_and_commission(): void
     {
         $this->bookEverything();
 
-        $this->assertEquals(['gross' => 3000, 'net' => 2610], $this->dashboard()['month_revenue'], 'October is not this month; the refund and the 10% commission come off');
+        $this->assertEquals(['gross' => 3000, 'net' => 2610], array_intersect_key($this->dashboard()['month_revenue'], ['gross' => 1, 'net' => 1]), 'October is not this month; the refund and the 10% commission come off');
     }
 
     public function test_with_no_commission_net_is_gross_less_refunds(): void
@@ -76,7 +76,7 @@ class ProviderDashboardApiTest extends TestCase
         $this->bookEverything();
         $this->a['provider']->update(['commission_rate' => 0]);
 
-        $this->assertEquals(['gross' => 3000, 'net' => 2900], $this->dashboard()['month_revenue']);
+        $this->assertEquals(['gross' => 3000, 'net' => 2900], array_intersect_key($this->dashboard()['month_revenue'], ['gross' => 1, 'net' => 1]));
     }
 
     public function test_the_balances_are_provisional_net_of_completed_and_net_of_confirmed(): void
@@ -147,7 +147,7 @@ class ProviderDashboardApiTest extends TestCase
         $this->assertTrue($dashboard['is_verified']);
         $this->assertEquals(0, $dashboard['rating']);
         $this->assertSame(0, $dashboard['reviews_count']);
-        $this->assertEquals(['gross' => 0, 'net' => 0], $dashboard['month_revenue']);
+        $this->assertEquals(['gross' => 0, 'net' => 0], array_intersect_key($dashboard['month_revenue'], ['gross' => 1, 'net' => 1]));
         $this->assertEquals(0, $dashboard['available_balance']);
         $this->assertEquals(0, $dashboard['pending_balance']);
         $this->assertSame([0, 0, []], [$dashboard['month_bookings'], $dashboard['needs_action'], $dashboard['todays_bookings']]);
@@ -159,8 +159,8 @@ class ProviderDashboardApiTest extends TestCase
         $other = $this->approvedProvider(['commission_rate' => 0]);
         $this->makePayment($this->makeBooking($other, $this->customerNamed('Someone Else'), '2026-11-15', 'completed', 777), 777);
 
-        $this->assertEquals(['gross' => 3000, 'net' => 2610], $this->dashboard()['month_revenue']);
-        $this->assertEquals(['gross' => 777, 'net' => 777], $this->dashboard($other)['month_revenue']);
+        $this->assertEquals(['gross' => 3000, 'net' => 2610], array_intersect_key($this->dashboard()['month_revenue'], ['gross' => 1, 'net' => 1]));
+        $this->assertEquals(['gross' => 777, 'net' => 777], array_intersect_key($this->dashboard($other)['month_revenue'], ['gross' => 1, 'net' => 1]));
         $this->assertSame(1, $this->dashboard($other)['month_bookings']);
     }
 }

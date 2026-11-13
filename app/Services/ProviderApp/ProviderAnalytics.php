@@ -94,7 +94,7 @@ class ProviderAnalytics
         return $average === null ? null : round((float) $average, 2);
     }
 
-    private function responseRate(Provider $provider, ?int $activityId, Carbon $from, Carbon $to): ?float
+    public function responseRate(Provider $provider, ?int $activityId, Carbon $from, Carbon $to): ?float
     {
         $written = $this->reviews($provider, $activityId)->whereBetween('created_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()]);
         $total = (clone $written)->count();
@@ -111,7 +111,7 @@ class ProviderAnalytics
     {
         return DB::table('wallet_entries as w')->join('reservations as r', 'r.id', '=', 'w.reservation_id')->join('activities as a', 'a.id', '=', 'r.activity_id')
             ->where('w.provider_id', $provider->id)->whereIn('w.type', WalletEntry::BOOKING_TYPES)
-            ->whereBetween('w.occurred_on', [$from->toDateString(), $to->toDateString()])->when($activityId, fn ($q) => $q->where('a.id', $activityId))
+            ->whereDate('w.occurred_on', '>=', $from->toDateString())->whereDate('w.occurred_on', '<=', $to->toDateString())->when($activityId, fn ($q) => $q->where('a.id', $activityId))
             ->groupBy('a.id', 'a.title')->orderByRaw("SUM(CASE WHEN w.type = 'booking_income' THEN w.amount ELSE 0 END) DESC")->orderBy('a.id')->limit(5)
             ->selectRaw("a.id, a.title, COUNT(DISTINCT CASE WHEN w.type = 'booking_income' THEN w.reservation_id END) AS bookings, SUM(CASE WHEN w.type = 'booking_income' THEN w.amount ELSE 0 END) AS gross, SUM(w.amount) AS net")
             ->get()->map(fn ($row) => ['id' => (int) $row->id, 'title' => $row->title, 'bookings' => (int) $row->bookings, 'gross_revenue' => round((float) $row->gross, 2), 'net_revenue' => round((float) $row->net, 2)])->all();

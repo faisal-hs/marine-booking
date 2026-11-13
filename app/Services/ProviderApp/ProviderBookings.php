@@ -25,6 +25,14 @@ class ProviderBookings
 
     public const TO_SERVE = ['pending', 'confirmed'];
 
+    /** @return array{0: string, 1: string} the first and last day of the current week (it starts on PLATFORM_WEEK_STARTS_ON) */
+    public static function week(?Carbon $now = null): array
+    {
+        $start = ($now ?? Carbon::now())->copy()->startOfWeek((int) config('platform.week_starts_on'));
+
+        return [$start->toDateString(), $start->copy()->addDays(6)->toDateString()];
+    }
+
     public function query(Provider $provider): Builder
     {
         return DB::table('reservations as r')
@@ -45,10 +53,20 @@ class ProviderBookings
 
         match ($filters['filter'] ?? 'all') {
             'today' => $query->where('r.reservation_date', $today)->whereIn('r.status', self::REAL)->orderBy('s.start_time')->orderBy('r.id'),
+            // This week: from the first day of the week to its last (the day a week starts on is PLATFORM_WEEK_STARTS_ON), soonest first. Like "today",
+            // it is the bookings that are real (not cancelled or expired) unless a status is asked for.
+            'this_week' => $query->whereBetween('r.reservation_date', self::week())->when(empty($filters['status']), fn ($q) => $q->whereIn('r.status', self::REAL))
+                ->orderBy('r.reservation_date')->orderBy('s.start_time')->orderBy('r.id'),
             'upcoming' => $query->where('r.reservation_date', '>', $today)->whereIn('r.status', self::TO_SERVE)->orderBy('r.reservation_date')->orderBy('s.start_time')->orderBy('r.id'),
             'pending' => $query->where('r.status', 'pending')->orderBy('r.reservation_date')->orderBy('r.id'),
             default => $query->orderByDesc('r.reservation_date')->orderByDesc('r.id'),
         };
+
+        // A single day, soonest departure first; real bookings unless a status is asked for (the same as today and this week).
+        if (! empty($filters['date'])) {
+            $query->where('r.reservation_date', $filters['date'])->when(empty($filters['status']), fn ($q) => $q->whereIn('r.status', self::REAL))
+                ->reorder()->orderBy('s.start_time')->orderBy('r.id');
+        }
 
         if (! empty($filters['status'])) {
             $query->where('r.status', $filters['status']);

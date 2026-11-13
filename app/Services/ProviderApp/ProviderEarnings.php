@@ -60,7 +60,7 @@ class ProviderEarnings
         $this->ledger->syncProvider($provider);
 
         $perMonth = fn (int $y) => WalletEntry::query()->where('provider_id', $provider->id)->whereIn('type', WalletEntry::BOOKING_TYPES)
-            ->whereBetween('occurred_on', ["{$y}-01-01", "{$y}-12-31"])->get(['type', 'amount', 'occurred_on', 'reservation_id']);
+            ->whereDate('occurred_on', '>=', "{$y}-01-01")->whereDate('occurred_on', '<=', "{$y}-12-31")->get(['type', 'amount', 'occurred_on', 'reservation_id']);
 
         $entries = $perMonth($year);
         $monthly = [];
@@ -99,7 +99,7 @@ class ProviderEarnings
 
         $entries = WalletEntry::query()->where('provider_id', $provider->id)
             ->where(fn ($q) => $q
-                ->where(fn ($b) => $b->whereIn('type', WalletEntry::BOOKING_TYPES)->whereBetween('occurred_on', [$start->toDateString(), $end->toDateString()]))
+                ->where(fn ($b) => $b->whereIn('type', WalletEntry::BOOKING_TYPES)->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString()))
                 ->orWhere(fn ($w) => $w->whereNotIn('type', WalletEntry::BOOKING_TYPES)->whereBetween('created_at', [$start, $end])))
             ->orderByRaw('COALESCE(occurred_on, DATE(created_at))')->orderBy('id')->get();
 
