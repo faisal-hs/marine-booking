@@ -45,8 +45,12 @@ class ActivityImageService
             $activity = $image->activity;
             $wasCover = $image->is_cover;
 
-            Storage::disk('public')->delete($image->path);
+            $path = $image->path;
             $image->delete();
+
+            // The file goes only once everything is committed: when this is one step of a larger request that then fails, the rows come back and so must
+            // the file (it is still there).
+            DB::afterCommit(fn () => Storage::disk('public')->delete($path));
 
             if ($wasCover) {
                 $activity->images()->orderBy('sort_order')->first()?->update(['is_cover' => true]);

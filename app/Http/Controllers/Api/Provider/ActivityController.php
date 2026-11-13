@@ -79,10 +79,12 @@ class ActivityController extends BaseApiController
      */
     public function store(StoreActivityRequest $request)
     {
-        $activity = DB::transaction(function () use ($request) {
+        $stored = [];
+
+        $activity = $this->inTransactionRemovingStoredFilesIfItFails($stored, function () use ($request, &$stored) {
             $activity = $this->service->create($request->user()->provider, $request->payload());
 
-            $this->applyCombinedExtras($request, $activity);
+            $this->applyCombinedExtras($request, $activity, $stored);
 
             return $activity;
         });
@@ -113,10 +115,12 @@ class ActivityController extends BaseApiController
         $this->authorize('update', $activity);
 
         [$activity, $message] = $this->applyEdit($activity, function () use ($request, $activity) {
-            return DB::transaction(function () use ($request, $activity) {
+            $stored = [];
+
+            return $this->inTransactionRemovingStoredFilesIfItFails($stored, function () use ($request, $activity, &$stored) {
                 $activity = $this->service->update($activity, $request->payload());
 
-                $this->applyCombinedExtras($request, $activity);
+                $this->applyCombinedExtras($request, $activity, $stored);
 
                 return $activity;
             });
@@ -163,7 +167,27 @@ class ActivityController extends BaseApiController
      * full-replace semantics) — never a partial per-item patch. Omitting
      * either key entirely leaves the existing data untouched.
      */
-    protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity): void
+    /**
+     * Runs a create or an update that stores photos, in a transaction. The database rolls back by itself if the request fails part-way, but the files stored in the meantime
+     * would stay on the disk with nothing pointing at them, so they are removed here. (The files of deleted photos are removed only after the commit.)
+     *
+     * @param  list<string>  $stored  the paths of the photos stored so far
+     */
+    private function inTransactionRemovingStoredFilesIfItFails(array &$stored, callable $run): mixed
+    {
+        try {
+            return DB::transaction($run);
+        } catch (\Throwable $e) {
+            foreach ($stored as $path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+            }
+
+            throw $e;
+        }
+    }
+
+    /** @param  list<string>  $stored  filled with the path of every photo this stores */
+    protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity, array &$stored = []): void
     {
         // A part that is missing or null is left alone (on create it is simply not there); an empty list is "none", which on an update clears it.
         $sent = fn (string $key) => $request->has($key) && $request->input($key) !== null;
@@ -177,7 +201,7 @@ class ActivityController extends BaseApiController
 
         $files = $request instanceof UpdateActivityRequest ? $request->newImageFiles() : array_values(array_filter(\Illuminate\Support\Arr::wrap($request->file('images'))));
         if ($files !== []) {
-            $this->imageService->upload($activity, $files);
+            $stored = array_merge($stored, $this->imageService->upload($activity, $files)->pluck('path')->all());
         }
 
         if ($request->filled('features')) {

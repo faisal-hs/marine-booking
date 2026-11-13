@@ -101,6 +101,8 @@ Route::middleware(['auth:sanctum', 'ability:provider'])->prefix('provider')->nam
         Route::put('/profile', [ProviderProfileController::class, 'update'])->name('profile.update');
 
         Route::apiResource('activities', ActivityController::class);
+        // The same update as PUT and PATCH, as a POST: for a form upload (photos) from a client that cannot send a PUT with files, whatever the PHP version.
+        Route::post('activities/{activity}', [ActivityController::class, 'update'])->name('activities.update.post');
         // The provider's publish request. `submit-for-review` is its old name, kept so existing apps keep working: nobody reviews activities any more.
         Route::post('/activities/{activity}/publish', [ActivityController::class, 'publish'])->name('activities.publish');
         Route::post('/activities/{activity}/submit-for-review', [ActivityController::class, 'publish'])->name('activities.submit-for-review');

@@ -30,6 +30,7 @@ class ProviderLiveActivityEditTest extends TestCase
     /** Every provider write route that changes customer-visible content. */
     private const CONTENT_ROUTES = [
         'provider.activities.update',
+        'provider.activities.update.post',   // the same update, as a POST (for photos)
         'provider.activities.images.store',
         'provider.activities.images.destroy',
         'provider.activities.images.set-cover',
@@ -101,6 +102,7 @@ class ProviderLiveActivityEditTest extends TestCase
     {
         return [
             'a new title' => ['provider.activities.update', 'title'],
+            'a new title as a plain POST' => ['provider.activities.update.post', 'title_post'],
             'a new description' => ['provider.activities.update', 'description'],
             'a new location' => ['provider.activities.update', 'location'],
             'a new meeting point' => ['provider.activities.update', 'meeting_point'],
@@ -124,6 +126,7 @@ class ProviderLiveActivityEditTest extends TestCase
 
         return match ($edit) {
             'title' => $as()->putJson($base, ['title' => 'Renamed Reef Dive']),
+            'title_post' => $as()->post($base, ['title' => 'Renamed by a POST'], ['Accept' => 'application/json']),
             'description' => $as()->putJson($base, ['description' => 'A completely different description.']),
             'location' => $as()->putJson($base, ['location' => 'Dahab']),
             'meeting_point' => $as()->putJson($base, ['meeting_point' => 'Another dock']),

@@ -5,6 +5,7 @@ namespace Tests\Feature\Provider;
 use App\Models\Activity;
 use App\Models\ActivityBookingOption;
 use App\Models\ActivityImage;
+use App\Services\ScheduleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -393,6 +394,122 @@ class ActivityOneRequestTest extends TestCase
 
         $r = $this->sendJson('PUT', "/api/v1/provider/activities/{$activity->uuid}", ['allowed_payment_methods' => ['tabby' => null, 'tamara' => true]])->assertOk();
         $this->assertSame(['tabby' => true, 'tamara' => true], $r->json('data.allowed_payment_methods'), 'A null flag is not sent');
+    }
+
+    // --- One request, all or nothing -----------------------------------------------------------------------------------
+
+    private function failAfterThePhotos(): void
+    {
+        // The schedule is applied after the photos, so a failure there comes when photos have already been deleted and stored.
+        $this->mock(ScheduleService::class, fn ($m) => $m->shouldReceive('create')->andThrow(new \RuntimeException('Something broke half-way')));
+    }
+
+    public function test_an_update_that_fails_part_way_changes_nothing_and_loses_no_photo_file(): void
+    {
+        $activity = $this->withPhotos(2);
+        $before = $activity->images()->orderBy('id')->get(['id', 'path'])->map->only(['id', 'path'])->all();
+        $this->failAfterThePhotos();
+
+        $this->update($activity, ['title' => 'Should not stick', 'deleted_image_ids' => [$before[0]['id']], 'new_images' => [$this->png('new.png')],
+            'schedule' => [['day_of_week' => 'saturday', 'start_time' => '09:00', 'end_time' => '10:00']]])->assertStatus(500);
+
+        $this->assertSame($before, $activity->images()->orderBy('id')->get(['id', 'path'])->map->only(['id', 'path'])->all(), 'The photo rows are as they were');
+        $this->assertNotSame('Should not stick', $activity->refresh()->title);
+        foreach ($before as $image) {
+            Storage::disk('public')->assertExists($image['path']);   // the deleted photo's file is still there: its row came back
+        }
+        $this->assertCount(2, Storage::disk('public')->files('activities'), 'And the photo that was stored on the way is not left behind');
+    }
+
+    public function test_a_create_that_fails_part_way_leaves_no_activity_and_no_files(): void
+    {
+        $this->failAfterThePhotos();
+
+        $this->create(['title' => 'Should not exist', 'images' => [$this->png('a.png'), $this->png('b.png')], 'schedule' => [['day_of_week' => 'saturday', 'start_time' => '09:00', 'end_time' => '10:00']]])->assertStatus(500);
+
+        $this->assertNull(Activity::where('title', 'Should not exist')->first());
+        $this->assertSame([], Storage::disk('public')->files('activities'));
+        $this->assertSame(0, ActivityImage::count());
+    }
+
+    public function test_a_photo_file_is_removed_only_when_the_update_has_succeeded(): void
+    {
+        $activity = $this->withPhotos(2);
+        $gone = $activity->images()->first();
+
+        $this->update($activity, ['deleted_image_ids' => [$gone->id]])->assertOk();
+
+        Storage::disk('public')->assertMissing($gone->path);
+        $this->assertNull(ActivityImage::find($gone->id));
+    }
+
+    // --- The same update as a POST ---------------------------------------------------------------------------------------
+
+    public function test_a_plain_post_to_the_activity_is_the_same_update_with_no_method_field(): void
+    {
+        $activity = $this->withPhotos(2);
+        $gone = $activity->images()->first();
+        $this->app['auth']->forgetGuards();
+
+        $r = $this->withHeaders(['Authorization' => "Bearer {$this->a['token']}", 'Accept' => 'application/json'])
+            ->post("/api/v1/provider/activities/{$activity->uuid}", ['title' => 'By a plain POST', 'deleted_image_ids' => [$gone->id], 'new_images' => [$this->png('n.png')]])->assertOk();
+
+        $this->assertSame('By a plain POST', $r->json('data.title'));
+        $this->assertCount(2, $r->json('data.images'));
+        $this->assertNotContains($gone->id, array_column($r->json('data.images'), 'id'));
+    }
+
+    public function test_the_post_is_for_the_owner_only_and_checks_the_same_things(): void
+    {
+        $activity = $this->withPhotos(1);
+        $other = $this->approvedProvider();
+        $this->app['auth']->forgetGuards();
+
+        $this->withHeaders(['Authorization' => "Bearer {$other['token']}", 'Accept' => 'application/json'])->post("/api/v1/provider/activities/{$activity->uuid}", ['title' => 'Mine now'])->assertForbidden();
+        $this->app['auth']->forgetGuards();
+        $this->withHeaders(['Authorization' => "Bearer {$this->a['token']}", 'Accept' => 'application/json'])->post("/api/v1/provider/activities/{$activity->uuid}", ['deleted_image_ids' => [99999999]])->assertStatus(422);
+        $this->app['auth']->forgetGuards();
+        $this->flushHeaders();
+        $this->withHeaders(['Accept' => 'application/json'])->post("/api/v1/provider/activities/{$activity->uuid}", ['title' => 'Anonymous'])->assertUnauthorized();
+
+        $this->assertNotSame('Mine now', $activity->refresh()->title);
+        $this->assertSame(1, $activity->images()->count());
+    }
+
+    // --- Everything at once --------------------------------------------------------------------------------------------------
+
+    public function test_one_update_can_change_every_part_of_an_activity_at_once(): void
+    {
+        $activity = $this->full();
+        $oldPhoto = $activity->images()->first();
+        $keptPhoto = $activity->images()->where('id', '!=', $oldPhoto->id)->first();
+
+        $r = $this->update($activity, [
+            'title' => 'Sunrise Dive', 'description' => 'New description', 'location' => 'Hurghada', 'meeting_point' => 'Marina Gate 4', 'duration_minutes' => 120, 'min_age' => 10, 'max_participants' => 8,
+            'allowed_payment_methods' => ['tamara' => true],
+            'options' => [['name' => 'Snacks', 'extra_price' => 25], ['name' => 'Photos', 'extra_price' => 40]],
+            'requirements' => [['text' => 'Swimming ability', 'is_mandatory' => true]],
+            'inclusions' => [['type' => 'included', 'description' => 'Boat'], ['type' => 'excluded', 'description' => 'Transport'], ['type' => 'excluded', 'description' => 'Tips']],
+            'schedule' => [['day_of_week' => 'sunday', 'start_time' => '06:00', 'end_time' => '09:00'], ['day_of_week' => 'monday', 'start_time' => '06:00', 'end_time' => '09:00']],
+            'booking_options' => [['name' => 'Group', 'booking_model' => 'per_group', 'is_default' => true, 'pricing_rules' => [['participant_type' => 'adult', 'price' => 900]]]],
+            'deleted_image_ids' => [$oldPhoto->id],
+            'new_images' => [$this->png('x.png'), $this->png('y.png')],
+        ])->assertOk();
+
+        $d = $r->json('data');
+        $this->assertSame(['Sunrise Dive', 'New description', 'Hurghada', 'Marina Gate 4', 120, 10, 8], [$d['title'], $d['description'], $d['location'], $d['meeting_point'], $d['duration_minutes'], $d['min_age'], $d['max_participants']]);
+        $this->assertSame(['tabby' => true, 'tamara' => true], $d['allowed_payment_methods'], 'The flag that was not sent stays');
+        $this->assertSame(['Snacks', 'Photos'], array_column($d['options'], 'name'));
+        $this->assertSame(['Swimming ability'], array_column($d['requirements'], 'text'));
+        $this->assertSame(['Boat', 'Transport', 'Tips'], array_column($d['inclusions'], 'description'));
+        $this->assertCount(2, $d['schedule']);
+        $this->assertSame(['Group'], array_column($d['booking_options'], 'name'));
+        $this->assertSame([900, 'per_group'], [$d['price'], $d['price_unit']]);
+        $ids = array_column($d['images'], 'id');
+        $this->assertCount(3, $ids, 'Two photos kept or added, one more added, one deleted');
+        $this->assertNotContains($oldPhoto->id, $ids);
+        $this->assertContains($keptPhoto->id, $ids);
+        $this->assertSame(1, $activity->images()->where('is_cover', true)->count());
     }
 
     // --- Who ---------------------------------------------------------------------------------------------------------------
