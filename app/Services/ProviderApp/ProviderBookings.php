@@ -42,7 +42,8 @@ class ProviderBookings
             ->leftJoin('activity_schedule_periods as s', 's.id', '=', 'r.schedule_period_id')
             ->where('a.provider_id', $provider->id)
             ->whereNull('r.deleted_at')
-            ->select('r.id', 'r.status', 'r.reservation_date', 'r.participants', 'r.quantity', DB::raw('ROUND(r.total - r.service_fee - r.tax, 2) AS total'), 'a.title as activity', 'u.name as customer_name', 's.start_time');
+            ->select('r.id', 'r.status', 'r.reservation_date', 'r.participants', 'r.quantity', DB::raw('ROUND(r.total - r.service_fee - r.tax, 2) AS total'), 'a.title as activity', 'u.name as customer_name', 's.start_time')
+            ->orderByDesc('r.id');;
     }
 
     /** @param  array{filter?: string, status?: string, from?: string, to?: string}  $filters */
@@ -55,7 +56,7 @@ class ProviderBookings
             'today' => $query->where('r.reservation_date', $today)->whereIn('r.status', self::REAL)->orderBy('s.start_time')->orderBy('r.id'),
             // This week: from the first day of the week to its last (the day a week starts on is PLATFORM_WEEK_STARTS_ON), soonest first. Like "today",
             // it is the bookings that are real (not cancelled or expired) unless a status is asked for.
-            'this_week' => $query->whereBetween('r.reservation_date', self::week())->when(empty($filters['status']), fn ($q) => $q->whereIn('r.status', self::REAL))
+            'this_week' => $query->whereBetween('r.reservation_date', self::week())->when(empty($filters['status']), fn($q) => $q->whereIn('r.status', self::REAL))
                 ->orderBy('r.reservation_date')->orderBy('s.start_time')->orderBy('r.id'),
             'upcoming' => $query->where('r.reservation_date', '>', $today)->whereIn('r.status', self::TO_SERVE)->orderBy('r.reservation_date')->orderBy('s.start_time')->orderBy('r.id'),
             'pending' => $query->where('r.status', 'pending')->orderBy('r.reservation_date')->orderBy('r.id'),
@@ -64,7 +65,7 @@ class ProviderBookings
 
         // A single day, soonest departure first; real bookings unless a status is asked for (the same as today and this week).
         if (! empty($filters['date'])) {
-            $query->where('r.reservation_date', $filters['date'])->when(empty($filters['status']), fn ($q) => $q->whereIn('r.status', self::REAL))
+            $query->where('r.reservation_date', $filters['date'])->when(empty($filters['status']), fn($q) => $q->whereIn('r.status', self::REAL))
                 ->reorder()->orderBy('s.start_time')->orderBy('r.id');
         }
 
@@ -85,7 +86,7 @@ class ProviderBookings
     public function counts(Provider $provider): array
     {
         $today = Carbon::now()->toDateString();
-        $count = fn () => DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')->where('a.provider_id', $provider->id)->whereNull('r.deleted_at');
+        $count = fn() => DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')->where('a.provider_id', $provider->id)->whereNull('r.deleted_at');
 
         return [
             'today' => $count()->where('r.reservation_date', $today)->whereIn('r.status', self::REAL)->count(),
@@ -98,7 +99,7 @@ class ProviderBookings
     public function today(Provider $provider, int $limit = 50): array
     {
         return $this->query($provider)->where('r.reservation_date', Carbon::now()->toDateString())->whereIn('r.status', self::REAL)
-            ->orderBy('s.start_time')->orderBy('r.id')->limit($limit)->get()->map(fn ($row) => $this->format($row))->all();
+            ->orderBy('s.start_time')->orderBy('r.id')->limit($limit)->get()->map(fn($row) => $this->format($row))->all();
     }
 
     /** @return array{id: int, customer_name: string, activity: string, date_time: string, guests: int, amount: float, status: string} */
@@ -109,7 +110,7 @@ class ProviderBookings
             'customer_name' => $row->customer_name,
             'activity' => $row->activity,
             // The trip's day and its departure time, as an instant (the app's timezone is the platform's).
-            'date_time' => Carbon::parse(substr((string) $row->reservation_date, 0, 10).' '.($row->start_time ?: '00:00'))->utc()->format('Y-m-d\TH:i:s\Z'),
+            'date_time' => Carbon::parse(substr((string) $row->reservation_date, 0, 10) . ' ' . ($row->start_time ?: '00:00'))->utc()->format('Y-m-d\TH:i:s\Z'),
             'guests' => $this->guests($row),
             'amount' => round((float) $row->total, 2),
             'status' => $row->status,
