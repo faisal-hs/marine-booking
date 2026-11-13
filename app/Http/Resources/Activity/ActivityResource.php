@@ -39,6 +39,10 @@ class ActivityResource extends JsonResource
             'status' => $this->status,
             // An admin stopped it: the provider sees why, and that only an admin can lift it.
             'suspended' => $this->isSuspended(),
+            // The card: what the activity costs and how it is doing (see ActivityCardStats).
+            ...\App\Services\ProviderApp\ActivityCardStats::of($this->resource),
+            // The buy-now-pay-later methods the provider accepts for it.
+            'allowed_payment_methods' => ['tabby' => (bool) $this->allows_tabby, 'tamara' => (bool) $this->allows_tamara],
             'suspension_reason' => $this->when($this->isSuspended(), $this->suspension_reason),
             'images' => ActivityImageResource::collection($this->images),
             'features' => ActivityFeatureResource::collection($this->featureValues),

@@ -309,7 +309,7 @@ class CustomerAppDiscoveryTest extends TestCase
         $d = $this->ca(null, 'GET', "/activities/{$this->a['activity']->id}")->assertOk()->json('data');
 
         $this->assertSame(['id', 'title', 'city', 'location', 'category', 'image', 'gallery', 'duration_hours', 'price', 'original_price', 'discount_percent', 'rating', 'reviews_count', 'booked_count', 'is_bestseller',
-            'is_premium', 'is_favorite', 'free_cancellation', 'max_guests', 'is_certified', 'languages', 'description', 'included', 'not_included', 'safety_instructions', 'cancellation_rules', 'weather',
+            'is_premium', 'is_favorite', 'free_cancellation', 'allowed_payment_methods', 'max_guests', 'is_certified', 'languages', 'description', 'included', 'not_included', 'safety_instructions', 'cancellation_rules', 'weather',
             'meeting_point', 'host', 'reviews', 'rating_distribution', 'rating_categories', 'similar'], array_keys($d));
         $this->assertSame(['Reef Dive', 'Hurghada', 2.5, 1500, 8, 4.8, ['Equipment'], ['Meals'], ['Listen to the briefing'], true, true], [$d['title'], $d['location'], $d['duration_hours'], $d['price'], $d['max_guests'], $d['rating'], $d['included'], $d['not_included'], $d['safety_instructions'], $d['is_certified'], $d['free_cancellation']]);
         $this->assertSame(['id' => $diving->id, 'name' => 'Diving'], $d['category']);

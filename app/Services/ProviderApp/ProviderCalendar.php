@@ -35,9 +35,8 @@ class ProviderCalendar
             $date = $day->toDateString();
             $count = $bookings[$date] ?? 0;
 
-            if ($count > 0 || isset($blocked[$date])) {
-                $days[] = ['date' => $date, 'bookings_count' => $count, 'is_blocked' => isset($blocked[$date])];
-            }
+            // Every day of the month, from the 1st to the last, whether or not anything happens on it.
+            $days[] = ['date' => $date, 'bookings_count' => $count, 'is_blocked' => isset($blocked[$date])];
         }
 
         return $days;

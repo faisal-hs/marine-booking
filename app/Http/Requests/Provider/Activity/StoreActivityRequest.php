@@ -6,12 +6,15 @@ use App\Enums\BookingModel;
 use App\Enums\ParticipantType;
 use App\Models\ActivitySchedulePeriod;
 use App\Services\ActivityFeatureService;
+use App\Http\Requests\Provider\Activity\Concerns\HasPaymentMethods;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreActivityRequest extends FormRequest
 {
+    use HasPaymentMethods;
+
     public function authorize(): bool
     {
         return true;
@@ -19,6 +22,8 @@ class StoreActivityRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalisePaymentMethods();
+
         $this->merge([
             'min_participants' => $this->input('min_participants', 1),
         ]);
@@ -39,28 +44,31 @@ class StoreActivityRequest extends FormRequest
             'max_participants' => ['nullable', 'integer', 'gte:min_participants'],
             'min_age' => ['nullable', 'integer', 'min:0', 'max:120'],
 
+            // Which buy-now-pay-later methods the provider accepts for this activity.
+            ...$this->paymentMethodRules(),
+
             // --- Combined create: images, features, options, requirements,
             // inclusions, schedule, and booking_options are all optional on
             // top of the base activity fields above. Each is validated the
             // same way its dedicated standalone endpoint validates it
             // (Module 05/07/08).
-            'images' => ['sometimes', 'array', 'max:10'],
+            'images' => ['sometimes', 'nullable', 'array', 'max:10'],
             'images.*' => ['image', 'max:4096'],
 
-            'features' => ['sometimes', 'array'],
+            'features' => ['sometimes', 'nullable', 'array'],
 
-            'options' => ['sometimes', 'array'],
+            'options' => ['sometimes', 'nullable', 'array'],
             'options.*.name' => ['required_with:options', 'string', 'max:255'],
             'options.*.description' => ['nullable', 'string'],
             'options.*.extra_price' => ['nullable', 'numeric', 'min:0'],
             'options.*.is_required' => ['boolean'],
             'options.*.max_quantity' => ['nullable', 'integer', 'min:1'],
 
-            'requirements' => ['sometimes', 'array'],
+            'requirements' => ['sometimes', 'nullable', 'array'],
             'requirements.*.text' => ['required_with:requirements', 'string', 'max:255'],
             'requirements.*.is_mandatory' => ['boolean'],
 
-            'inclusions' => ['sometimes', 'array'],
+            'inclusions' => ['sometimes', 'nullable', 'array'],
             'inclusions.*.type' => ['required_with:inclusions', Rule::in(['included', 'excluded'])],
             'inclusions.*.description' => ['required_with:inclusions', 'string', 'max:255'],
 
@@ -69,14 +77,14 @@ class StoreActivityRequest extends FormRequest
             // This rule was mistakenly left in place after Module 08 Step 2
             // removed price from schedule periods everywhere else; fixed
             // here as part of Step 5.
-            'schedule' => ['sometimes', 'array'],
+            'schedule' => ['sometimes', 'nullable', 'array'],
             'schedule.*.day_of_week' => ['required_with:schedule', 'string', Rule::in(array_values(ActivitySchedulePeriod::dayNames()))],
             'schedule.*.start_time' => ['required_with:schedule', 'date_format:H:i'],
             'schedule.*.end_time' => ['required_with:schedule', 'date_format:H:i'],
             'schedule.*.instructions' => ['nullable', 'string', 'max:1000'],
             'schedule.*.status' => ['sometimes', Rule::in(['active', 'inactive'])],
 
-            'booking_options' => ['sometimes', 'array'],
+            'booking_options' => ['sometimes', 'nullable', 'array'],
             'booking_options.*.name' => ['required_with:booking_options', 'string', 'max:255'],
             'booking_options.*.description' => ['nullable', 'string'],
             'booking_options.*.booking_model' => ['required_with:booking_options', 'string', Rule::in(array_map(fn($c) => $c->value, BookingModel::cases()))],
@@ -90,7 +98,7 @@ class StoreActivityRequest extends FormRequest
             'booking_options.*.is_active' => ['sometimes', 'boolean'],
             'booking_options.*.is_default' => ['sometimes', 'boolean'],
             'booking_options.*.sort_order' => ['sometimes', 'integer', 'min:0'],
-            'booking_options.*.pricing_rules' => ['sometimes', 'array'],
+            'booking_options.*.pricing_rules' => ['sometimes', 'nullable', 'array'],
             'booking_options.*.pricing_rules.*.participant_type' => ['nullable', 'string', Rule::in(array_map(fn($c) => $c->value, ParticipantType::cases()))],
             'booking_options.*.pricing_rules.*.price' => ['required', 'numeric', 'min:0'],
             'booking_options.*.pricing_rules.*.min_quantity' => ['nullable', 'integer', 'min:1'],
@@ -122,7 +130,7 @@ class StoreActivityRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            foreach ($this->input('booking_options', []) as $index => $option) {
+            foreach ((array) ($this->input('booking_options') ?? []) as $index => $option) {
                 $model = $option['booking_model'] ?? null;
 
                 if (in_array($model, ['per_hour', 'per_day', 'package'], true) && empty($option['min_duration'])) {
@@ -138,7 +146,7 @@ class StoreActivityRequest extends FormRequest
 
     public function payload(): array
     {
-        return $this->only([
+        return $this->paymentMethodPayload() + $this->only([
             'category_id',
             'title',
             'description',
@@ -155,7 +163,7 @@ class StoreActivityRequest extends FormRequest
 
     public function scheduleItems(): array
     {
-        return collect($this->input('schedule', []))->map(function (array $item) {
+        return collect($this->input('schedule') ?? [])->map(function (array $item) {
             $item['day_of_week'] = ActivitySchedulePeriod::dayNumberFromName($item['day_of_week']);
 
             return $item;
@@ -169,7 +177,7 @@ class StoreActivityRequest extends FormRequest
      */
     public function bookingOptionItems(): array
     {
-        return collect($this->input('booking_options', []))->map(function (array $item) {
+        return collect($this->input('booking_options') ?? [])->map(function (array $item) {
             return [
                 'data' => collect($item)->except('pricing_rules')->all(),
                 'pricing_rules' => $item['pricing_rules'] ?? [],

@@ -54,15 +54,20 @@ class ActivityController extends BaseApiController
         protected ActivityPricingRuleService $pricingRuleService,
     ) {}
 
-    public function index(PaginationRequest $request)
+    public function index(\App\Http\Requests\Provider\Activity\ListActivitiesRequest $request)
     {
-        $activities = $this->repository->paginateForProvider(
-            $request->user()->provider->id,
-            $request->only(['status']),
-            $request->perPage()
-        );
+        $provider = $request->user()->provider;
 
-        return $this->success(ActivityResource::collection($activities));
+        // The revenue on each card is the ledger's, so the ledger is brought up to date first.
+        app(\App\Services\Wallet\LedgerService::class)->syncProvider($provider);
+
+        $activities = $this->repository->paginateForProvider($provider->id, $request->only(['status', 'filter']), $request->perPage());
+
+        // The tab counts are over ALL the provider's activities, whichever tab is open.
+        $body = $this->success(ActivityResource::collection($activities))->getData(true);
+        $body['counts'] = $this->repository->countsForProvider($provider->id);
+
+        return response()->json($body);
     }
 
     /**
@@ -160,27 +165,38 @@ class ActivityController extends BaseApiController
      */
     protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity): void
     {
-        if ($request->hasFile('images')) {
-            $this->imageService->upload($activity, $request->file('images'));
+        // A part that is missing or null is left alone (on create it is simply not there); an empty list is "none", which on an update clears it.
+        $sent = fn (string $key) => $request->has($key) && $request->input($key) !== null;
+
+        // Photos: the ones to delete go first (a deleted cover hands the cover to the next photo), then the new ones are added.
+        if ($request instanceof UpdateActivityRequest && $request->deletedImageIds() !== []) {
+            foreach ($activity->images()->whereIn('id', $request->deletedImageIds())->get() as $image) {
+                $this->imageService->delete($image);
+            }
+        }
+
+        $files = $request instanceof UpdateActivityRequest ? $request->newImageFiles() : array_values(array_filter(\Illuminate\Support\Arr::wrap($request->file('images'))));
+        if ($files !== []) {
+            $this->imageService->upload($activity, $files);
         }
 
         if ($request->filled('features')) {
             $this->featureService->sync($activity, $request->input('features', []));
         }
 
-        if ($request->has('options')) {
+        if ($sent('options')) {
             $this->optionService->sync($activity, $request->input('options', []));
         }
 
-        if ($request->has('requirements')) {
+        if ($sent('requirements')) {
             $this->requirementService->sync($activity, $request->input('requirements', []));
         }
 
-        if ($request->has('inclusions')) {
+        if ($sent('inclusions')) {
             $this->inclusionService->sync($activity, $request->input('inclusions', []));
         }
 
-        if ($request->has('schedule')) {
+        if ($sent('schedule')) {
             $activity->schedulePeriods()->delete();
 
             foreach ($request->scheduleItems() as $item) {
@@ -188,7 +204,7 @@ class ActivityController extends BaseApiController
             }
         }
 
-        if ($request->has('booking_options')) {
+        if ($sent('booking_options')) {
             $this->replaceBookingOptions($activity, $request->bookingOptionItems());
         }
     }

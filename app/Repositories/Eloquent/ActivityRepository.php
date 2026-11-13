@@ -51,14 +51,40 @@ class ActivityRepository extends BaseRepository implements ActivityRepositoryInt
             ->exists();
     }
 
+    /**
+     * The tabs of a provider's activity list, by the status an activity has:
+     *   active  published: live for customers
+     *   paused  inactive (paused by the provider, or stopped by an admin: those say `suspended: true`) and approved (ready, waiting for the provider to
+     *           turn it on): in both, customers cannot see it
+     *   draft   draft (and the retired review states, which are drafts again)
+     */
+    public const STATUS_GROUPS = [
+        'draft' => ['draft', 'rejected', 'pending_review'],
+        'active' => ['published'],
+        'paused' => ['inactive', 'approved'],
+    ];
+
+    /** @return array{all: int, active: int, draft: int, paused: int} every activity of the provider, whatever tab is open */
+    public function countsForProvider(int $providerId): array
+    {
+        $byStatus = $this->model->newQuery()->where('provider_id', $providerId)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
+        $in = fn (string $group) => (int) collect(self::STATUS_GROUPS[$group])->sum(fn ($s) => $byStatus[$s] ?? 0);
+
+        return ['all' => (int) $byStatus->sum(), 'active' => $in('active'), 'draft' => $in('draft'), 'paused' => $in('paused')];
+    }
+
     public function paginateForProvider(int $providerId, array $filters, int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()
+        $query = \App\Services\ProviderApp\ActivityCardStats::select($this->model->newQuery())
             ->where('provider_id', $providerId)
             ->with(['category', 'images', 'featureValues.featureDefinition', 'options', 'requirements', 'inclusions', 'schedulePeriods', 'availabilityOverrides']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['filter']) && $filters['filter'] !== 'all') {
+            $query->whereIn('status', self::STATUS_GROUPS[$filters['filter']]);
         }
 
         return $query->latest()->paginate($perPage, ['*'], 'current_page')->withQueryString();

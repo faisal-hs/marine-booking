@@ -40,6 +40,8 @@ class ActivityDetails
             'is_premium' => (bool) $a->is_featured,
             'is_favorite' => in_array($a->id, $favorites, true),
             'free_cancellation' => $this->policy->isFree(),
+            // Card, Apple Pay and mada are always possible; these two are the buy-now-pay-later methods the provider turned on for this activity.
+            'allowed_payment_methods' => ['tabby' => (bool) $a->allows_tabby, 'tamara' => (bool) $a->allows_tamara],
             'max_guests' => $a->max_participants,
             'is_certified' => $provider?->verification_status === 'verified',
             'languages' => [],

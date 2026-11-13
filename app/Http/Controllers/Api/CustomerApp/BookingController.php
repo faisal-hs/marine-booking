@@ -65,6 +65,13 @@ class BookingController extends CustomerAppController
         }
 
         $activity = $this->catalog->find($request->integer('activity_id')) ?? throw ProviderApiException::notFound('Activity not found.');
+
+        // Tabby and Tamara only where the provider accepts them for this activity.
+        $method = $request->input('payment_method');
+        if (in_array($method, CreateBookingRequest::PER_ACTIVITY_METHODS, true) && ! $activity->{'allows_'.$method}) {
+            throw ValidationException::withMessages(['payment_method' => [ucfirst($method).' is not accepted for this activity.']]);
+        }
+
         [$option, $period, $day] = $this->checkout->slot($activity, $request->input('date'), $request->input('time'));
         $this->checkout->assertGuests($activity, $option, $period, $day, $request->integer('guests'));
 

@@ -20,6 +20,8 @@ class Activity extends Model
         'category_id',
         'city_id',
         'is_featured',
+        'allows_tabby',
+        'allows_tamara',
         'title',
         'slug',
         'description',
@@ -47,6 +49,8 @@ class Activity extends Model
         'lng' => 'decimal:7',
         'published_at' => 'datetime',
         'is_featured' => 'boolean',
+        'allows_tabby' => 'boolean',
+        'allows_tamara' => 'boolean',
         'suspended_at' => 'datetime',
         'average_rating' => 'decimal:2',
     ];

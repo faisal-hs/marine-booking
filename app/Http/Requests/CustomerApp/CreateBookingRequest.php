@@ -5,7 +5,10 @@ namespace App\Http\Requests\CustomerApp;
 class CreateBookingRequest extends BookingSummaryRequest
 {
     /** How a customer can pay, as the app names it. */
-    public const PAYMENT_METHODS = ['card', 'apple_pay', 'mada'];
+    public const PAYMENT_METHODS = ['card', 'apple_pay', 'mada', 'tabby', 'tamara'];
+
+    /** The methods only an activity that allows them can be paid with (the provider chooses, for each activity). */
+    public const PER_ACTIVITY_METHODS = ['tabby', 'tamara'];
 
     public function rules(): array
     {
