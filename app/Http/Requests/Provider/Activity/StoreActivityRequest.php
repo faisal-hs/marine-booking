@@ -44,6 +44,9 @@ class StoreActivityRequest extends FormRequest
             'max_participants' => ['nullable', 'integer', 'gte:min_participants'],
             'min_age' => ['nullable', 'integer', 'min:0', 'max:120'],
 
+            // A new activity is active (live) by default; `draft` keeps it as a draft until the provider publishes it. `active` is the same as leaving it out.
+            'status' => ['sometimes', 'nullable', 'in:active,draft'],
+
             // Which buy-now-pay-later methods the provider accepts for this activity.
             ...$this->paymentMethodRules(),
 

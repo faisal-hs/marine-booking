@@ -41,7 +41,7 @@ class ActivityManagementTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.slug', 'red-sea-night-dive')
-            ->assertJsonPath('data.status', 'draft');
+            ->assertJsonPath('data.status', 'published');   // a new activity is active by default
 
         $this->assertDatabaseHas('activities', ['provider_id' => $provider->id, 'title' => 'Red Sea Night Dive']);
     }
@@ -116,8 +116,10 @@ class ActivityManagementTest extends TestCase
             ->postJson('/api/v1/provider/activities', ['category_id' => $category->id, 'title' => 'Reef Dive'])
             ->json('data');
 
+        // A new activity is already active, and asking again is harmless; a paused one is not a draft, so it cannot be submitted this way.
         $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/v1/provider/activities/' . $activity['uuid'] . '/submit-for-review');
+            ->postJson('/api/v1/provider/activities/' . $activity['uuid'] . '/submit-for-review')->assertOk();
+        \App\Models\Activity::where('uuid', $activity['uuid'])->update(['status' => 'inactive']);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson('/api/v1/provider/activities/' . $activity['uuid'] . '/submit-for-review');

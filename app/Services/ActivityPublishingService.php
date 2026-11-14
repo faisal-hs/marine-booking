@@ -32,10 +32,36 @@ class ActivityPublishingService
     ) {}
 
     /** The provider's request to publish a draft. */
+    /**
+     * A new activity goes live at once, by default: when the platform publishes automatically (ACTIVITY_AUTO_PUBLISH) and the provider may publish. Otherwise
+     * it stays a draft, and the reason is returned so the provider is told. It never fails: creating an activity must work for a provider who cannot go live yet.
+     *
+     * @return array{0: Activity, 1: ?string} the activity, and why it stayed a draft (null when it went live)
+     */
+    public function goLiveIfAllowed(Activity $activity): array
+    {
+        if (! config('activities.auto_publish')) {
+            return [$activity, 'Activities are not published automatically here: publish it when it is ready.'];
+        }
+
+        try {
+            $this->assertMayGoLive($activity);
+        } catch (ValidationException $e) {
+            return [$activity, collect($e->errors())->flatten()->first()];
+        }
+
+        return [$this->goLive($activity), null];
+    }
+
     public function requestPublication(Activity $activity): Activity
     {
         // A suspension is answered as what it is, whatever state the activity is in.
         $this->assertNotSuspended($activity);
+
+        // Already live (a new activity is, by default): publishing it again is not a mistake, there is just nothing to do.
+        if ($activity->status === 'published') {
+            return $activity;
+        }
 
         if ($activity->status !== 'draft') {
             throw ValidationException::withMessages(['status' => ["Only a draft can be published this way; this activity is {$activity->status}."]]);

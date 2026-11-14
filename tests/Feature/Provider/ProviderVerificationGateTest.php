@@ -89,7 +89,7 @@ class ProviderVerificationGateTest extends TestCase
     {
         [, $provider, $token] = $this->makeProvider('verified');
 
-        foreach (['approved', 'published', 'inactive'] as $status) {
+        foreach (['approved', 'inactive'] as $status) {
             $activity = $this->makeActivity($provider, $status);
 
             $this->submit($token, $activity)
@@ -98,6 +98,18 @@ class ProviderVerificationGateTest extends TestCase
 
             $this->assertSame($status, $activity->fresh()->status);
         }
+    }
+
+    public function test_publishing_an_activity_that_is_already_active_is_harmless(): void
+    {
+        [, $provider, $token] = $this->makeProvider('verified');
+        $activity = $this->makeActivity($provider, 'published');
+        $publishedAt = $activity->fresh()->published_at;
+
+        $this->submit($token, $activity)->assertOk()->assertJsonPath('data.status', 'published');
+
+        $this->assertSame('published', $activity->fresh()->status);
+        $this->assertEquals($publishedAt, $activity->fresh()->published_at, 'Nothing changed');
     }
 
     // --- Publishing ---------------------------------------------------------

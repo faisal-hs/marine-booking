@@ -135,12 +135,21 @@ class ProviderActivityPublishingTest extends TestCase
 
     public function test_only_a_draft_can_be_asked_to_publish(): void
     {
-        foreach (['approved', 'published', 'inactive'] as $status) {
+        foreach (['approved', 'inactive'] as $status) {
             $this->trip->update(['status' => $status]);
 
             $this->publish()->assertStatus(422)->assertJsonValidationErrors('status');
             $this->assertSame($status, $this->trip->refresh()->status);
         }
+    }
+
+    public function test_asking_to_publish_an_activity_that_is_already_active_changes_nothing(): void
+    {
+        $this->trip->update(['status' => 'published']);
+
+        $this->publish()->assertOk();
+
+        $this->assertSame('published', $this->trip->refresh()->status);
     }
 
     // --- Pausing, resuming, and nonsense -----------------------------------------------------------------------------

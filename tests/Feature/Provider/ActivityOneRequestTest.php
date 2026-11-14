@@ -123,7 +123,7 @@ class ActivityOneRequestTest extends TestCase
 
         $d = $r->json('data');
         $this->assertSame([[], [], [], [], [], []], [$d['images'], $d['booking_options'], $d['schedule'], $d['inclusions'], $d['requirements'], $d['options']]);
-        $this->assertSame('draft', $d['status']);
+        $this->assertSame('published', $d['status'], 'Active by default, even with nothing else sent');
     }
 
     public function test_every_part_may_be_null_and_that_means_not_sent(): void

@@ -80,18 +80,24 @@ class ActivityController extends BaseApiController
     public function store(StoreActivityRequest $request)
     {
         $stored = [];
+        $whyDraft = null;
 
-        $activity = $this->inTransactionRemovingStoredFilesIfItFails($stored, function () use ($request, &$stored) {
+        $activity = $this->inTransactionRemovingStoredFilesIfItFails($stored, function () use ($request, &$stored, &$whyDraft) {
             $activity = $this->service->create($request->user()->provider, $request->payload());
 
             $this->applyCombinedExtras($request, $activity, $stored);
+
+            // Active by default: unless a draft was asked for, it goes live now if the provider may publish (otherwise it stays a draft, and says why).
+            if ($request->input('status') !== 'draft') {
+                [$activity, $whyDraft] = $this->publishing->goLiveIfAllowed($activity);
+            }
 
             return $activity;
         });
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->created(new ActivityResource($activity), 'Activity created successfully.');
+        return $this->created(new ActivityResource($activity), 'Activity created successfully.'.($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
     }
 
     public function show(Request $request, Activity $activity)
