@@ -7,7 +7,10 @@ use App\Models\ProviderProfileChange;
 use App\Models\User;
 use App\Notifications\Providers\Admin\ProviderProfileChangeRequestedAdminNotification;
 use App\Notifications\Providers\ProviderProfileChangeReviewedNotification;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
@@ -26,7 +29,33 @@ class ProviderProfileService
 {
     private const PROVIDER_FIELDS = ['business_name', 'business_type', 'marina_name', 'contact_phone', 'contact_email', 'bio', 'address', 'city', 'area', 'lat', 'lng'];
 
+    /** Where a provider's picture is kept, on the public disk. */
+    public const IMAGE_DIRECTORY = 'providers/logos';
+
     public function __construct(private readonly NotificationDispatchService $dispatcher) {}
+
+    /**
+     * The provider's profile picture (the `logo`, which is also the avatar customers see on their activities and messages). It is not critical information:
+     * it changes at once, and the file it replaces is deleted. The file is stored under a name of ours, never the one it came with. `$remove` takes the picture off.
+     */
+    public function changeImage(Provider $provider, ?UploadedFile $file, bool $remove = false): void
+    {
+        $old = $provider->logo;
+
+        if ($file !== null) {
+            $path = $file->storeAs(self::IMAGE_DIRECTORY, $provider->uuid.'-'.Str::random(12).'.'.$file->extension(), 'public');
+            $provider->update(['logo' => $path]);
+        } elseif ($remove) {
+            $provider->update(['logo' => null]);
+        } else {
+            return;
+        }
+
+        // Only what this service stored is deleted: a path an admin set by hand, or anything else, is left alone.
+        if ($old && str_starts_with($old, self::IMAGE_DIRECTORY.'/')) {
+            Storage::disk('public')->delete($old);
+        }
+    }
 
     /**
      * @param  array<string, mixed>  $data  ONLY the fields to change: a key that is present is a change, even to null

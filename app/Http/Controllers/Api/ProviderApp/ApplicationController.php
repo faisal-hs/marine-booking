@@ -22,9 +22,12 @@ class ApplicationController extends ProviderAppController
     private const REQUIRED_AFTER_MERGE = ['business_name' => 'business_name', 'business_type' => 'business_type', 'category_ids' => 'category_ids', 'city' => 'city',
         'area' => 'area', 'marina_name' => 'marina_name', 'contact_phone' => 'phone', 'contact_email' => 'email'];
 
-    public function __construct(private readonly ProviderRequestService $applications) {}
+    public function __construct(private readonly ProviderRequestService $applications, private readonly \App\Services\ProviderApp\ProviderStats $stats) {}
 
-    /** The latest application and what the admin said about it. */
+    /**
+     * The latest application and what the admin said about it, with the provider's own information (the same as GET /provider/profile) and their statistics
+     * (see ProviderStats), so one call is enough for the screen of an applicant and of an approved provider alike.
+     */
     public function show(Request $request)
     {
         $latest = $this->provider($request)?->latestRequest;
@@ -33,7 +36,12 @@ class ApplicationController extends ProviderAppController
             throw ProviderApiException::notFound('You have not submitted an application yet.');
         }
 
-        return $this->ok($this->describe($latest));
+        $provider = $this->provider($request);
+
+        return $this->ok($this->describe($latest) + [
+            'provider' => (new \App\Http\Resources\Provider\ProviderResource($provider->loadMissing('user')))->resolve($request),
+            'stats' => $this->stats->for($provider),
+        ]);
     }
 
     public function store(ApplyAsProviderRequest $request)

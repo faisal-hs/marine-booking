@@ -73,6 +73,8 @@ Route::group([
     Route::middleware('provider.approved')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.patch');
+        // The same update as PATCH, as a POST: for a form upload (the picture) from a client that cannot send a PATCH or PUT with files, whatever the PHP version.
+        Route::post('/profile', [ProfileController::class, 'update'])->name('profile.post');
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->middleware('throttle:provider-booking-cancel')->name('bookings.cancel');
         Route::get('/calendar', [CalendarController::class, 'show'])->name('calendar.show');

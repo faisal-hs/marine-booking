@@ -171,6 +171,52 @@ suspended and deleted providers get nothing.
 - If a minimum cannot fit without overbooking, it stops with a message instead of overbooking.
 - It works on the demo data and on the bulk data, ignores `BULK_SEED_SCALE`, and refuses to run in production.
 
+## Analytics demo data
+
+```bash
+php artisan db:seed --class=ProviderAnalyticsDemoSeeder
+```
+
+fills **`GET /provider/analytics`** (the month, the default last-30-days period, and `?activity_id=` for one activity) for **every published
+activity of a verified provider**, so the page has numbers to show instead of zeros. Run it after `DatabaseSeeder` (and, for providers with nothing
+bookable, after `ProviderMonthlyReservationSeeder`).
+
+- **Page views**, every day from 62 days before the 1st of this month to today (at least 60 days, whatever the day of the month), so the current month **and** the
+  default period have a period before them to be compared with and every "change" figure is filled. Each activity has its own popularity, trend (some growing, some
+  falling) and mix of sources; Fridays and Saturdays are busier.
+- **Bookings** made on those days (about 2 to 9 in every hundred views): about 82% kept (paid; completed once the trip has taken place), 10% cancelled and
+  refunded, 8% expired unpaid, each with a source (direct, category, recommendations, social), a payment, and a place on a real departure. Capacity is counted
+  exactly as the booking system counts it, so a seeded booking never goes over a real one.
+- **Reviews** on about three in ten completed trips (mostly good) and **replies** from the provider to about half to nine tenths of them, so the response rate
+  is neither 0 nor 100.
+- An activity that **cannot be booked** yet (no priced option or schedule) gets page views only. Activities of providers whose account is not active get nothing.
+- It is deterministic (the same data every run, from the seeder's own random engine), and **running it again adds nothing** for the days already seeded;
+  on a later day it adds only the new days (building it up day by day gives exactly what one run at the end would), and a later run the same day adds only the
+  hours of today that have passed. Activities newer than the data are given an
+  earlier creation date so nothing is viewed or booked before they existed. It is refused in production, like the other demo seeders.
+
+## Reviews, withdrawals and notifications demo data
+
+Three more demo seeders, each run on top of the demo data (and refused in production, like the others). Each is deterministic from its own random engine and
+**running it again adds nothing**. Their dates are placed relative to now, so "the same data" means with the same clock.
+
+```bash
+php artisan db:seed --class=ActivityReviewsDemoSeeder      # reviews, hidden reviews and replies for every activity that is or has been live
+php artisan db:seed --class=ProviderWithdrawalsDemoSeeder  # many withdrawals in all six statuses, with the wallet ledger to match
+php artisan db:seed --class=NotificationsDemoSeeder        # five of every kind of notification for every customer and provider
+```
+
+- **`ActivityReviewsDemoSeeder`**: 6 to 16 reviews for each published, paused or ready activity of a verified provider, each by a different customer, with comments in
+  English and Arabic, from poor to very good activities, a few hidden by an admin with a reason, and replies from the provider to about four to nine in ten. A review is tied
+  to the customer's completed booking where there is one. The activity's average and count follow its visible reviews. About 65 activities, 700 reviews, 450 replies.
+- **`ProviderWithdrawalsDemoSeeder`**: for each verified provider who could withdraw at least 800 (run `ProviderAnalyticsDemoSeeder` first: the earnings), 8 to 14
+  withdrawals, **every provider with all six statuses** (pending, processing, paid, rejected, failed, cancelled), the reserve and release entries the withdrawal service
+  would have left, and no balance below zero. A provider with no bank account gets a demo one. About 10 providers and 120 withdrawals.
+- **`NotificationsDemoSeeder`**: **five of each kind** for every active customer (seven kinds: the four reservation kinds, payment failed, payment refunded, broadcast) and
+  every active provider (sixteen kinds, including document reviews, suspension, profile-change reviews, the four withdrawal outcomes, verified and rejected). Each is made
+  by the app's own notification class from the person's real records of the right status (an unsaved record where there is none), so the stored shape is the app's own.
+  Customers 35 each, providers 80 each, 2,645 in all. Run it after the other seeders so there are real bookings, payments and withdrawals to point at.
+
 ## Running the app
 
 Three processes need to be running. `composer dev` starts all of them; or use three terminals:

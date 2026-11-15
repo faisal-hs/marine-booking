@@ -19,12 +19,14 @@ class ProfileController extends ProviderAppController
     {
         $changes = $request->changes();
 
-        if ($changes === []) {
+        if ($changes === [] && ! $request->changesImage()) {
             throw ValidationException::withMessages(['body' => ['Send at least one field to change.']]);
         }
 
         $user = $request->user();
         $result = $this->profiles->update($user, $changes);
+        // The picture is not critical information: it changes at once, whatever else waits for an admin.
+        $this->profiles->changeImage($result['provider'], $request->file('image'), $request->boolean('remove_image'));
 
         return $this->ok(
             (new ProviderResource($result['provider']))->resolve($request),

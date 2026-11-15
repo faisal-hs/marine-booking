@@ -18,7 +18,8 @@ class ProviderResource extends JsonResource
             'business_name' => $this->business_name,
             'slug' => $this->slug,
             'bio' => $this->bio,
-            'logo' => $this->logo,
+            // The profile picture, as a URL (null when there is none).
+            'logo' => $this->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->logo) : null,
             'address' => $this->address,
             'city' => $this->city,
             'area' => $this->area,

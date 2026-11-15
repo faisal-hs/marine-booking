@@ -177,8 +177,12 @@ class ProviderApplicationApiTest extends TestCase
         $p = $this->unapprovedProvider('pending');
         $id = $this->applicationOf($p, 'pending');
 
-        $this->hit($p['token'], 'GET', '/api/v1/provider/apply')->assertOk()->assertExactJson(['status' => true, 'message' => 'Success', 'data' => [
-            'application_id' => $id, 'status' => 'pending', 'note' => null, 'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => null, 'can_resubmit' => false]]);
+        $r = $this->hit($p['token'], 'GET', '/api/v1/provider/apply')->assertOk();
+
+        $this->assertSame(['status', 'message', 'data'], array_keys($r->json()));
+        $this->assertSame(['application_id' => $id, 'status' => 'pending', 'note' => null, 'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => null, 'can_resubmit' => false],
+            \Illuminate\Support\Arr::except($r->json('data'), ['provider', 'stats']), 'The application part is exactly what it was');
+        $this->assertSame(['application_id', 'status', 'note', 'submitted_at', 'reviewed_at', 'can_resubmit', 'provider', 'stats'], array_keys($r->json('data')));
     }
 
     public function test_a_rejected_application_shows_the_admins_note_and_can_be_resubmitted(): void
@@ -186,9 +190,11 @@ class ProviderApplicationApiTest extends TestCase
         $p = $this->unapprovedProvider('rejected');
         $id = $this->applicationOf($p, 'rejected', 'Commercial registration file is not clear. Please upload it again.');
 
-        $this->hit($p['token'], 'GET', '/api/v1/provider/apply')->assertOk()->assertJsonPath('data', [
+        $d = $this->hit($p['token'], 'GET', '/api/v1/provider/apply')->assertOk()->json('data');
+
+        $this->assertSame([
             'application_id' => $id, 'status' => 'rejected', 'note' => 'Commercial registration file is not clear. Please upload it again.',
-            'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => '2026-10-21T09:00:00Z', 'can_resubmit' => true]);
+            'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => '2026-10-21T09:00:00Z', 'can_resubmit' => true], \Illuminate\Support\Arr::except($d, ['provider', 'stats']));
     }
 
     public function test_it_shows_the_latest_application_and_only_your_own(): void

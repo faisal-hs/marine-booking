@@ -3,8 +3,10 @@
 namespace Tests\Feature\Seeders;
 
 use App\Services\NotificationFeed;
+use App\Services\VerificationDocumentTypes;
 use Carbon\Carbon;
 use Database\Seeders\Bulk\BulkSeeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\UsesSeededBulkDatabase;
@@ -31,7 +33,7 @@ class BulkDataIntegrityTest extends TestCase
     }
 
     /** Fails with the first rows that break a rule, so the message says WHAT is wrong. */
-    private function assertNone(\Illuminate\Support\Collection|array $offenders, string $rule): void
+    private function assertNone(Collection|array $offenders, string $rule): void
     {
         $offenders = collect($offenders);
 
@@ -164,7 +166,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_every_provider_with_a_request_has_the_three_required_documents_and_the_files_exist(): void
     {
-        $required = app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys();
+        $required = app(VerificationDocumentTypes::class)->mandatoryKeys();
 
         $providers = DB::table('provider_requests')->distinct()->pluck('provider_id');
         $this->assertGreaterThan(0, $providers->count());
@@ -178,7 +180,7 @@ class BulkDataIntegrityTest extends TestCase
         foreach (DB::table('provider_documents')->limit(300)->get(['path']) as $document) {
             $this->assertTrue($disk->exists($document->path), "File missing for {$document->path}");
         }
-        $this->assertSame(0, DB::table('provider_documents')->whereNotIn('type', array_keys(app(\App\Services\VerificationDocumentTypes::class)->titles()))->count(), 'Unknown document type');
+        $this->assertSame(0, DB::table('provider_documents')->whereNotIn('type', array_keys(app(VerificationDocumentTypes::class)->titles()))->count(), 'Unknown document type');
     }
 
     public function test_document_statuses_agree_with_the_providers_verification(): void
@@ -229,7 +231,7 @@ class BulkDataIntegrityTest extends TestCase
 
     public function test_the_extra_document_types_are_optional_and_the_platform_ones_are_untouched(): void
     {
-        $this->assertSame(['commercial_registration', 'insurance_certificate', 'safety_certification'], collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->sort()->values()->all(), 'Nothing mandatory was added');
+        $this->assertSame(['commercial_registration', 'insurance_certificate', 'safety_certification'], collect(app(VerificationDocumentTypes::class)->mandatoryKeys())->sort()->values()->all(), 'Nothing mandatory was added');
         $this->assertGreaterThanOrEqual(11, DB::table('verification_document_types')->count());
         $this->assertSame(1, DB::table('verification_document_types')->where('is_active', false)->count(), 'One of the extras is switched off');
     }
@@ -322,7 +324,7 @@ class BulkDataIntegrityTest extends TestCase
         $this->assertGreaterThan(0, DB::table('activity_views')->count());
         $this->assertSame(0, DB::table('activity_views as v')->join('activities as a', 'a.id', '=', 'v.activity_id')->where('a.status', '!=', 'published')->count());
         $this->assertSame(0, DB::table('activity_views')->where('viewed_on', '>', now()->toDateString())->count());
-        $this->assertSame(0, DB::table('activity_views')->where('viewed_on', '<', now()->subDays(60)->toDateString())->count(), 'Within the last sixty days');
+        $this->assertSame(0, DB::table('activity_views')->where('viewed_on', '<', $this->bulkSeededAt()->subDays(60)->toDateString())->count(), 'Within the last sixty days of when the data was seeded');
         $this->assertSame(0, DB::table('activity_views')->whereNotIn('source', ['direct', 'category', 'recommendations', 'social'])->count());
         $this->assertSame(0, DB::table('activity_views')->selectRaw('activity_id, visitor_hash, viewed_on, COUNT(*) AS n')->groupBy('activity_id', 'visitor_hash', 'viewed_on')->having('n', '>', 1)->get()->count());
         $this->assertSame(0, DB::table('activity_views')->whereRaw('LENGTH(visitor_hash) != 40')->count());
@@ -357,7 +359,7 @@ class BulkDataIntegrityTest extends TestCase
         $this->assertSame(0, DB::table('messages')->where('created_at', '>', now()->toDateTimeString())->count());
         $this->assertSame(0, DB::table('messages as m')->join('conversations as c', 'c.id', '=', 'm.conversation_id')->whereColumn('m.created_at', '<', 'c.created_at')->count(), 'Nothing before the conversation began');
         $this->assertSame(0, DB::table('messages')->whereNotNull('read_at')->whereColumn('read_at', '<', 'created_at')->count());
-        $this->assertSame(0, DB::table('messages')->whereNull('read_at')->where('created_at', '<', now()->subDay()->toDateTimeString())->count(), 'Anything over a day old has been read');
+        $this->assertSame(0, DB::table('messages')->whereNull('read_at')->where('created_at', '<', $this->bulkSeededAt()->subDay()->toDateTimeString())->count(), 'Anything over a day old when the data was seeded has been read');
         $this->assertGreaterThan(0, DB::table('messages')->whereNull('read_at')->where('sender_type', 'provider')->count(), 'Some provider messages are unread');
         $first = DB::table('messages')->selectRaw('conversation_id, MIN(id) AS first_id')->groupBy('conversation_id')->pluck('first_id');
         $this->assertSame(0, DB::table('messages')->whereIn('id', $first)->where('sender_type', '!=', 'customer')->count(), 'The customer writes first');
@@ -390,7 +392,7 @@ class BulkDataIntegrityTest extends TestCase
             DB::table('activities')->join('providers', 'providers.id', '=', 'activities.provider_id')->join('users', 'users.id', '=', 'providers.user_id')
                 ->where('activities.slug', 'like', '%'.BulkSeeder::ACTIVITY_SLUG_MARK.'%')->where(fn ($q) => $q->where('users.status', '!=', 'active')->orWhereNotNull('users.deleted_at'))
                 ->where('activities.status', 'published')->limit(3)->pluck('activities.slug'),
-            "Nothing a suspended or deleted provider owns is published"
+            'Nothing a suspended or deleted provider owns is published'
         );
         // Published means it has a publication date; rejected means it has a reason; slugs are unique and carry the mark.
         $this->assertNone(DB::table('activities')->where('status', 'published')->whereNull('published_at')->limit(3)->pluck('slug'), 'A published activity has a publication date');

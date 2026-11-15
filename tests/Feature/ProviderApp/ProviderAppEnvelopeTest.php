@@ -139,10 +139,10 @@ class ProviderAppEnvelopeTest extends TestCase
 
         $expected = [
             'GET api/v1/provider/apply', 'GET api/v1/provider/bookings', 'GET api/v1/provider/calendar', 'GET api/v1/provider/categories', 'GET api/v1/provider/customers',
-            'GET api/v1/provider/dashboard', 'PATCH api/v1/provider/activities/{id}/status', 'PATCH api/v1/provider/profile', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
+            'GET api/v1/provider/dashboard', 'PATCH api/v1/provider/activities/{id}/status', 'PATCH api/v1/provider/profile', 'POST api/v1/provider/profile', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit',
             'POST api/v1/provider/bookings/{id}/cancel', 'GET api/v1/provider/earnings', 'GET api/v1/provider/earnings/report', 'GET api/v1/provider/earnings/statement',
             'GET api/v1/provider/earnings/statement/download', 'GET api/v1/provider/bank-account', 'PUT api/v1/provider/bank-account',
-            'POST api/v1/provider/withdrawals', 'GET api/v1/provider/verification', 'POST api/v1/provider/verification/{key}', 'GET api/v1/provider/verification/files/{document}', 'GET api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals/{id}',
+            'POST api/v1/provider/withdrawals', 'GET api/v1/provider/coupons', 'POST api/v1/provider/coupons', 'PATCH api/v1/provider/coupons/{id}', 'DELETE api/v1/provider/coupons/{id}', 'GET api/v1/provider/reviews', 'POST api/v1/provider/reviews/{id}/reply', 'PATCH api/v1/provider/reviews/{id}/reply', 'DELETE api/v1/provider/reviews/{id}/reply', 'GET api/v1/provider/analytics', 'GET api/v1/provider/verification', 'POST api/v1/provider/verification/{key}', 'GET api/v1/provider/verification/files/{document}', 'GET api/v1/provider/withdrawals', 'GET api/v1/provider/withdrawals/{id}',
         ];
         sort($expected);
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Concerns;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\BulkDatabaseSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -24,6 +25,15 @@ trait UsesSeededBulkDatabase
     private static ?string $bulkDatabase = null;
 
     private static bool $bulkSeeded = false;
+
+    /** The minute the data was seeded in. The seeders decide what is "a day old" at THIS time, so a test that asks later must ask relative to it, not to a later now(). */
+    private static ?Carbon $bulkSeededAt = null;
+
+    /** When the data was seeded (to the minute). Anything the seeders called older than a day, they called so relative to this or a moment later. */
+    protected function bulkSeededAt(): Carbon
+    {
+        return self::$bulkSeededAt->copy();
+    }
 
     protected function bulkScale(): float
     {
@@ -48,6 +58,7 @@ trait UsesSeededBulkDatabase
             touch(self::$bulkDatabase);
 
             $this->artisan('migrate:fresh', ['--force' => true]);
+            self::$bulkSeededAt = Carbon::now()->startOfMinute();
             $this->seed(BulkDatabaseSeeder::class);
 
             self::$bulkSeeded = true;
@@ -65,6 +76,7 @@ trait UsesSeededBulkDatabase
 
         self::$bulkDatabase = null;
         self::$bulkSeeded = false;
+        self::$bulkSeededAt = null;
 
         // Hand the seeded rows' memory back before the next test class starts (the suite is one long process).
         gc_collect_cycles();

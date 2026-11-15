@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Seeders;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\BulkUserSeeder;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\ProviderMonthlyReservationSeeder;
@@ -20,6 +21,24 @@ use Tests\TestCase;
 class SeederDeterminismTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * The clock is frozen for every test. A seeder places its dates relative to now, and these tests seed twice and compare: on a slow run the clock can cross a
+     * minute between the two seedings, which made the same data look different by a minute. Frozen, both seedings see the same instant.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow(Carbon::now());
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     /** Destroys a Faker object, which reseeds PHP's global random generator: exactly what the garbage collector did by itself. */
     private function destroyAFakerObject(): void

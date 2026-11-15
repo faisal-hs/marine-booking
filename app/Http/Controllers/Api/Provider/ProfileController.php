@@ -30,6 +30,7 @@ class ProfileController extends BaseApiController
         // As before, a field sent as null is left alone (PATCH is the way to clear one). Critical information (the business name) now waits for
         // an admin, the same as through PATCH: the rule is about the information, not the verb.
         $result = $this->profiles->update($user, array_filter($request->payload(), fn ($v) => $v !== null));
+        $this->profiles->changeImage($user->provider, $request->file('image'), $request->boolean('remove_image'));
 
         return $this->success(
             $this->withAccount($user, new ProviderResource($user->fresh()->provider)),

@@ -35,6 +35,11 @@ class DatabaseSeeder extends Seeder
             FeatureDefinitionSeeder::class,
             ActivitySeeder::class,
             CitySeeder::class,
+            ProviderMonthlyReservationSeeder::class,
+            ProviderAnalyticsDemoSeeder::class,
+            ProviderWithdrawalsDemoSeeder::class,
+            NotificationsDemoSeeder::class,
+
         ]);
     }
 }
