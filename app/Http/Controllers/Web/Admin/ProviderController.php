@@ -66,7 +66,7 @@ class ProviderController extends Controller
 
     public function store(StoreProviderRequest $request): RedirectResponse
     {
-        $provider = $this->management->create($request->payload(), $request->verifyNow());
+        $provider = $this->management->create($request->payload(), $request->verifyNow(), $request->user());
 
         return redirect()->route('admin.providers.show', $provider)->with('status', __('admin.providers.created'));
     }

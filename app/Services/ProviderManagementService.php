@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Payment;
 use App\Models\Provider;
+use App\Models\ProviderRequest;
 use App\Models\Reservation;
+use App\Models\User;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
 use App\Repositories\Contracts\ProviderRepositoryInterface;
 use App\Repositories\Contracts\ReservationRepositoryInterface;
@@ -46,7 +48,7 @@ class ProviderManagementService
      *                           verification service, so the owner is notified exactly as
      *                           when an admin verifies them later.
      */
-    public function create(array $data, bool $verifyNow = false): Provider
+    public function create(array $data, bool $verifyNow = false, ?User $by = null): Provider
     {
         $provider = DB::transaction(function () use ($data) {
             $user = $this->users->create([
@@ -57,7 +59,7 @@ class ProviderManagementService
                 'status' => 'active',
             ]);
 
-            return $this->providers->create([
+            $provider = $this->providers->create([
                 'user_id' => $user->id,
                 'business_name' => $data['business_name'],
                 'slug' => $this->generateUniqueSlug($data['business_name']),
@@ -71,10 +73,17 @@ class ProviderManagementService
                 'commission_rate' => $data['commission_rate'] ?? 0,
                 'commission_type' => $data['commission_type'] ?? 'percentage',
             ]);
+
+            // Every provider that can sign in has an application, as one who signs up does: the provider app asks for it (GET /provider/apply) and answers "you have not
+            // submitted an application yet" without one. Staff adding a provider is the application, waiting for the verification below.
+            ProviderRequest::create(['user_id' => $user->id, 'provider_id' => $provider->id, 'source' => ProviderRequest::SOURCE_REGISTRATION, 'status' => 'pending', 'submitted_at' => now()]);
+
+            return $provider;
         });
 
         if ($verifyNow) {
-            $this->verification->verify($provider);
+            // Verifying settles the pending application (approved, by whoever added the provider).
+            $this->verification->verify($provider, $by);
         }
 
         return $provider->fresh('user');

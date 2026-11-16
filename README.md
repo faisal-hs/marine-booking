@@ -217,6 +217,30 @@ php artisan db:seed --class=NotificationsDemoSeeder        # five of every kind 
   by the app's own notification class from the person's real records of the right status (an unsaved record where there is none), so the stored shape is the app's own.
   Customers 35 each, providers 80 each, 2,645 in all. Run it after the other seeders so there are real bookings, payments and withdrawals to point at.
 
+## Applications for every provider
+
+A provider signs in and asks `GET /provider/apply`, so **every provider that can sign in has an application**. One who signs up gets it from the sign-up; one that **staff add from the
+admin panel** gets a pending application when added (approved at once if "verify now" is ticked, by the staff member who added them); and the **demo providers** get theirs from
+`ProviderApplicationsSeeder`, which `DatabaseSeeder` runs right after the providers are made:
+
+```bash
+php artisan db:seed --class=ProviderApplicationsSeeder
+```
+
+Verified providers get an *approved* application (reviewed by an admin after it was submitted), pending ones a *pending* one, rejected ones a *rejected* one with their reason. It only fills
+the **gaps**: a provider with an application of any status is left as it is, so it is safe to run again and on an installation that has real applications (it is not refused in production).
+The bulk seeders leave about one in seven pending bulk providers without an application on purpose (a "not submitted yet" case): run it after them to fill those too.
+
+## The storage link
+
+`php artisan storage:link` makes `public/storage` point at `storage/app/public`, which is what makes provider pictures and activity photos reachable from the web. Where there is no shell,
+a **super admin** (the permission `system.storage_link`, which no other role has) can do the same over the admin API, with the token from `POST /api/v1/auth/admin/login`:
+
+- `GET /api/v1/admin/storage-link`: what state each link is in (`linked`, `missing`, `wrong_target`, `broken` or `blocked`), changing nothing.
+- `POST /api/v1/admin/storage-link`: runs the command. Safe to repeat (a link that is already right is left alone), limited to 5 a minute, and every run is logged with who ran it.
+  A real file or folder where the link should be is **never** touched, and a link that points somewhere else is replaced only with `force: true`. A server that does not allow links
+  answers with an error, not a crash. It never gives away where on the server the application lives.
+
 ## Running the app
 
 Three processes need to be running. `composer dev` starts all of them; or use three terminals:
@@ -443,8 +467,8 @@ mention.
 
 1. `APP_ENV=production`, `APP_DEBUG=false`, a freshly generated `APP_KEY`, and a real database.
 2. `composer install --no-dev --optimize-autoloader`, then `php artisan migrate --force` and
-   `php artisan storage:link`, then `php artisan config:cache`, `php artisan route:cache` and
-   `php artisan view:cache`. Run the cache commands with `APP_ENV=production` set, because
+   `php artisan storage:link` (or, where there is no shell, a **super admin** can make the link with `POST /api/v1/admin/storage-link`: see "The storage link" below), then
+   `php artisan config:cache`, `php artisan route:cache` and `php artisan view:cache`. Run the cache commands with `APP_ENV=production` set, because
    `config:cache` freezes the environment it is run in.
 3. **Seeding is safe in production.** `php artisan db:seed --force` there seeds only the roles
    and permissions the admin panel needs and skips the demo seeders, and each demo seeder
@@ -463,14 +487,16 @@ mention.
 7. Back up `storage/app/private` (the verification documents) together with the database, and make
    sure the web server does not serve it.
 9. **Providers that registered before the provider request existed** and were never approved will find
-   the provider side closed until they submit a request; approved providers are unaffected. Existing
+   the provider side closed until they submit a request; approved providers are unaffected. A provider that has **no application at all** (made by an older version
+   of the demo seeders, say) gets "you have not submitted an application yet" from `GET /provider/apply`: `php artisan db:seed --class=ProviderApplicationsSeeder --force` gives
+   each the one its state implies and leaves every existing application alone. Existing
    approved providers have no `city` or `area` until they set them on their profile.
 10. Decide on `OTP_DEFAULT_CODE_ENABLED` for every environment. It must be off (or unset) in production
    once real users sign in.
 8. After updating an existing installation, run `php artisan migrate` (new tables) and
    `php artisan db:seed --class=RolesAndPermissionsSeeder --force` (new permissions, such as
-   `notifications.create`). The seeder is idempotent and safe in production. Without it the new
-   buttons never appear for anyone but a super admin.
+   `notifications.create`, `system.storage_link`). The seeder is idempotent and safe in production. Without it the new
+   buttons never appear for anyone but a super admin (`system.storage_link` is held by the super admin alone, on purpose).
 
 ## Known limitations
 

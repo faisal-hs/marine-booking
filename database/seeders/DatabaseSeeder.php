@@ -30,6 +30,8 @@ class DatabaseSeeder extends Seeder
             AdminRoleUsersSeeder::class,
             DemoUsersSeeder::class,
             ProviderSeeder::class,
+            // Every provider that can sign in has an application to show on GET /provider/apply: the providers above were made without one.
+            ProviderApplicationsSeeder::class,
             CustomerSeeder::class,
             CategorySeeder::class,
             FeatureDefinitionSeeder::class,
@@ -39,7 +41,6 @@ class DatabaseSeeder extends Seeder
             ProviderAnalyticsDemoSeeder::class,
             ProviderWithdrawalsDemoSeeder::class,
             NotificationsDemoSeeder::class,
-
         ]);
     }
 }

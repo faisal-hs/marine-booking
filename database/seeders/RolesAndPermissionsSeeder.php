@@ -63,6 +63,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'roles.delete',
         'settings.view',
         'settings.update',
+        // Running `storage:link` from the admin API. Only in this list, not in a role's own: so only the super admin, who has every permission, holds it.
+        'system.storage_link',
     ];
 
     public function run(): void

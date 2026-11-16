@@ -245,6 +245,13 @@ Route::middleware(['auth:sanctum', 'ability:customer,provider'])->prefix('accoun
 | which is wrong for a JSON API. Under /api/* the exception handler (bootstrap/app.php) renders failures as JSON.
 */
 Route::middleware(['auth:sanctum', 'staff.api'])->prefix('admin')->name('api.admin.')->group(function () {
+    // `php artisan storage:link`: its state, and making it. Super admin only (the permission system.storage_link); making it is limited to 5 a minute.
+    Route::get('/storage-link', [App\Http\Controllers\Api\Admin\StorageLinkController::class, 'show'])
+        ->name('storage-link.show');
+    Route::post('/storage-link', [App\Http\Controllers\Api\Admin\StorageLinkController::class, 'store'])
+        ->middleware('throttle:5,1')
+        ->name('storage-link.store');
+
     Route::get('/reservations', [App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
         ->name('reservations.index');
     Route::get('/reservations/{reservation}', [App\Http\Controllers\Api\Admin\ReservationController::class, 'show'])
