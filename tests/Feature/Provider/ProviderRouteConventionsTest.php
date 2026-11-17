@@ -113,6 +113,9 @@ class ProviderRouteConventionsTest extends TestCase
             // The verification documents: part of getting approved, and an approved provider may be asked for a new version.
             'GET api/v1/provider/verification',
             'POST api/v1/provider/verification/{key}',
+            // How the provider wants to be told things (email, SMS, WhatsApp, news and offers): an applicant can say how they want to be reached.
+            'GET api/v1/provider/notification-preferences',
+            'PUT api/v1/provider/notification-preferences',
         ];
 
         // The one provider route with no token on purpose: the statement a signed, expiring link points to (it is opened by a browser or a PDF viewer).

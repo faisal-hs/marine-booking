@@ -249,8 +249,24 @@ Route::middleware(['auth:sanctum', 'staff.api'])->prefix('admin')->name('api.adm
     Route::get('/storage-link', [App\Http\Controllers\Api\Admin\StorageLinkController::class, 'show'])
         ->name('storage-link.show');
     Route::post('/storage-link', [App\Http\Controllers\Api\Admin\StorageLinkController::class, 'store'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:admin-storage-link')
         ->name('storage-link.store');
+
+    // `php artisan migrate`, `migrate:fresh` (DROPS EVERY TABLE) and `db:seed`, for an installation with no shell. Super admin only, a permission for each (system.migrate,
+    // system.migrate_fresh, system.seed); migrate:fresh is refused in production unless switched on, and needs a typed phrase and the admin's password. Limits: 10 a minute, 3 for migrate:fresh.
+    Route::get('/system/migrations', [App\Http\Controllers\Api\Admin\SystemCommandController::class, 'migrations'])
+        ->name('system.migrations');
+    Route::post('/system/migrate', [App\Http\Controllers\Api\Admin\SystemCommandController::class, 'migrate'])
+        ->middleware('throttle:admin-system-commands')
+        ->name('system.migrate');
+    Route::post('/system/migrate-fresh', [App\Http\Controllers\Api\Admin\SystemCommandController::class, 'migrateFresh'])
+        ->middleware('throttle:admin-system-destructive')
+        ->name('system.migrate-fresh');
+    Route::get('/system/seeders', [App\Http\Controllers\Api\Admin\SystemCommandController::class, 'seeders'])
+        ->name('system.seeders');
+    Route::post('/system/seed', [App\Http\Controllers\Api\Admin\SystemCommandController::class, 'seed'])
+        ->middleware('throttle:admin-system-commands')
+        ->name('system.seed');
 
     Route::get('/reservations', [App\Http\Controllers\Api\Admin\ReservationController::class, 'index'])
         ->name('reservations.index');

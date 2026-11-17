@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use App\Events\PaymentFailed;
 use App\Events\ActivitySuspended;
 use App\Events\ActivitySuspensionLifted;
+use App\Events\PaymentFailed;
 use App\Events\PaymentRefunded;
 use App\Events\ProviderRejected;
 use App\Events\ProviderRequestSubmitted;
@@ -13,9 +13,9 @@ use App\Events\ReservationCancelled;
 use App\Events\ReservationConfirmed;
 use App\Events\ReservationCreated;
 use App\Events\ReservationExpired;
-use App\Listeners\Notifications\SendPaymentFailedNotifications;
 use App\Listeners\Notifications\SendActivitySuspendedNotifications;
 use App\Listeners\Notifications\SendActivitySuspensionLiftedNotifications;
+use App\Listeners\Notifications\SendPaymentFailedNotifications;
 use App\Listeners\Notifications\SendPaymentRefundedNotifications;
 use App\Listeners\Notifications\SendProviderRejectedNotifications;
 use App\Listeners\Notifications\SendProviderRequestSubmittedNotifications;
@@ -24,6 +24,7 @@ use App\Listeners\Notifications\SendReservationCancelledNotifications;
 use App\Listeners\Notifications\SendReservationConfirmedNotifications;
 use App\Listeners\Notifications\SendReservationCreatedNotifications;
 use App\Listeners\Notifications\SendReservationExpiredNotifications;
+use App\Listeners\Wallet\SyncWalletOnRefund;
 use App\Notifications\Channels\FcmChannel;
 use App\Notifications\Channels\SmsChannel;
 use App\Repositories\Contracts\CategoryRepositoryInterface;
@@ -119,6 +120,12 @@ class AppServiceProvider extends ServiceProvider
         // one place, and how many codes one place can ask for in all, which stops a script walking through many numbers.
         // Starting a payment is what costs money once the mock gateway is replaced by a real one: every attempt reaches the
         // gateway. Ten a minute per customer is far above what a person does and well below what a script does.
+        // The admin API's commands each have a budget of their own (a numeric throttle would share one counter, per user, with every other numeric throttle).
+        RateLimiter::for('admin-storage-link', fn (Request $request) => Limit::perMinute(5)->by('admin-storage-link:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('admin-system-commands', fn (Request $request) => Limit::perMinute(10)->by('admin-system-commands:'.($request->user()?->id ?? $request->ip())));
+        // migrate:fresh drops every table, and asks for the admin's password: a refused or mistyped attempt counts, so it cannot be guessed at.
+        RateLimiter::for('admin-system-destructive', fn (Request $request) => Limit::perMinute(3)->by('admin-system-destructive:'.($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('payments', function (Request $request) {
             return Limit::perMinute(10)->by('payments:'.($request->user()?->id ?? $request->ip()));
         });
@@ -168,7 +175,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(PaymentFailed::class, SendPaymentFailedNotifications::class);
         Event::listen(PaymentRefunded::class, SendPaymentRefundedNotifications::class);
-        Event::listen(PaymentRefunded::class, \App\Listeners\Wallet\SyncWalletOnRefund::class);
+        Event::listen(PaymentRefunded::class, SyncWalletOnRefund::class);
 
         Event::listen(ActivitySuspended::class, SendActivitySuspendedNotifications::class);
         Event::listen(ActivitySuspensionLifted::class, SendActivitySuspensionLiftedNotifications::class);

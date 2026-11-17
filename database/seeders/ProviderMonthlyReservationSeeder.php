@@ -25,6 +25,15 @@ use RuntimeException;
  *  - status "completed" for days before today, "confirmed" for today and later (a trip is not completed in advance);
  *  - booked by active customers, never by the provider themselves.
  *
+ * On top of those, so the provider's bookings list has every status to show, each active provider also gets reservations in the OTHER statuses (they do not count
+ * towards the 50, which are the paid ones):
+ *  - PENDING, 5 live at a time: a customer who is still paying. Made a few minutes ago with a live 15-minute hold, for today or a later day of the month, and holding its
+ *    places as the app does. The app's scheduler (reservations:expire-stale-holds, every five minutes) turns a hold that has run out into an expired booking, so running the
+ *    seeder again later makes new pending ones to bring the live ones back to 5. (At the very end of the month there may be few days left to book, and fewer are made.)
+ *  - CANCELLED, 6: paid first, then cancelled before the trip by the customer (about 7 in 10) or the provider, with a reason, and the payment refunded in full.
+ *  - EXPIRED, 4: never paid: the hold ran out. No payment.
+ *  Cancelled and expired ones are within the current month and free their places.
+ *
  * "At least 50" counts what is already there: the confirmed and completed reservations of the provider in the
  * month that have a succeeded payment, however they were created. So it only adds the shortfall, running it again
  * adds nothing, and raising PROVIDER_MONTH_MINIMUM adds only the difference.
@@ -34,9 +43,9 @@ use RuntimeException;
  * could never reach the minimum. In the demo data that is a third of the approved providers.
  *
  * It does not follow BULK_SEED_SCALE: the minimum is a requirement, not a volume. Everything is deterministic for a
- * given month and seed. It refuses to run in production.
+ * given month and seed (each of the other-status reservations draws from a stream of its own, so it is the same whenever it is made). It refuses to run in production.
  *
- * Volume: at least 50 reservations, 50 payments and their capacity locks per active provider.
+ * Volume: at least 50 paid reservations (and 50 payments) per active provider, plus 5 pending, 6 cancelled (with refunded payments) and 4 expired ones, and the capacity locks.
  * Prerequisites: ProviderSeeder (or BulkProviderSeeder), CustomerSeeder (or BulkCustomerSeeder), CategorySeeder.
  */
 class ProviderMonthlyReservationSeeder extends BulkSeeder
@@ -44,6 +53,13 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
     use PricesReservations;
 
     private const LIVE = ['confirmed', 'completed', 'pending'];
+
+    /** How many reservations in each of the other statuses an active provider has: pending ones that are live now, cancelled and expired ones in the month. */
+    private const OTHER = ['pending' => 5, 'cancelled' => 6, 'expired' => 4];
+
+    private const CANCEL_REASONS = ['Change of plans', 'Bad weather forecast', 'Found a better price', 'Someone in the group is ill', 'Booked twice by mistake'];
+
+    private int $othersAdded = 0;
 
     private int $reservationsAdded = 0;
 
@@ -71,13 +87,15 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
 
         foreach ($providers as $provider) {
             $this->topUp($provider, $minimum, $customers);
+            $this->addOtherStatuses($provider, $customers);
         }
 
         $this->line(sprintf(
-            '%d active provider(s); %d needed bookings (%d reservations added, %d demo activit%s created) for %s.',
+            '%d active provider(s); %d needed bookings (%d paid reservations added, %d pending, cancelled or expired ones, %d demo activit%s created) for %s.',
             count($providers),
             $this->providersToppedUp,
             $this->reservationsAdded,
+            $this->othersAdded,
             $this->activitiesCreated,
             $this->activitiesCreated === 1 ? 'y' : 'ies',
             $this->now->format('F Y')
@@ -273,6 +291,162 @@ class ProviderMonthlyReservationSeeder extends BulkSeeder
             'created_at' => $reservation['confirmed_at'],
             'updated_at' => $reservation['confirmed_at'],
         ];
+    }
+
+    // --- The other statuses --------------------------------------------------------------------------------------
+
+    /** Brings the provider's pending (live), cancelled and expired reservations up to their numbers. Nothing for a provider with nothing bookable. */
+    private function addOtherStatuses(object $provider, array $customers): void
+    {
+        $inventory = $this->inventory($provider->id);
+
+        if ($inventory === []) {
+            return;
+        }
+
+        $month = $this->now->format('Ym');
+        $weekdays = $this->datesByWeekday();
+        $load = $this->existingLoad($provider->id);
+        $today = $this->now->copy()->startOfDay();
+        $slots = [];
+
+        // Pending: the live ones are counted, and the shortfall is made in slots that are not yet taken (so a later run, after the scheduler has expired the earlier ones, makes new ones).
+        $live = DB::table('reservations as r')->join('activities as a', 'a.id', '=', 'r.activity_id')->where('a.provider_id', $provider->id)->where('r.status', 'pending')
+            ->whereNull('r.deleted_at')->where('r.hold_expires_at', '>', $this->ts($this->now))->count();
+        $k = 0;
+        for ($need = self::OTHER['pending'] - $live; $need > 0 && $k < 500; $k++) {
+            $uuid = $this->uuid('provider-month-pending', "{$provider->id}-{$k}");
+
+            if (! DB::table('reservations')->where('uuid', $uuid)->exists()) {
+                $slots[] = ['pending', $uuid];
+                $need--;
+            }
+        }
+
+        // Cancelled and expired: fixed slots for the month, so a re-run knows its own and adds nothing.
+        foreach (['cancelled', 'expired'] as $status) {
+            foreach (range(0, self::OTHER[$status] - 1) as $n) {
+                $uuid = $this->uuid("provider-month-{$status}", "{$provider->id}-{$month}-{$n}");
+
+                if (! DB::table('reservations')->where('uuid', $uuid)->exists()) {
+                    $slots[] = [$status, $uuid];
+                }
+            }
+        }
+
+        $rows = [];
+        $locks = [];
+
+        foreach ($slots as [$status, $uuid]) {
+            $placed = $this->placeOther($status, $uuid, $provider, $inventory, $customers, $status === 'pending' ? $this->upcoming($weekdays, $today) : $weekdays, $load);
+
+            if ($placed === null) {
+                continue;   // nothing to fit (the end of the month, or a full calendar): fewer are made
+            }
+
+            $rows[] = $placed[0];
+            if ($placed[1] !== null) {
+                $locks[$placed[1]['activity_booking_option_id'].'|'.$placed[1]['schedule_period_id'].'|'.$placed[1]['reservation_date']] = $placed[1];
+            }
+        }
+
+        $this->insert('reservations', $rows);
+        $ids = DB::table('reservations')->whereIn('uuid', array_column($rows, 'uuid'))->pluck('id', 'uuid');
+        // Only a cancelled booking was paid (and the money given back).
+        $this->insert('payments', array_map(fn (array $row) => $this->refundedPayment($ids[$row['uuid']], $row), array_values(array_filter($rows, fn (array $row) => $row['status'] === 'cancelled'))));
+        $this->insert('reservation_capacity_locks', array_values($locks));
+
+        $this->othersAdded += count($rows);
+    }
+
+    /** @return array<int, list<Carbon>> the dates of the month from today on, by weekday */
+    private function upcoming(array $weekdays, Carbon $today): array
+    {
+        return array_map(fn (array $dates) => array_values(array_filter($dates, fn (Carbon $d) => $d->greaterThanOrEqualTo($today))), $weekdays);
+    }
+
+    /** @return array{0: array<string, mixed>, 1: ?array<string, mixed>}|null the reservation and, for a pending one, the lock on its departure; null when nothing fits */
+    private function placeOther(string $status, string $uuid, object $provider, array $inventory, array $customers, array $weekdays, array &$load): ?array
+    {
+        // Each one draws from a stream of its own, started from its slot: it comes out the same whenever it is made.
+        $this->startRandom((crc32("provider-month-other|{$uuid}") ^ (int) config('seeding.seed')) & 0x7FFFFFFF);
+
+        for ($attempt = 0; $attempt < 200; $attempt++) {
+            $option = $inventory[$this->rand(0, count($inventory) - 1)];
+            $period = $option->periods[$this->rand(0, count($option->periods) - 1)];
+            $dates = $weekdays[(int) $period->day_of_week];
+
+            if ($dates === []) {
+                continue;
+            }
+
+            $date = $dates[$this->rand(0, count($dates) - 1)];
+            $price = $this->price($option);
+            $key = $option->activity_id.'|'.$date->toDateString();
+
+            // A pending booking holds its places (and a lock on its departure) while the hold lasts; a cancelled or expired one has given them back.
+            if ($status === 'pending' && ($load[$key] ?? 0) + $price['size'] > $option->max_participants) {
+                continue;
+            }
+
+            $customer = $customers[$this->rand(0, count($customers) - 1)];
+            if ($customer->user_id === $provider->user_id) {
+                continue;
+            }
+
+            $row = $this->row($uuid, $option, $period, $customer->id, $date, $price);
+            $row = $this->asStatus($status, $row, $date, $customer, $provider);
+
+            if ($status === 'pending') {
+                $load[$key] = ($load[$key] ?? 0) + $price['size'];
+
+                return [$row, ['activity_booking_option_id' => $option->id, 'schedule_period_id' => $period->id, 'reservation_date' => $date->toDateString(),
+                    'created_at' => $this->ts($this->now), 'updated_at' => $this->ts($this->now)]];
+            }
+
+            return [$row, null];
+        }
+
+        return null;
+    }
+
+    /** Turns a paid booking (row()) into the pending, cancelled or expired one. */
+    private function asStatus(string $status, array $row, Carbon $date, object $customer, object $provider): array
+    {
+        // Every row has the same columns (they are inserted together): the cancellation fields are null unless it is cancelled.
+        $row = array_merge($row, ['cancellation_source' => null, 'cancelled_by_user_id' => null]);
+
+        if ($status === 'pending') {
+            // Still being paid for: made a few minutes ago, the 15-minute hold still running.
+            $created = $this->now->copy()->subMinutes($this->rand(1, 10));
+
+            return array_merge($row, ['status' => 'pending', 'hold_expires_at' => $this->ts($created->copy()->addMinutes(15)), 'confirmed_at' => null,
+                'created_at' => $this->ts($created), 'updated_at' => $this->ts($created)]);
+        }
+
+        if ($status === 'expired') {
+            // Never paid: the hold ran out (booked at least two hours ago, so it is long past).
+            $held = Carbon::parse($row['created_at'])->addMinutes(15);
+
+            return array_merge($row, ['status' => 'expired', 'hold_expires_at' => $this->ts($held), 'confirmed_at' => null, 'updated_at' => $this->ts($held)]);
+        }
+
+        // Cancelled: paid, then cancelled some hours or days later, before the trip and no later than now.
+        $confirmed = Carbon::parse($row['confirmed_at']);
+        $cancelled = $confirmed->copy()->addMinutes($this->rand(60, 2880));
+        // (Carbon's min() takes one date, so it is applied twice: no later than now, and before the trip's day begins.)
+        $cancelled = $cancelled->min($this->now->copy()->subMinutes(5))->min($date->copy()->startOfDay()->subMinute());
+        $cancelled = $cancelled->lessThan($confirmed) ? $confirmed->copy()->addMinute() : $cancelled;
+        $byProvider = $this->chance(30);
+
+        return array_merge($row, ['status' => 'cancelled', 'cancelled_at' => $this->ts($cancelled), 'cancellation_reason' => $this->pick(self::CANCEL_REASONS),
+            'cancellation_source' => $byProvider ? 'provider' : 'customer', 'cancelled_by_user_id' => $byProvider ? $provider->user_id : $customer->user_id, 'updated_at' => $this->ts($cancelled)]);
+    }
+
+    /** The payment of a cancelled booking: it succeeded, and was then given back in full. */
+    private function refundedPayment(int $reservationId, array $reservation): array
+    {
+        return array_merge($this->payment($reservationId, $reservation), ['status' => 'refunded', 'refunded_amount' => $reservation['total'], 'updated_at' => $reservation['cancelled_at']]);
     }
 
     // --- What can be booked ------------------------------------------------------------------------------

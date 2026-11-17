@@ -75,11 +75,40 @@ class ProviderVerificationApiTest extends TestCase
 
         $this->assertSame(['commercial_registration', 'safety_certification', 'insurance_certificate', 'business_license', 'identity_document', 'professional_certification', 'insurance', 'other'], array_column($data, 'key'));
         foreach ($data as $row) {
-            $this->assertSame(['key', 'title', 'status', 'is_done', 'file_url', 'review_note', 'description', 'is_mandatory', 'uploaded_at', 'expires_at', 'update_requested_at', 'can_upload'], array_keys($row));
+            $this->assertSame(['key', 'title', 'title_ar', 'title_en', 'status', 'is_done', 'file_url', 'review_note', 'description', 'is_mandatory', 'uploaded_at', 'expires_at', 'update_requested_at', 'can_upload'], array_keys($row));
             $this->assertSame(['missing', false, null, null, true], [$row['status'], $row['is_done'], $row['file_url'], $row['review_note'], $row['can_upload']]);
         }
         $this->assertSame(['commercial_registration', 'safety_certification', 'insurance_certificate'], collect($data)->where('is_mandatory', true)->pluck('key')->all());
         $this->assertSame('Commercial registration', $data[0]['title']);
+    }
+
+    public function test_every_document_carries_both_titles_in_whatever_language_the_request_is_in(): void
+    {
+        $english = collect($this->list()->assertOk()->json('data'));
+
+        app()->setLocale('ar');
+        $arabic = collect($this->list()->assertOk()->json('data'));
+        app()->setLocale('en');
+
+        foreach (VerificationDocumentType::where('is_active', true)->get() as $type) {
+            foreach ([$english, $arabic] as $list) {
+                $row = $list->firstWhere('key', $type->key);
+                $this->assertSame([$type->title_ar, $type->title_en], [$row['title_ar'], $row['title_en']], $type->key);
+            }
+        }
+        // `title` is still the one in the request's language, and is one of the two.
+        $this->assertSame($english->pluck('title_en')->all(), $english->pluck('title')->all());
+        $this->assertSame($arabic->pluck('title_ar')->all(), $arabic->pluck('title')->all());
+        $this->assertNotSame($english->pluck('title')->all(), $arabic->pluck('title')->all());
+    }
+
+    public function test_the_two_titles_follow_what_the_admin_edits(): void
+    {
+        VerificationDocumentType::where('key', 'insurance')->update(['title_en' => 'Cover note', 'title_ar' => 'شهادة التأمين الجديدة']);
+
+        $row = $this->row('insurance');
+
+        $this->assertSame(['شهادة التأمين الجديدة', 'Cover note'], [$row['title_ar'], $row['title_en']]);
     }
 
     public function test_the_list_follows_what_the_admin_configured(): void

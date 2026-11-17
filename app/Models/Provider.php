@@ -39,6 +39,10 @@ class Provider extends Model
         'lng',
         'verification_status',
         'rejection_reason',
+        'notify_email',
+        'notify_sms',
+        'notify_whatsapp',
+        'notify_news_and_offers',
         'commission_rate',
         'commission_type',
         'bank_account',
@@ -49,6 +53,10 @@ class Provider extends Model
         'lng' => 'decimal:7',
         'commission_rate' => 'decimal:2',
         'bank_account' => 'encrypted:array',
+        'notify_email' => 'boolean',
+        'notify_sms' => 'boolean',
+        'notify_whatsapp' => 'boolean',
+        'notify_news_and_offers' => 'boolean',
     ];
 
     /**

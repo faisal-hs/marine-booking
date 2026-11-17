@@ -64,7 +64,7 @@ class SeederDeterminismTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $this->seed(ProviderMonthlyReservationSeeder::class);
         $untouched = $this->reservations();
-        $this->assertCount(750, $untouched);
+        $this->assertCount(975, $untouched, '15 providers: 50 paid, 5 pending, 6 cancelled and 4 expired each');
         $this->clearReservations();
 
         // Every time the seeder writes payments, a Faker object is destroyed under it.

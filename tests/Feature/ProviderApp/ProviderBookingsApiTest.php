@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\ProviderApp;
 
+use App\Models\Reservation;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\BuildsProviderAppScenarios;
 use Tests\TestCase;
 
@@ -60,7 +62,8 @@ class ProviderBookingsApiTest extends TestCase
     {
         $first = $this->list('?filter=today')['data']['bookings'][0];
 
-        $this->assertSame(['id', 'customer_name', 'activity', 'date_time', 'guests', 'amount', 'status'], array_keys($first));
+        $this->assertSame(['id', 'customer_name', 'customer_logo', 'activity', 'date_time', 'guests', 'amount', 'status'], array_keys($first));
+        $this->assertNull($first['customer_logo'], 'A customer with no picture has a null logo');
         $this->assertSame($this->ids['today_confirmed'], $first['id']);
         $this->assertSame('Fatima Al-Zahrani', $first['customer_name']);
         $this->assertSame('Reef Dive', $first['activity']);
@@ -94,14 +97,55 @@ class ProviderBookingsApiTest extends TestCase
         $this->assertSame([$this->ids['today_pending'], $this->ids['later_pending']], $this->idsOf($this->list('?filter=pending')));
     }
 
-    public function test_all_lists_everything_newest_trip_first_and_is_the_default(): void
+    public function test_all_lists_todays_trips_first_then_everything_else_newest_trip_first_and_is_the_default(): void
     {
         $all = $this->idsOf($this->list('?filter=all'));
 
         $this->assertCount(8, $all);
-        $this->assertSame($this->ids['later_pending'], $all[0]);
-        $this->assertSame($this->ids['past_completed'], $all[7], 'The oldest trip is last');
-        $this->assertSame($all, $this->idsOf($this->list()));
+        // Today's three (the newest booking first), then the rest by trip date, newest first: the 20th, the 16th, the 12th, the 11th, the 10th.
+        $this->assertSame([$this->ids['today_cancelled'], $this->ids['today_pending'], $this->ids['today_confirmed'], $this->ids['later_pending'], $this->ids['tomorrow'],
+            $this->ids['past_expired'], $this->ids['past_cancelled'], $this->ids['past_completed']], $all);
+        $this->assertSame($all, $this->idsOf($this->list()), 'The same with no filter at all');
+    }
+
+    public function test_today_comes_first_with_a_status_filter_a_range_and_across_pages(): void
+    {
+        $this->assertSame([$this->ids['today_pending'], $this->ids['later_pending']], $this->idsOf($this->list('?filter=all&status=pending')), 'Today\'s pending, then the later one');
+        $this->assertSame([$this->ids['today_cancelled'], $this->ids['past_cancelled']], $this->idsOf($this->list('?status=cancelled')));
+        $this->assertSame([$this->ids['today_cancelled'], $this->ids['today_pending'], $this->ids['today_confirmed'], $this->ids['tomorrow']], $this->idsOf($this->list('?from=2026-11-15&to=2026-11-16')));
+
+        // One list, cut into pages of three: the pages join up in the same order, with nothing repeated or lost.
+        $pages = array_merge($this->idsOf($this->list('?per_page=3&page=1')), $this->idsOf($this->list('?per_page=3&page=2')), $this->idsOf($this->list('?per_page=3&page=3')));
+        $this->assertSame($this->idsOf($this->list()), $pages);
+    }
+
+    public function test_with_no_trips_today_it_is_simply_newest_first(): void
+    {
+        DB::table('reservations')->where('reservation_date', '2026-11-15')->delete();
+
+        $all = $this->idsOf($this->list('?filter=all'));
+
+        $this->assertSame([$this->ids['later_pending'], $this->ids['tomorrow'], $this->ids['past_expired'], $this->ids['past_cancelled'], $this->ids['past_completed']], $all);
+    }
+
+    public function test_the_other_tabs_keep_their_own_order(): void
+    {
+        // Today's soonest departure first, upcoming soonest first: today-first is the order of "all" only.
+        $this->assertSame([$this->ids['today_confirmed'], $this->ids['today_pending']], $this->idsOf($this->list('?filter=today')));
+        $this->assertSame([$this->ids['tomorrow'], $this->ids['later_pending']], $this->idsOf($this->list('?filter=upcoming')));
+    }
+
+    public function test_a_booking_carries_the_customers_picture_as_a_url(): void
+    {
+        $fatima = Reservation::find($this->ids['today_confirmed'])->customer;
+        $fatima->user->forceFill(['avatar_path' => 'avatars/fatima.png'])->save();
+
+        $bookings = collect($this->list()['data']['bookings'])->keyBy('id');
+
+        $url = Storage::disk('public')->url('avatars/fatima.png');
+        $this->assertSame($url, $bookings[$this->ids['today_confirmed']]['customer_logo']);
+        $this->assertSame($url, $bookings[$this->ids['tomorrow']]['customer_logo'], 'Her other booking too');
+        $this->assertNull($bookings[$this->ids['today_pending']]['customer_logo'], 'Another customer has none');
     }
 
     public function test_the_status_filter_uses_exactly_the_five_booking_statuses_and_combines_with_the_tab(): void

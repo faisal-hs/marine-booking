@@ -122,8 +122,9 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $this->run50();
 
         $this->assertNone(DB::table('reservations')->whereRaw("substr(reservation_date, 1, 7) != '2026-11'")->limit(3)->pluck('uuid'), 'Dated outside the current month');
-        $this->assertNone(DB::table('reservations')->whereNotIn('status', ['confirmed', 'completed'])->limit(3)->pluck('uuid'), 'Only confirmed and completed reservations are made');
+        $this->assertSame(['cancelled', 'completed', 'confirmed', 'expired', 'pending'], DB::table('reservations')->distinct()->orderBy('status')->pluck('status')->all(), 'Every status is made');
         $this->assertNone(DB::table('reservations')->where('status', 'completed')->where('reservation_date', '>=', '2026-11-15')->limit(3)->pluck('uuid'), 'A trip that has not happened yet is completed');
+        $this->assertNone(DB::table('reservations')->where('status', 'pending')->where(fn ($q) => $q->where('reservation_date', '<', '2026-11-15')->orWhere('reservation_date', '>', '2026-11-30'))->limit(3)->pluck('uuid'), 'A pending booking is for today or later in the month');
         $this->assertNone(DB::table('reservations')->where('status', 'confirmed')->where('reservation_date', '<', '2026-11-15')->limit(3)->pluck('uuid'), 'A trip in the past is still only confirmed');
 
         $statuses = DB::table('reservations')->groupBy('status')->selectRaw('status, count(*) as total')->pluck('total', 'status');
@@ -166,10 +167,15 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $this->seedDemo();
         $this->run50();
 
-        $this->assertNone(DB::table('reservations as r')->whereRaw("(select count(*) from payments p where p.reservation_id = r.id and p.status = 'succeeded') != 1")->limit(3)->pluck('r.uuid'), 'Exactly one succeeded payment');
-        $this->assertSame(DB::table('reservations')->count(), DB::table('payments')->count(), 'Nothing but those payments');
+        $paid = fn () => DB::table('reservations as r')->whereIn('r.status', ['confirmed', 'completed']);
+        $this->assertNone($paid()->whereRaw("(select count(*) from payments p where p.reservation_id = r.id and p.status = 'succeeded') != 1")->limit(3)->pluck('r.uuid'), 'Exactly one succeeded payment for a paid reservation');
+        // Paid ones have their payment; cancelled ones were paid and given the money back; pending and expired ones were never paid.
+        $this->assertSame($paid()->count() + DB::table('reservations')->where('status', 'cancelled')->count(), DB::table('payments')->count(), 'Nothing but those payments');
+        $this->assertSame(0, DB::table('payments as p')->join('reservations as r', 'r.id', '=', 'p.reservation_id')->whereIn('r.status', ['pending', 'expired'])->count(), 'Never paid, so no payment');
         $this->assertNone(DB::table('payments as p')->join('reservations as r', 'r.id', '=', 'p.reservation_id')->whereRaw('ABS(p.amount - r.total) > 0.005')->limit(3)->pluck('p.reference_id'), 'Paid in full');
-        $this->assertNone(DB::table('payments')->where(fn ($q) => $q->whereNull('paid_at')->orWhere('refunded_amount', '!=', 0)->orWhere('gateway', '!=', 'mock')->orWhere('currency', '!=', config('platform.currency')))->limit(3)->pluck('reference_id'), 'Paid, never refunded, mock gateway, in the platform currency');
+        $this->assertNone(DB::table('payments as p')->join('reservations as r', 'r.id', '=', 'p.reservation_id')->where(fn ($q) => $q->whereNull('p.paid_at')->orWhere('p.gateway', '!=', 'mock')->orWhere('p.currency', '!=', config('platform.currency'))
+            ->orWhere(fn ($x) => $x->whereIn('r.status', ['confirmed', 'completed'])->where(fn ($y) => $y->where('p.status', '!=', 'succeeded')->orWhere('p.refunded_amount', '!=', 0)))
+            ->orWhere(fn ($x) => $x->where('r.status', 'cancelled')->where(fn ($y) => $y->where('p.status', '!=', 'refunded')->orWhereRaw('ABS(p.refunded_amount - p.amount) > 0.005'))))->limit(3)->pluck('p.reference_id'), 'Paid with the mock gateway, kept (not refunded) when the booking stands and refunded in full when it was cancelled');
         $this->assertNone(DB::table('payments')->where('paid_at', '>', now())->limit(3)->pluck('reference_id'), 'Paid in the future');
         $this->assertSame(DB::table('payments')->count(), DB::table('payments')->distinct()->count('reference_id'), 'Unique payment references');
     }
@@ -225,8 +231,9 @@ class ProviderMonthlyReservationSeederTest extends TestCase
 
         $load = [];
         $capacity = [];
+        // Only a booking that holds its places counts: a cancelled or expired one has given them back.
         foreach (DB::table('reservations as r')->join('activity_booking_options as o', 'o.id', '=', 'r.activity_booking_option_id')->join('activities as a', 'a.id', '=', 'r.activity_id')
-            ->get(['r.activity_id', 'r.reservation_date', 'r.participants', 'r.quantity', 'o.booking_model', 'a.max_participants']) as $r) {
+            ->whereIn('r.status', ['confirmed', 'completed', 'pending'])->get(['r.activity_id', 'r.reservation_date', 'r.participants', 'r.quantity', 'o.booking_model', 'a.max_participants']) as $r) {
             $key = $r->activity_id.'|'.$r->reservation_date;
             $load[$key] = ($load[$key] ?? 0) + match ($r->booking_model) {
                 'per_person' => array_sum(json_decode($r->participants, true) ?: [1]),
@@ -242,7 +249,7 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         }
 
         $this->assertNone($over, 'No activity is booked beyond its capacity on any day');
-        $this->assertSame(15 * 120, DB::table('reservations')->count(), 'The test must really have pushed the demo providers hard');
+        $this->assertSame(15 * 120, DB::table('reservations')->whereIn('status', ['confirmed', 'completed'])->count(), 'The test must really have pushed the demo providers hard');
         $this->assertNotEmpty(array_filter($load, fn ($people, $key) => $people > $capacity[$key] * 0.8, ARRAY_FILTER_USE_BOTH), 'Some days must have come close to full, or this proves nothing');
     }
 
@@ -285,10 +292,173 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $this->run50();
 
         $this->assertNone(
-            DB::table('reservations as r')->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('reservation_capacity_locks as l')
+            DB::table('reservations as r')->whereIn('r.status', ['confirmed', 'completed', 'pending'])->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('reservation_capacity_locks as l')
                 ->whereColumn('l.activity_booking_option_id', 'r.activity_booking_option_id')->whereColumn('l.schedule_period_id', 'r.schedule_period_id')->whereColumn('l.reservation_date', 'r.reservation_date'))->limit(3)->pluck('r.uuid'),
             'Every option, departure and day that was booked has its capacity lock'
         );
+    }
+
+    // --- The other statuses -----------------------------------------------------------------------------------------------------------
+
+    private function others(?string $status = null)
+    {
+        return DB::table('reservations as r')->whereIn('r.status', $status ? [$status] : ['pending', 'cancelled', 'expired']);
+    }
+
+    private function ofProvider($query, int $providerId)
+    {
+        return $query->join('activities as a', 'a.id', '=', 'r.activity_id')->where('a.provider_id', $providerId);
+    }
+
+    public function test_every_active_provider_gets_five_live_pending_six_cancelled_and_four_expired_reservations(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+
+        foreach ($this->activeProviders() as $provider) {
+            $live = $this->ofProvider($this->others('pending'), $provider->id)->where('r.hold_expires_at', '>', now()->toDateTimeString())->count();
+
+            $this->assertSame([5, 6, 4], [$live, $this->ofProvider($this->others('cancelled'), $provider->id)->count(), $this->ofProvider($this->others('expired'), $provider->id)->count()], $provider->business_name);
+            $this->assertSame(50, $this->paidInMonth($provider->id), 'The others are not part of the 50');
+        }
+    }
+
+    public function test_a_pending_booking_is_still_being_paid_for_with_a_live_hold_and_holds_its_places(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+        $now = now()->toDateTimeString();
+
+        $pending = $this->others('pending');
+        $this->assertSame(75, (clone $pending)->count());
+        $this->assertSame(0, (clone $pending)->where(fn ($q) => $q->whereNull('r.hold_expires_at')->orWhere('r.hold_expires_at', '<=', $now)->orWhereNotNull('r.confirmed_at')->orWhereNotNull('r.cancelled_at')
+            ->orWhereRaw("r.hold_expires_at != datetime(r.created_at, '+15 minutes')")->orWhere('r.created_at', '<', now()->subMinutes(11)->toDateTimeString()))->count(), 'Made minutes ago, a 15-minute hold still running, not confirmed');
+        $this->assertSame(0, (clone $pending)->whereExists(fn ($q) => $q->select(DB::raw(1))->from('payments as p')->whereColumn('p.reservation_id', 'r.id'))->count(), 'Not paid yet: no payment');
+        $this->assertSame(0, (clone $pending)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('reservation_capacity_locks as l')->whereColumn('l.activity_booking_option_id', 'r.activity_booking_option_id')
+            ->whereColumn('l.schedule_period_id', 'r.schedule_period_id')->whereColumn('l.reservation_date', 'r.reservation_date'))->count(), 'A pending booking has a lock on its departure');
+    }
+
+    public function test_a_cancelled_booking_was_paid_then_cancelled_before_the_trip_and_refunded_in_full(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+        $now = now()->toDateTimeString();
+
+        $cancelled = $this->others('cancelled');
+        $this->assertSame(90, (clone $cancelled)->count());
+        $this->assertSame(0, (clone $cancelled)->where(fn ($q) => $q->whereNull('r.confirmed_at')->orWhereNull('r.cancelled_at')->orWhereColumn('r.cancelled_at', '<=', 'r.confirmed_at')->orWhere('r.cancelled_at', '>', $now)
+            ->orWhereRaw("r.cancelled_at >= r.reservation_date || ' 00:00:00'")->orWhereNull('r.cancellation_reason')->orWhereNotNull('r.hold_expires_at'))->count(), 'Paid, then cancelled before the trip, no later than now, with a reason');
+        $this->assertSame(0, (clone $cancelled)->whereNotIn('r.cancellation_source', ['customer', 'provider'])->count());
+        $this->assertGreaterThan(10, (clone $cancelled)->where('r.cancellation_source', 'provider')->count(), 'Some are cancelled by the provider');
+        $this->assertGreaterThan(30, (clone $cancelled)->where('r.cancellation_source', 'customer')->count(), 'Most by the customer');
+
+        // Who cancelled is recorded: the customer's user, or the provider's own.
+        $this->assertSame(0, (clone $cancelled)->where('r.cancellation_source', 'customer')->join('customers as c', 'c.id', '=', 'r.customer_id')->whereColumn('c.user_id', '!=', 'r.cancelled_by_user_id')->count());
+        $this->assertSame(0, (clone $cancelled)->where('r.cancellation_source', 'provider')->join('activities as a', 'a.id', '=', 'r.activity_id')->join('providers as p', 'p.id', '=', 'a.provider_id')
+            ->whereColumn('p.user_id', '!=', 'r.cancelled_by_user_id')->count());
+
+        // The payment succeeded and was given back in full.
+        $this->assertSame(0, (clone $cancelled)->whereRaw("(select count(*) from payments p where p.reservation_id = r.id and p.status = 'refunded' and ABS(p.refunded_amount - p.amount) < 0.005 and ABS(p.amount - r.total) < 0.005) != 1")->count());
+    }
+
+    public function test_an_expired_booking_was_never_paid_and_its_hold_ran_out_long_ago(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+
+        $expired = $this->others('expired');
+        $this->assertSame(60, (clone $expired)->count());
+        $this->assertSame(0, (clone $expired)->where(fn ($q) => $q->whereNotNull('r.confirmed_at')->orWhereNotNull('r.cancelled_at')->orWhereNull('r.hold_expires_at')->orWhere('r.hold_expires_at', '>', now()->subHour()->toDateTimeString())
+            ->orWhereRaw("r.hold_expires_at != datetime(r.created_at, '+15 minutes')"))->count(), 'Never confirmed, the 15-minute hold long past');
+        $this->assertSame(0, (clone $expired)->whereExists(fn ($q) => $q->select(DB::raw(1))->from('payments as p')->whereColumn('p.reservation_id', 'r.id'))->count(), 'No payment');
+    }
+
+    public function test_none_of_them_is_dated_outside_the_month_or_made_by_the_provider_or_an_inactive_customer(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+
+        $this->assertSame(0, $this->others()->whereRaw("substr(r.reservation_date, 1, 7) != '2026-11'")->count());
+        $this->assertSame(0, $this->others()->join('customers as c', 'c.id', '=', 'r.customer_id')->join('users as u', 'u.id', '=', 'c.user_id')->where('u.status', '!=', 'active')->count());
+        $this->assertSame(0, $this->others()->join('activities as a', 'a.id', '=', 'r.activity_id')->join('providers as p', 'p.id', '=', 'a.provider_id')->join('customers as c', 'c.id', '=', 'r.customer_id')
+            ->whereColumn('c.user_id', 'p.user_id')->count(), 'A provider never books their own trip');
+    }
+
+    public function test_the_providers_bookings_list_shows_each_status_and_the_counts(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+        $provider = $this->activeProviders()->first();
+        $token = User::findOrFail($provider->user_id)->createToken('t', ['provider'])->plainTextToken;
+        $list = function (string $query) use ($token) {
+            $this->app['auth']->forgetGuards();
+
+            return $this->withHeaders(['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])->getJson('/api/v1/provider/bookings'.$query)->assertOk();
+        };
+
+        foreach (['pending' => 5, 'cancelled' => 6, 'expired' => 4] as $status => $total) {
+            $this->assertSame($total, $list("?status={$status}&per_page=100")->json('meta.total'), $status);
+        }
+        $this->assertSame(5, $list('')->json('data.counts.pending'));
+        // The default list puts today's trips first.
+        $first = $list('?per_page=100')->json('data.bookings');
+        $todays = array_values(array_filter($first, fn ($b) => str_starts_with($b['date_time'], '2026-11-15')));
+        $this->assertSame(array_column($todays, 'id'), array_slice(array_column($first, 'id'), 0, count($todays)), 'Today\'s trips come first');
+    }
+
+    public function test_when_the_scheduler_has_expired_the_pending_ones_running_it_again_makes_new_ones(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+        $first = $this->others('pending')->pluck('r.uuid')->all();
+
+        // Twenty minutes later the holds have run out and the scheduler's command turns them into expired bookings.
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addMinutes(20));
+        $this->artisan('reservations:expire-stale-holds')->assertExitCode(0);
+        $this->assertSame(0, DB::table('reservations')->whereIn('uuid', $first)->where('status', 'pending')->count(), 'The earlier ones are expired now');
+        $expiredBefore = $this->others('expired')->count();
+
+        $this->run50();
+
+        foreach ($this->activeProviders() as $provider) {
+            $this->assertSame(5, $this->ofProvider($this->others('pending'), $provider->id)->where('r.hold_expires_at', '>', now()->toDateTimeString())->count(), "{$provider->business_name}: five live again");
+        }
+        $this->assertSame(75, $this->others('pending')->count(), 'New ones, not the old ones brought back');
+        $this->assertSame(0, count(array_intersect($first, $this->others('pending')->pluck('r.uuid')->all())));
+        $this->assertSame($expiredBefore, $this->others('expired')->count(), 'Nothing else is touched');
+        $this->assertSame(15 * 50, DB::table('reservations')->whereIn('status', ['confirmed', 'completed'])->count());
+    }
+
+    public function test_on_the_last_day_of_the_month_pending_ones_are_for_that_day_only_and_nothing_breaks(): void
+    {
+        Carbon::setTestNow('2026-11-30 10:00:00');
+        $this->seedDemo();
+        $this->run50();
+
+        $pending = $this->others('pending');
+        $this->assertSame(0, (clone $pending)->where('r.reservation_date', '!=', '2026-11-30')->count());
+        $this->assertLessThanOrEqual(75, (clone $pending)->count());
+        foreach ($this->activeProviders() as $provider) {
+            $this->assertLessThanOrEqual(5, $this->ofProvider($this->others('pending'), $provider->id)->count());
+            $this->assertSame(6, $this->ofProvider($this->others('cancelled'), $provider->id)->count());
+        }
+    }
+
+    public function test_the_others_come_out_the_same_whenever_they_are_made(): void
+    {
+        $this->seedDemo();
+        $this->run50();
+        $snapshot = fn () => $this->others()->orderBy('r.uuid')->get(['r.uuid', 'r.status', 'r.reservation_date', 'r.total', 'r.customer_id', 'r.activity_booking_option_id', 'r.schedule_period_id', 'r.created_at', 'r.hold_expires_at',
+            'r.cancelled_at', 'r.cancellation_source', 'r.cancellation_reason'])->map(fn ($r) => (array) $r)->all();
+        $first = $snapshot();
+
+        // Taken away, and made again with the same clock.
+        DB::table('payments')->whereIn('reservation_id', $this->others()->pluck('r.id'))->delete();
+        DB::table('reservations')->whereIn('status', ['pending', 'cancelled', 'expired'])->delete();
+        $this->run50();
+
+        $this->assertCount(225, $first);
+        $this->assertSame($first, $snapshot());
     }
 
     // --- Running it again ----------------------------------------------------------------------------------------------------------
@@ -309,12 +479,17 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $this->seedDemo();
         config(['seeding.provider_month_minimum' => 20]);
         $this->run50();
-        $this->assertSame(15 * 20, DB::table('reservations')->count());
+        $paid = fn () => DB::table('reservations')->whereIn('status', ['confirmed', 'completed'])->count();
+        $others = fn () => DB::table('reservations')->whereIn('status', ['pending', 'cancelled', 'expired'])->count();
+        $this->assertSame(15 * 20, $paid());
+        $othersBefore = $others();
+        $this->assertSame(15 * 15, $othersBefore, '5 pending, 6 cancelled and 4 expired for each, whatever the minimum');
 
         config(['seeding.provider_month_minimum' => 50]);
         $this->run50();
 
-        $this->assertSame(15 * 50, DB::table('reservations')->count(), 'Exactly the missing 30 per provider');
+        $this->assertSame(15 * 50, $paid(), 'Exactly the missing 30 per provider');
+        $this->assertSame($othersBefore, $others(), 'The others do not change with the minimum');
         foreach ($this->activeProviders() as $provider) {
             $this->assertSame(50, $this->paidInMonth($provider->id));
         }
@@ -423,7 +598,7 @@ class ProviderMonthlyReservationSeederTest extends TestCase
         $response = $this->withHeaders(['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])->getJson('/api/v1/provider/reservations?per_page=100')->assertOk();
 
         $this->assertGreaterThanOrEqual(50, $response->json('pagination.total_items'));
-        $this->assertEmpty(array_diff(array_unique(array_column($response->json('data'), 'status')), ['confirmed', 'completed']));
+        $this->assertEqualsCanonicalizing(['cancelled', 'completed', 'confirmed', 'expired', 'pending'], array_values(array_unique(array_column($response->json('data'), 'status'))), 'Every status, all of them the provider\'s');
 
         $customer = DB::table('reservations as r')->join('customers as c', 'c.id', '=', 'r.customer_id')->orderBy('r.id')->first(['c.user_id', 'c.id as customer_id']);
         $customerToken = User::findOrFail($customer->user_id)->createToken('t', ['customer'])->plainTextToken;

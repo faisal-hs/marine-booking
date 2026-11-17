@@ -5,6 +5,7 @@ namespace Tests\Feature\ProviderApp;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\BuildsProviderAppScenarios;
 use Tests\TestCase;
 
@@ -91,12 +92,24 @@ class ProviderCustomersApiTest extends TestCase
     {
         $fatima = $this->list()['data']['customers'][0];
 
-        $this->assertSame(['id', 'name', 'bookings_count', 'total_spent', 'last_booking', 'tier', 'vip_score'], array_keys($fatima));
+        $this->assertSame(['id', 'name', 'logo', 'bookings_count', 'total_spent', 'last_booking', 'tier', 'vip_score'], array_keys($fatima));
+        $this->assertNull($fatima['logo'], 'A customer with no picture has a null logo');
         $this->assertSame($this->customers['Fatima']->id, $fatima['id']);
         $this->assertSame(6, $fatima['bookings_count']);
         $this->assertEquals(5400, $fatima['total_spent']);
         $this->assertSame('2026-10-20T00:00:00Z', $fatima['last_booking']);
         $this->assertStringNotContainsString('0101111', json_encode($this->list()), 'The phone number must not be returned');
+    }
+
+    public function test_a_customer_with_a_picture_is_returned_with_its_url_and_only_that_customer(): void
+    {
+        $this->customers['Fatima']->user->forceFill(['avatar_path' => 'avatars/fatima.png'])->save();
+
+        $customers = collect($this->list()['data']['customers'])->keyBy('id');
+
+        $this->assertSame(Storage::disk('public')->url('avatars/fatima.png'), $customers[$this->customers['Fatima']->id]['logo']);
+        $this->assertSame([$this->customers['Fatima']->id], $customers->filter(fn ($c) => $c['logo'] !== null)->keys()->all(), 'Nobody else has one');
+        $this->assertSame($customers[$this->customers['Fatima']->id]['logo'], collect($this->list('?q=fatima')['data']['customers'])->first()['logo'], 'It shows in a search too');
     }
 
     public function test_the_summary_counts_all_customers_and_does_not_change_with_the_filters(): void

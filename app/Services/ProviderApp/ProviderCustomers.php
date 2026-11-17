@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The people who have booked with ONE provider, with a tier. Only customers of that provider are ever returned, and only what is needed to
@@ -43,6 +44,8 @@ class ProviderCustomers
             'customers' => collect($paginator->items())->map(fn (array $c) => [
                 'id' => $c['id'],
                 'name' => $c['name'],
+                // The customer's picture as a URL (null when they have none): the same one the customer sees on their own profile.
+                'logo' => $c['logo'],
                 'bookings_count' => $c['bookings_count'],
                 'total_spent' => $c['total_spent'],
                 'last_booking' => Carbon::parse($c['last_booking'])->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -65,9 +68,9 @@ class ProviderCustomers
             ->join('customers as c', 'c.id', '=', 'r.customer_id')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('a.provider_id', $provider->id)->whereNull('r.deleted_at')
-            ->groupBy('c.id', 'u.name')
+            ->groupBy('c.id', 'u.name', 'u.avatar_path')
             ->havingRaw("SUM(CASE WHEN r.status IN ('confirmed', 'completed') THEN 1 ELSE 0 END) > 0")
-            ->selectRaw("c.id AS id, u.name AS name,
+            ->selectRaw("c.id AS id, u.name AS name, u.avatar_path AS avatar_path,
                 SUM(CASE WHEN r.status IN ('confirmed', 'completed') THEN 1 ELSE 0 END) AS bookings_count,
                 SUM(CASE WHEN r.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
                 SUM(CASE WHEN r.status = 'completed' THEN r.total - r.service_fee - r.tax ELSE 0 END) AS total_spent,
@@ -88,6 +91,7 @@ class ProviderCustomers
             return [
                 'id' => (int) $row->id,
                 'name' => $row->name,
+                'logo' => $row->avatar_path ? Storage::disk('public')->url($row->avatar_path) : null,
                 'bookings_count' => (int) $row->bookings_count,
                 'total_spent' => round((float) $row->total_spent, 2),
                 'last_booking' => substr((string) $row->last_booking, 0, 10),

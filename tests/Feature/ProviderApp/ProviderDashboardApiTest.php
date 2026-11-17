@@ -107,7 +107,7 @@ class ProviderDashboardApiTest extends TestCase
         $today = $this->dashboard()['todays_bookings'];
 
         $this->assertCount(2, $today, 'Confirmed and pending, not the cancelled one of yesterday');
-        $this->assertSame(['id', 'customer_name', 'activity', 'date_time', 'guests', 'amount', 'status'], array_keys($today[0]));
+        $this->assertSame(['id', 'customer_name', 'customer_logo', 'activity', 'date_time', 'guests', 'amount', 'status'], array_keys($today[0]), 'The same format as the bookings list, picture included');
         $this->assertSame(['confirmed', 'pending'], array_column($today, 'status'));
         $this->assertSame(6, $today[0]['guests']);
         $this->assertSame('2026-11-15T09:00:00Z', $today[0]['date_time']);

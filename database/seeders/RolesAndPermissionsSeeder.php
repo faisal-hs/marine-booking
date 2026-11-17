@@ -65,6 +65,10 @@ class RolesAndPermissionsSeeder extends Seeder
         'settings.update',
         // Running `storage:link` from the admin API. Only in this list, not in a role's own: so only the super admin, who has every permission, holds it.
         'system.storage_link',
+        // Running `migrate`, `migrate:fresh` (it DROPS EVERY TABLE) and `db:seed` from the admin API. Only in this list, so only the super admin holds them.
+        'system.migrate',
+        'system.migrate_fresh',
+        'system.seed',
     ];
 
     public function run(): void

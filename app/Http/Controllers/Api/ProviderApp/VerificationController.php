@@ -54,6 +54,9 @@ class VerificationController extends ProviderAppController
         return [
             'key' => $type->key,
             'title' => $type->title(),
+            // Both languages, whatever the request's: the app can show either without asking again.
+            'title_ar' => $type->title_ar,
+            'title_en' => $type->title_en,
             'status' => $status,
             'is_done' => $status === ProviderDocumentStatuses::APPROVED,
             'file_url' => $document ? URL::temporarySignedRoute('provider.verification.file', now()->addMinutes((int) config('wallet.statement_link_minutes')), ['document' => $document->uuid]) : null,

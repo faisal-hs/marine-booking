@@ -166,6 +166,10 @@ suspended and deleted providers get nothing.
   `confirmed` (a trip is not completed in advance). Customers are active ones, never the provider themselves.
 - "At least 50" counts what is already there (confirmed or completed reservations of the month with a succeeded payment, however they were
   created), so running it again adds nothing, and raising the minimum adds only the difference.
+- **The other statuses too**, so the provider's bookings list has every status to show (none of them counts towards the 50): **5 pending** at a time (a customer still paying: made a few
+  minutes ago with a live 15-minute hold, for today or a later day of the month, holding its places), **6 cancelled** (paid, then cancelled before the trip by the customer or the provider,
+  with a reason, the payment refunded in full) and **4 expired** (never paid: the hold ran out). The app's scheduler (`reservations:expire-stale-holds`, every five minutes) expires a
+  pending booking whose hold has run out, so run the seeder again to bring the live pending ones back to 5. On the demo data: 750 paid and 225 of these.
 - An active provider with nothing bookable first gets one small published activity, "<business> Day Trip" (daily departures, 40 places, adult 300 and
   child 150 SAR). In the demo data that is 5 of the 15 active providers; without it they could never reach the minimum.
 - If a minimum cannot fit without overbooking, it stops with a message instead of overbooking.
@@ -240,6 +244,25 @@ a **super admin** (the permission `system.storage_link`, which no other role has
 - `POST /api/v1/admin/storage-link`: runs the command. Safe to repeat (a link that is already right is left alone), limited to 5 a minute, and every run is logged with who ran it.
   A real file or folder where the link should be is **never** touched, and a link that points somewhere else is replaced only with `force: true`. A server that does not allow links
   answers with an error, not a crash. It never gives away where on the server the application lives.
+
+## Running `migrate`, `migrate:fresh` and `db:seed` from the API
+
+For an installation with no shell. **Super admin only**, with the token from `POST /api/v1/auth/admin/login`, and each command behind a permission of its own that no other role has
+(`system.migrate`, `system.migrate_fresh`, `system.seed`: run `php artisan db:seed --class=RolesAndPermissionsSeeder --force` on an existing installation to give them to the super admin).
+
+- `GET /api/v1/admin/system/migrations`: which migrations have run and which are pending.
+- `POST /api/v1/admin/system/migrate`: runs the pending migrations (the usual deploy step); safe to repeat; answers with what ran and what is still pending.
+- `GET /api/v1/admin/system/seeders` and `POST /api/v1/admin/system/seed` with `{"class": "CitySeeder"}`: runs **one seeder from the list** in `config/system_commands.php` and nothing else can be named.
+  *Safe* ones (roles and permissions, categories, cities, feature definitions, provider applications, and `DatabaseSeeder`, which in production seeds the roles only) run anywhere; *demo* ones
+  (accounts with a known password, made-up bookings, reviews, withdrawals, notifications) are **refused in production**. The bulk seeders are not offered.
+- `POST /api/v1/admin/system/migrate-fresh`: **DROPS EVERY TABLE** and migrates again. It needs `{"confirm": "migrate:fresh", "password": "<the acting admin's own password>"}`, optionally
+  `"seed": true` (with `"seeder"`, `DatabaseSeeder` by default) to seed afterwards. **Without `seed` the database is left empty and nobody can sign in**, and the token that made the request is gone
+  with it (the answer says `signed_out: true`). **In production it is refused** unless `SYSTEM_COMMANDS_ALLOW_MIGRATE_FRESH_IN_PRODUCTION=true` is set in the environment (leave it `false`), and
+  even then it needs the phrase and the password. Every refusal happens before anything is dropped.
+
+Also: one command at a time (a second answers `409`), 3 runs a minute (a refused or mistyped attempt counts), the request is not cut short by the time limit, every run is logged to the log **file**
+with who ran it (never to the database), a failing migration or seeder is an error answer with its message and what the command printed, and the answer never takes a seeder name from anywhere
+but the list. Back up before `migrate`: a migration can change data.
 
 ## Running the app
 

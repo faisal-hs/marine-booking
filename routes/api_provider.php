@@ -1,16 +1,17 @@
 <?php
 
 use App\Http\Controllers\Api\ProviderApp\ActivityStatusController;
-use App\Http\Controllers\Api\ProviderApp\ApplicationController;
-use App\Http\Controllers\Api\ProviderApp\BookingController;
 use App\Http\Controllers\Api\ProviderApp\AnalyticsController;
+use App\Http\Controllers\Api\ProviderApp\ApplicationController;
 use App\Http\Controllers\Api\ProviderApp\BankAccountController;
+use App\Http\Controllers\Api\ProviderApp\BookingController;
 use App\Http\Controllers\Api\ProviderApp\CalendarController;
 use App\Http\Controllers\Api\ProviderApp\CategoryController;
-use App\Http\Controllers\Api\ProviderApp\CustomerController;
 use App\Http\Controllers\Api\ProviderApp\CouponController;
+use App\Http\Controllers\Api\ProviderApp\CustomerController;
 use App\Http\Controllers\Api\ProviderApp\DashboardController;
 use App\Http\Controllers\Api\ProviderApp\EarningsController;
+use App\Http\Controllers\Api\ProviderApp\NotificationPreferenceController;
 use App\Http\Controllers\Api\ProviderApp\ProfileController;
 use App\Http\Controllers\Api\ProviderApp\ReviewController;
 use App\Http\Controllers\Api\ProviderApp\VerificationController;
@@ -66,6 +67,9 @@ Route::group([
     Route::post('/apply', [ApplicationController::class, 'store'])->middleware('throttle:provider-apply')->name('apply.store');
     Route::post('/apply/resubmit', [ApplicationController::class, 'resubmit'])->middleware('throttle:provider-apply')->name('apply.resubmit');
     // The documents verification is based on: open to an unapproved provider too (they are part of getting approved), and to an approved one (an admin may ask for a new version).
+    // How the provider wants to be told things (email, SMS, WhatsApp, news and offers): open to an applicant too, like the rest of onboarding.
+    Route::get('/notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+    Route::match(['put', 'patch'], '/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
     Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
     Route::post('/verification/{key}', [VerificationController::class, 'upload'])->middleware('throttle:provider-verification')->name('verification.upload');
 
