@@ -115,6 +115,10 @@ class ProviderRouteConventionsTest extends TestCase
             'POST api/v1/provider/verification/{key}',
             // All the documents in one request: part of getting approved, like the single upload.
             'POST api/v1/provider/verification',
+            // The document screen in four words: the types with required or optional, and updating one or all of the documents. Part of getting approved, like the verification pair.
+            'GET api/v1/provider/document-types',
+            'PUT api/v1/provider/document-types',
+            'POST api/v1/provider/document-types',
             // How the provider wants to be told things (email, SMS, WhatsApp, news and offers): an applicant can say how they want to be reached.
             'GET api/v1/provider/notification-preferences',
             'PUT api/v1/provider/notification-preferences',

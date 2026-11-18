@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Account;
 
+use App\Http\Requests\Concerns\HasApplicationDocuments;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Everything a provider request needs, in one multipart request. A document is required unless the
@@ -11,6 +12,8 @@ use Illuminate\Validation\Rule;
  */
 class SubmitProviderRequestRequest extends FormRequest
 {
+    use HasApplicationDocuments;
+
     public function authorize(): bool
     {
         return ! $this->user()->isAdmin();
@@ -26,21 +29,13 @@ class SubmitProviderRequestRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
         ];
 
-        $provider = $this->user()->provider;
+        // The documents are whatever the admin has switched on, each required or optional as its type says (see HasApplicationDocuments).
+        return $rules + $this->documentRules();
+    }
 
-        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
-            $onFile = $provider?->documents()->where('type', $type)->exists() ?? false;
-
-            $rules[$type] = [
-                Rule::requiredIf(! $onFile),
-                'nullable',
-                'file',
-                'mimes:' . implode(',', config('providers.documents.mimes')),
-                'max:' . config('providers.documents.max_kb'),
-            ];
-        }
-
-        return $rules;
+    public function after(): array
+    {
+        return [fn ($validator) => $this->refuseUnknownDocuments($validator)];
     }
 
     /** @return array<string, mixed> */
@@ -49,11 +44,9 @@ class SubmitProviderRequestRequest extends FormRequest
         return $this->safe()->only(['business_name', 'city', 'area', 'bio', 'address']);
     }
 
-    /** @return array<string, \Illuminate\Http\UploadedFile|null> */
+    /** @return array<string, UploadedFile|null> */
     public function documents(): array
     {
-        return collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())
-            ->mapWithKeys(fn(string $type) => [$type => $this->file($type)])
-            ->all();
+        return $this->applicationDocuments();
     }
 }

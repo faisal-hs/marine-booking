@@ -161,15 +161,19 @@ class ActivityReviewsDemoSeeder extends BulkSeeder
         $span = max(1, (int) $first->diffInDays($this->now->copy()->startOfDay()));
         $at = $first->copy()->addDays($this->rand(0, $span - 1))->setTime(8, 0)->addMinutes($this->rand(0, 840));
 
-        // On the customer's completed booking of the activity, when there is one: the day after the trip at the earliest.
-        $trip = DB::table('reservations')->where('customer_id', $customer->id)->where('activity_id', $activity->id)->where('status', 'completed')->whereNull('deleted_at')
-            ->orderByDesc('reservation_date')->first(['id', 'reservation_date']);
+        // On the customer's completed booking of the activity, when there is one that can be reviewed by now: the day after the trip at 10:00 at the earliest. The LATEST such
+        // booking is used: a more recent trip that is not yet reviewable (yesterday's, early in the day) must not stop an older one from being used.
         $reservationId = null;
-        if ($trip) {
+        $trips = DB::table('reservations')->where('customer_id', $customer->id)->where('activity_id', $activity->id)->where('status', 'completed')->whereNull('deleted_at')
+            ->orderByDesc('reservation_date')->orderByDesc('id')->get(['id', 'reservation_date']);
+        foreach ($trips as $trip) {
             $earliest = Carbon::parse($trip->reservation_date)->addDay()->setTime(10, 0);
+
             if ($earliest->lessThanOrEqualTo($this->now)) {
                 $reservationId = $trip->id;
                 $at = $at->lessThan($earliest) ? $earliest->copy()->addMinutes($this->rand(0, 600)) : $at;
+
+                break;
             }
         }
 

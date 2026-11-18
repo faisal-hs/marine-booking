@@ -7,6 +7,7 @@ use App\Models\Provider;
 use App\Models\ProviderRequest;
 use App\Models\User;
 use App\Repositories\Contracts\ProviderRepositoryInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -37,8 +38,8 @@ class ProviderRequestService
      * Submit a request, or resubmit one that was rejected.
      *
      * @param  array{business_name: string, city: string, area: string, bio?: ?string, address?: ?string}  $data
-     * @param  array<string, UploadedFile|null>  $files  keyed by required document type; on a resubmission a type
-     *                                                    may be left out if a document of it is already on file
+     * @param  array<string, UploadedFile|null>  $files  keyed by document type (any active type: required or optional); a REQUIRED type may be left out only if a
+     *                                                   document of it is already on file, an optional one may always be
      */
     public function submit(User $user, array $data, array $files): ProviderRequest
     {
@@ -63,12 +64,15 @@ class ProviderRequestService
                 $source = $user->user_type === 'provider' ? ProviderRequest::SOURCE_REGISTRATION : ProviderRequest::SOURCE_CUSTOMER_UPGRADE;
                 $provider = $this->saveProvider($user, $provider, $data);
 
-                foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
+                // EVERY document type an admin has switched on, by its requirement: a document that was sent is kept (required or optional), a REQUIRED one that was not
+                // sent has to be on file already, and an OPTIONAL one that was not sent is simply left out.
+                foreach (app(VerificationDocumentTypes::class)->active() as $documentType) {
+                    $type = $documentType->key;
                     $file = $files[$type] ?? null;
 
                     if ($file instanceof UploadedFile) {
                         $stored[] = $this->documents->replace($provider, $type, $file, notify: false)->path;
-                    } elseif (! $provider->documents()->where('type', $type)->exists()) {
+                    } elseif ($documentType->is_mandatory && ! $provider->documents()->where('type', $type)->exists()) {
                         throw ValidationException::withMessages([$type => ['This document is required.']]);
                     }
                 }
@@ -168,7 +172,7 @@ class ProviderRequestService
      * The admin list. Filters: status (pending, approved, rejected, or all), source, search (business,
      * city, area, applicant name, phone or e-mail).
      */
-    public function paginateForAdmin(array $filters, int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function paginateForAdmin(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         $query = ProviderRequest::query()->with(['provider', 'user']);
 
@@ -181,11 +185,11 @@ class ProviderRequestService
         }
 
         if (! empty($filters['search'])) {
-            $term = '%' . $filters['search'] . '%';
+            $term = '%'.$filters['search'].'%';
 
-            $query->where(fn($q) => $q
-                ->whereHas('provider', fn($p) => $p->where('business_name', 'like', $term)->orWhere('city', 'like', $term)->orWhere('area', 'like', $term))
-                ->orWhereHas('user', fn($u) => $u->where('name', 'like', $term)->orWhere('phone', 'like', $term)->orWhere('email', 'like', $term)));
+            $query->where(fn ($q) => $q
+                ->whereHas('provider', fn ($p) => $p->where('business_name', 'like', $term)->orWhere('city', 'like', $term)->orWhere('area', 'like', $term))
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $term)->orWhere('phone', 'like', $term)->orWhere('email', 'like', $term)));
         }
 
         return $query->latest('submitted_at')->latest('id')->paginate($perPage)->withQueryString();

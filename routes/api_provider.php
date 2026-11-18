@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProviderApp\AnalyticsController;
 use App\Http\Controllers\Api\ProviderApp\ApplicationController;
 use App\Http\Controllers\Api\ProviderApp\BankAccountController;
 use App\Http\Controllers\Api\ProviderApp\BookingController;
+use App\Http\Controllers\Api\ProviderApp\DocumentTypeController;
 use App\Http\Controllers\Api\ProviderApp\CalendarController;
 use App\Http\Controllers\Api\ProviderApp\CategoryController;
 use App\Http\Controllers\Api\ProviderApp\CouponController;
@@ -71,6 +72,13 @@ Route::group([
     Route::get('/notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
     Route::match(['put', 'patch'], '/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
     Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
+    // The document screen in two calls, in four words (not_uploaded, pending, need_update, accepted): the types with REQUIRED or OPTIONAL, and updating one or all of the
+    // provider's documents (documents[key]=<file>, all or nothing). A second view of the verification endpoints, open to an applicant like them. PUT and PATCH with files are read
+    // by PHP 8.4 and later only, so a POST does the same for a form upload on any version.
+    Route::get('/document-types', [DocumentTypeController::class, 'index'])->name('document-types.index');
+    Route::match(['put', 'patch'], '/document-types', [DocumentTypeController::class, 'update'])->middleware('throttle:provider-verification')->name('document-types.update');
+    Route::post('/document-types', [DocumentTypeController::class, 'update'])->middleware('throttle:provider-verification')->name('document-types.update.post');
+
     // ALL the documents in one request (documents[key]=<file>), all or nothing.
     Route::post('/verification', [VerificationController::class, 'uploadMany'])->middleware('throttle:provider-verification')->name('verification.upload-many');
     Route::post('/verification/{key}', [VerificationController::class, 'upload'])->middleware('throttle:provider-verification')->name('verification.upload');

@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Database\Seeders\ActivityReviewsDemoSeeder;
 use Database\Seeders\ProviderAnalyticsDemoSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concerns\BuildsProviderScenarios;
 use Tests\Concerns\UsesSeededDemoDatabase;
 use Tests\TestCase;
@@ -126,6 +127,44 @@ class ActivityReviewsDemoSeederTest extends TestCase
             ->whereColumn('r.activity_id', 'v.activity_id')->where('r.status', 'completed')->whereRaw("datetime(r.reservation_date, '+1 day', '+10 hours') <= v.created_at"))->count();
 
         $this->assertSame(0, $loose, 'A completed booking was available and not used');
+    }
+
+    /**
+     * The booking a review is tied to is the latest one that can be reviewed BY NOW (the day after the trip, 10:00), not simply the latest. A customer who went on the activity
+     * five days ago and again today is reviewed on the first trip, whatever the time of day: today's trip cannot be reviewed until tomorrow.
+     */
+    public function test_a_trip_that_cannot_be_reviewed_yet_does_not_stop_an_older_one_from_being_used(): void
+    {
+        $base = DB::table('reservations')->where('status', 'completed')->orderBy('id')->first();
+        $activity = DB::table('activities')->where('id', $base->activity_id)->first();
+        $customer = DB::table('customers')->where('id', $base->customer_id)->first();
+        $clone = fn (string $uuid, string $date) => array_merge((array) $base, ['id' => null, 'uuid' => $uuid, 'idempotency_key' => 'test-'.$uuid, 'reservation_date' => $date, 'status' => 'completed']);
+
+        DB::beginTransaction();
+        try {
+            DB::table('reviews')->where('customer_id', $customer->id)->where('activity_id', $activity->id)->delete();
+            DB::table('reservations')->where('customer_id', $customer->id)->where('activity_id', $activity->id)->update(['deleted_at' => now()]);
+            $old = DB::table('reservations')->insertGetId(array_diff_key($clone((string) Str::uuid(), $this->demoSeededAt()->subDays(5)->toDateString()), ['id' => 1]));
+            $today = DB::table('reservations')->insertGetId(array_diff_key($clone((string) Str::uuid(), $this->demoSeededAt()->toDateString()), ['id' => 1]));
+
+            $seeder = app(ActivityReviewsDemoSeeder::class);
+            $set = function (string $name, $value) use ($seeder) {
+                $property = new \ReflectionProperty(ActivityReviewsDemoSeeder::class, $name);
+                $property->setAccessible(true);
+                $property->setValue($seeder, $value);
+            };
+            $set('now', $this->demoSeededAt()->addMinutes(5));
+            $method = new \ReflectionMethod($seeder, 'review');
+            $method->setAccessible(true);
+            $row = $method->invoke($seeder, (object) ['id' => $activity->id, 'uuid' => $activity->uuid], (object) ['id' => $customer->id, 'user_id' => $customer->user_id], (string) Str::uuid(), $this->first(), 2, 0);
+        } finally {
+            DB::rollBack();
+        }
+
+        $this->assertNotNull($row, 'The review is made');
+        $this->assertSame($old, $row['reservation_id'], 'It is tied to the trip of five days ago, not to today\'s (which cannot be reviewed yet) and not to nothing');
+        $this->assertNotSame($today, $row['reservation_id']);
+        $this->assertGreaterThanOrEqual($this->demoSeededAt()->subDays(4)->setTime(10, 0)->toDateTimeString(), $row['created_at'], 'Never before the day after that trip');
     }
 
     // --- Hidden reviews ---------------------------------------------------------------------------------------------------

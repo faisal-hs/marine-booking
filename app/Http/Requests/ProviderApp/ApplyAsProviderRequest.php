@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\ProviderApp;
 
+use App\Http\Requests\Concerns\HasApplicationDocuments;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,8 @@ use Illuminate\Validation\Rule;
  */
 class ApplyAsProviderRequest extends FormRequest
 {
+    use HasApplicationDocuments;
+
     public function authorize(): bool
     {
         return ! $this->user()->isAdmin();
@@ -34,15 +37,13 @@ class ApplyAsProviderRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
         ];
 
-        $provider = $this->user()->provider;
+        // The documents are whatever the admin has switched on, each required or optional as its type says (see HasApplicationDocuments).
+        return $rules + $this->documentRules();
+    }
 
-        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
-            $onFile = $provider?->documents()->where('type', $type)->exists() ?? false;
-
-            $rules[$type] = [Rule::requiredIf(! $onFile), 'nullable', 'file', 'mimes:'.implode(',', config('providers.documents.mimes')), 'max:'.config('providers.documents.max_kb')];
-        }
-
-        return $rules;
+    public function after(): array
+    {
+        return [fn ($validator) => $this->refuseUnknownDocuments($validator)];
     }
 
     /** What the application service takes (the spec's phone and email are the BUSINESS contact, kept apart from the sign-in phone). */
@@ -53,9 +54,9 @@ class ApplyAsProviderRequest extends FormRequest
         return $data + ['contact_phone' => $this->input('phone'), 'contact_email' => $this->input('email')];
     }
 
-    /** @return array<string, UploadedFile|null> */
+    /** @return array<string, UploadedFile|null> every active document type's key, and the file sent for it (null when none was) */
     public function documents(): array
     {
-        return collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->mapWithKeys(fn (string $type) => [$type => $this->file($type)])->all();
+        return $this->applicationDocuments();
     }
 }

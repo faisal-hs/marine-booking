@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
-use Throwable;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Verification documents are evidence about a business, so they are kept on a
@@ -112,9 +112,10 @@ class ProviderDocumentService
      * Each is otherwise exactly what submitForType does: the previous version is kept, superseded, and the reviewers are told: once for each document, after it is all saved.
      *
      * @param  array<string, UploadedFile>  $files
+     * @param  string  $approvedWord  what the caller's screen calls an approved document, for the message ("approved", or "accepted")
      * @return list<ProviderDocument> in the order sent
      */
-    public function submitMany(Provider $provider, array $files): array
+    public function submitMany(Provider $provider, array $files, string $approvedWord = 'approved'): array
     {
         $unknown = array_values(array_filter(array_keys($files), fn (string $key) => $this->types->find($key) === null));
 
@@ -126,7 +127,7 @@ class ProviderDocumentService
         $approved = array_values(array_filter(array_keys($files), fn (string $key) => $this->statuses->of($provider, $this->types->find($key))['status'] === ProviderDocumentStatuses::APPROVED));
 
         if ($approved !== []) {
-            throw ProviderApiException::conflict('Already approved, and so not replaced until an admin asks for an update: '.implode(', ', $approved).'. Nothing was uploaded.', ErrorCode::INVALID_STATUS_TRANSITION);
+            throw ProviderApiException::conflict("Already {$approvedWord}, and so not replaced until an admin asks for an update: ".implode(', ', $approved).'. Nothing was uploaded.', ErrorCode::INVALID_STATUS_TRANSITION);
         }
 
         $stored = [];

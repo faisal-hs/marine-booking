@@ -32,6 +32,10 @@ class BulkReviewReplySeeder extends BulkSeeder
                             continue;
                         }
 
+                        // Each review draws from a stream of its own, started from the review: what its reply is (when, what it says, whether it was deleted) must not depend on how many
+                        // other reviews were answered before it. With one stream shared by all, a review whose reply was not yet due was re-rolled on a second run with different
+                        // numbers (the reviews ahead of it, now answered, no longer used any), and a reply could appear that the first run had said was not due.
+                        $this->startRandom((crc32("review-reply-draw|{$review->id}") ^ (int) config('seeding.seed')) & 0x7FFFFFFF);
                         $wrote = Carbon::parse($review->created_at)->addDays($this->rand(1, 5))->addMinutes($this->rand(0, 1439));
                         if ($wrote->greaterThan($this->now)) {
                             continue;

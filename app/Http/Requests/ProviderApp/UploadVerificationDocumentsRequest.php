@@ -4,6 +4,7 @@ namespace App\Http\Requests\ProviderApp;
 
 use App\Services\VerificationDocumentTypes;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Validator;
 
 /**
@@ -32,9 +33,15 @@ class UploadVerificationDocumentsRequest extends FormRequest
         ];
     }
 
+    /** The endpoint that lists the keys, named in the messages (a subclass for another endpoint says its own). */
+    protected function listEndpoint(): string
+    {
+        return 'GET /provider/verification';
+    }
+
     public function messages(): array
     {
-        return ['documents.required' => 'Send at least one document, as documents[key]=<file>. GET /provider/verification lists the keys.'];
+        return ['documents.required' => 'Send at least one document, as documents[key]=<file>. '.$this->listEndpoint().' lists the keys.'];
     }
 
     public function after(): array
@@ -50,13 +57,13 @@ class UploadVerificationDocumentsRequest extends FormRequest
 
             foreach (array_keys($documents) as $key) {
                 if (! in_array((string) $key, $known, true)) {
-                    $validator->errors()->add("documents.{$key}", 'This is not a document you can upload. GET /provider/verification lists them.');
+                    $validator->errors()->add("documents.{$key}", 'This is not a document you can upload. '.$this->listEndpoint().' lists them.');
                 }
             }
         }];
     }
 
-    /** @return array<string, \Illuminate\Http\UploadedFile> document key => file, in the order sent */
+    /** @return array<string, UploadedFile> document key => file, in the order sent */
     public function documents(): array
     {
         return $this->file('documents') ?? [];
