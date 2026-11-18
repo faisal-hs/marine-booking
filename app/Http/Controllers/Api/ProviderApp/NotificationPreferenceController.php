@@ -30,11 +30,6 @@ class NotificationPreferenceController extends ProviderAppController
     /** @return array{email: bool, sms: bool, whatsapp: bool, news_and_offers: bool} */
     private function describe(Provider $provider): array
     {
-        return [
-            'email' => (bool) $provider->notify_email,
-            'sms' => (bool) $provider->notify_sms,
-            'whatsapp' => (bool) $provider->notify_whatsapp,
-            'news_and_offers' => (bool) $provider->notify_news_and_offers,
-        ];
+        return $provider->notificationPreferences();
     }
 }

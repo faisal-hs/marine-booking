@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Money\Commission;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -70,7 +71,6 @@ class Provider extends Model
         return $this->belongsTo(User::class)->withTrashed();
     }
 
-
     public function coupons()
     {
         return $this->hasMany(Coupon::class);
@@ -89,7 +89,7 @@ class Provider extends Model
     /** The commission on a booking worth $base to this provider, under their own terms (a percentage or a fixed amount). */
     public function commissionOn(float $base): float
     {
-        return \App\Support\Money\Commission::calculate((string) $this->commission_type, (float) $this->commission_rate, $base);
+        return Commission::calculate((string) $this->commission_type, (float) $this->commission_rate, $base);
     }
 
     public function profileChanges()
@@ -151,5 +151,21 @@ class Provider extends Model
     public function isVerified(): bool
     {
         return $this->verification_status === 'verified';
+    }
+
+    /**
+     * How this provider wants to be told things, as the app shows it: by email, by SMS, by WhatsApp, and whether they want news and offers (each true or false).
+     * It is the one definition: the profile carries it as `notification`, and GET/PUT /provider/notification-preferences answers with it.
+     *
+     * @return array{email: bool, sms: bool, whatsapp: bool, news_and_offers: bool}
+     */
+    public function notificationPreferences(): array
+    {
+        return [
+            'email' => (bool) $this->notify_email,
+            'sms' => (bool) $this->notify_sms,
+            'whatsapp' => (bool) $this->notify_whatsapp,
+            'news_and_offers' => (bool) $this->notify_news_and_offers,
+        ];
     }
 }

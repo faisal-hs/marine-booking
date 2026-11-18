@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources\Provider;
 
+use App\Services\VerificationDocumentTypes;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class ProviderResource extends JsonResource
 {
@@ -19,7 +21,7 @@ class ProviderResource extends JsonResource
             'slug' => $this->slug,
             'bio' => $this->bio,
             // The profile picture, as a URL (null when there is none).
-            'logo' => $this->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->logo) : null,
+            'logo' => $this->logo ? Storage::disk('public')->url($this->logo) : null,
             'address' => $this->address,
             'city' => $this->city,
             'area' => $this->area,
@@ -32,7 +34,7 @@ class ProviderResource extends JsonResource
             // Critical information the provider asked to change, waiting for an admin (null when nothing is). The live values above are unchanged meanwhile.
             'pending_profile_change' => $this->pendingChangeData(),
             // The three documents a provider request needs: the latest of each, or null.
-            ...collect(app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys())->mapWithKeys(function (string $type) {
+            ...collect(app(VerificationDocumentTypes::class)->mandatoryKeys())->mapWithKeys(function (string $type) {
                 $document = $this->documentOfType($type);
 
                 return [$type => $document ? (new ProviderDocumentResource($document))->resolve() : null];
@@ -42,6 +44,8 @@ class ProviderResource extends JsonResource
             'verification_status' => $this->verification_status,
             'rejection_reason' => $this->rejection_reason,
             'status' => $this->user->status,
+            // How the provider wants to be told things: email, sms, whatsapp and news_and_offers, each true or false (change them with PUT/PATCH /provider/notification-preferences).
+            'notification' => $this->notificationPreferences(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
