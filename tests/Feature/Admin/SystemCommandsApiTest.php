@@ -170,8 +170,10 @@ class SystemCommandsApiTest extends TestCase
         $this->assertSame($pending, $r->json('data.ran'));
         $this->assertSame([], $r->json('data.pending'));
         $this->assertSame('Migrations run.', $r->json('message'));
-        $this->assertNotEmpty(array_filter($r->json('data.output'), fn ($line) => str_contains($line, 'notification_preferences')), 'What the command said is passed on');
-        $this->assertTrue(DB::getSchemaBuilder()->hasColumn('providers', 'notify_whatsapp'), 'The migration really ran');
+        // Whichever migration is the latest (a new one is added every so often): its own name is in what the command said, and it is recorded as run.
+        $name = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', $pending[0]);
+        $this->assertNotEmpty(array_filter($r->json('data.output'), fn ($line) => str_contains($line, $name)), 'What the command said is passed on');
+        $this->assertTrue(DB::table('migrations')->where('migration', $pending[0])->exists(), 'The migration really ran');
 
         $again = $this->send('/migrate')->assertOk();
         $this->assertSame([], $again->json('data.ran'));

@@ -54,6 +54,26 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// BECOMING A PROVIDER: open to a CUSTOMER'S token as well as a provider's. A customer who wants to become a provider applies with the token they already have: they choose
+// categories, see which documents are asked for, send the application and follow it. Nothing else in the provider app opens to a customer: these five routes only.
+//   GET  /provider/categories        what a provider can work in (an application needs category_ids)
+//   GET  /provider/verification      the documents asked for, required or optional, each missing until they are sent
+//   POST /provider/apply             the application, with its documents (a customer who has no provider record gets one now: source customer_upgrade)
+//   GET  /provider/apply             where the application stands
+//   POST /provider/apply/resubmit    a rejected application sent again (without it a customer whose application was rejected would be stuck)
+Route::group([
+    'middleware' => ['auth:sanctum', 'ability:provider,customer'],
+    'prefix' => 'provider',
+    'as' => 'provider.',
+    'envelope' => 'provider-app',
+], function () {
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::get('/apply', [ApplicationController::class, 'show'])->name('apply.show');
+    Route::post('/apply', [ApplicationController::class, 'store'])->middleware('throttle:provider-apply')->name('apply.store');
+    Route::post('/apply/resubmit', [ApplicationController::class, 'resubmit'])->middleware('throttle:provider-apply')->name('apply.resubmit');
+    Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
+});
+
 // 'envelope' => 'provider-app' makes every response and every failure of these routes use the spec's shape (see ProviderEnvelope).
 Route::group([
     'middleware' => ['auth:sanctum', 'ability:provider'],
@@ -61,17 +81,12 @@ Route::group([
     'as' => 'provider.',
     'envelope' => 'provider-app',
 ], function () {
-    // --- Onboarding: open to a provider an admin has NOT approved yet, because applying is how they get approved. ---
-    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    // --- Onboarding: open to a provider an admin has NOT approved yet (the routes for becoming a provider are in the group above). ---
 
-    Route::get('/apply', [ApplicationController::class, 'show'])->name('apply.show');
-    Route::post('/apply', [ApplicationController::class, 'store'])->middleware('throttle:provider-apply')->name('apply.store');
-    Route::post('/apply/resubmit', [ApplicationController::class, 'resubmit'])->middleware('throttle:provider-apply')->name('apply.resubmit');
     // The documents verification is based on: open to an unapproved provider too (they are part of getting approved), and to an approved one (an admin may ask for a new version).
     // How the provider wants to be told things (email, SMS, WhatsApp, news and offers): open to an applicant too, like the rest of onboarding.
     Route::get('/notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
     Route::match(['put', 'patch'], '/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
-    Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
     // The document screen in two calls, in four words (not_uploaded, pending, need_update, accepted): the types with REQUIRED or OPTIONAL, and updating one or all of the
     // provider's documents (documents[key]=<file>, all or nothing). A second view of the verification endpoints, open to an applicant like them. PUT and PATCH with files are read
     // by PHP 8.4 and later only, so a POST does the same for a form upload on any version.

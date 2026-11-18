@@ -377,11 +377,14 @@ class ProviderVerificationApiTest extends TestCase
         $this->assertSame(0, $other['provider']->documents()->count());
     }
 
-    public function test_a_customer_and_nobody_are_refused(): void
+    public function test_a_staff_token_and_nobody_are_refused_and_a_customer_may_only_look(): void
     {
+        // A customer may LOOK at the list (it is how they learn which documents an application needs: ProviderBecomingAProviderApiTest), but not send a document on its own.
+        $staff = User::factory()->admin()->create();
         [$customer] = $this->makeCustomer();
 
-        $this->hit($this->tokenFor($customer, 'customer'), 'GET', '/api/v1/provider/verification')->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
+        $this->hit($this->tokenFor($staff, 'admin'), 'GET', '/api/v1/provider/verification')->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
+        $this->hitWithFiles($this->tokenFor($customer, 'customer'), '/api/v1/provider/verification/safety_certification', ['file' => UploadedFile::fake()->create('a.pdf', 5, 'application/pdf')])->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
         $this->hit(null, 'GET', '/api/v1/provider/verification')->assertUnauthorized()->assertJsonPath('code', 'UNAUTHENTICATED');
         $this->hitWithFiles(null, '/api/v1/provider/verification/safety_certification', ['file' => UploadedFile::fake()->create('a.pdf', 5, 'application/pdf')])->assertUnauthorized();
         $this->assertSame(0, ProviderDocument::count());

@@ -68,6 +68,7 @@ class AuthResource extends JsonResource
                 'customer_id' => $profile->id,
                 'customer_uuid' => $profile->uuid,
                 'preferred_language' => $profile->preferred_language,
+                'city' => $profile->city,
             ],
             'admin' => [
                 'admin_id' => $profile->id,

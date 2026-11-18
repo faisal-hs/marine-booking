@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\ProviderApp;
 
+use App\Models\User;
+use App\Services\VerificationDocumentTypes;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -52,7 +55,7 @@ class ProviderApplicationApiTest extends TestCase
     /** An existing application of $provider, with its three documents on file, as the admin left it. */
     private function applicationOf(array $p, string $status, ?string $reason = null, string $submitted = '2026-10-20 11:00:00'): int
     {
-        foreach (app(\App\Services\VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
+        foreach (app(VerificationDocumentTypes::class)->mandatoryKeys() as $type) {
             DB::table('provider_documents')->insertOrIgnore(['uuid' => (string) Str::uuid(), 'provider_id' => $p['provider']->id, 'type' => $type, 'original_name' => "{$type}.pdf",
                 'path' => "provider-documents/{$type}.pdf", 'mime_type' => 'application/pdf', 'size_bytes' => 10, 'created_at' => now(), 'updated_at' => now()]);
         }
@@ -158,11 +161,13 @@ class ProviderApplicationApiTest extends TestCase
         $this->assertSame(1, DB::table('provider_requests')->count(), 'Nothing new was created');
     }
 
-    public function test_a_customer_token_cannot_use_it(): void
+    public function test_a_staff_token_and_nobody_can_apply(): void
     {
-        [$customer] = $this->makeCustomer();
+        // (A customer can: that is how a customer becomes a provider. See ProviderBecomingAProviderApiTest.)
+        $staff = User::factory()->admin()->create();
 
-        $this->hitWithFiles($this->tokenFor($customer, 'customer'), '/api/v1/provider/apply', $this->form())->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
+        $this->hitWithFiles($this->tokenFor($staff, 'admin'), '/api/v1/provider/apply', $this->form())->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
+        $this->hitWithFiles(null, '/api/v1/provider/apply', $this->form())->assertUnauthorized();
     }
 
     // --- Where the application stands ------------------------------------------------------------------------------------
@@ -181,7 +186,7 @@ class ProviderApplicationApiTest extends TestCase
 
         $this->assertSame(['status', 'message', 'data'], array_keys($r->json()));
         $this->assertSame(['application_id' => $id, 'status' => 'pending', 'note' => null, 'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => null, 'can_resubmit' => false],
-            \Illuminate\Support\Arr::except($r->json('data'), ['provider', 'stats']), 'The application part is exactly what it was');
+            Arr::except($r->json('data'), ['provider', 'stats']), 'The application part is exactly what it was');
         $this->assertSame(['application_id', 'status', 'note', 'submitted_at', 'reviewed_at', 'can_resubmit', 'provider', 'stats'], array_keys($r->json('data')));
     }
 
@@ -194,7 +199,7 @@ class ProviderApplicationApiTest extends TestCase
 
         $this->assertSame([
             'application_id' => $id, 'status' => 'rejected', 'note' => 'Commercial registration file is not clear. Please upload it again.',
-            'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => '2026-10-21T09:00:00Z', 'can_resubmit' => true], \Illuminate\Support\Arr::except($d, ['provider', 'stats']));
+            'submitted_at' => '2026-10-20T11:00:00Z', 'reviewed_at' => '2026-10-21T09:00:00Z', 'can_resubmit' => true], Arr::except($d, ['provider', 'stats']));
     }
 
     public function test_it_shows_the_latest_application_and_only_your_own(): void

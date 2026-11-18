@@ -35,6 +35,7 @@ class CustomerProfile
             'email' => $user->email,
             'phone' => $user->phone,
             'avatar' => $this->catalog->url($user->avatar_path),
+            'city' => $customer->city,
             // Verified means the phone: that is how a customer signs in. The email is reported on its own.
             'is_verified' => $user->phone_verified_at !== null,
             'phone_verified' => $user->phone_verified_at !== null,

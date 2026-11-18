@@ -13,6 +13,7 @@ class Customer extends Model
         'user_id',
         'date_of_birth',
         'preferred_language',
+        'city',
         'notify_email',
         'notify_sms',
         'notify_marketing',

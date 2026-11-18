@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ProviderApp;
 
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -179,11 +180,12 @@ class ProviderApplyStatsTest extends TestCase
         $this->assertSame(['status', 'code', 'message', 'errors'], array_keys($r->json()));
     }
 
-    public function test_it_is_for_provider_accounts_only(): void
+    public function test_a_staff_token_and_nobody_can_read_it(): void
     {
-        [$customer] = $this->makeCustomer();
+        // (A customer who has applied can: see ProviderBecomingAProviderApiTest.)
+        $staff = User::factory()->admin()->create();
 
-        $this->hit($this->tokenFor($customer, 'customer'), 'GET', '/api/v1/provider/apply')->assertForbidden();
+        $this->hit($this->tokenFor($staff, 'admin'), 'GET', '/api/v1/provider/apply')->assertForbidden();
         $this->hit(null, 'GET', '/api/v1/provider/apply')->assertUnauthorized();
     }
 }

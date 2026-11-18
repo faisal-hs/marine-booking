@@ -98,7 +98,8 @@ class ProviderAppEnvelopeTest extends TestCase
     {
         [$customer] = $this->makeCustomer();
 
-        foreach (['/api/v1/provider/categories', '/api/v1/provider/bookings'] as $uri) {
+        // Everything in the provider app except the few routes for becoming a provider (see ProviderBecomingAProviderApiTest) is for a provider's token only.
+        foreach (['/api/v1/provider/dashboard', '/api/v1/provider/bookings', '/api/v1/provider/customers', '/api/v1/provider/document-types', '/api/v1/provider/notification-preferences'] as $uri) {
             $this->hit($this->tokenFor($customer, 'customer'), 'GET', $uri)->assertForbidden()->assertJsonPath('code', 'FORBIDDEN')->assertJsonPath('status', false);
         }
     }

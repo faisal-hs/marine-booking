@@ -78,6 +78,8 @@ resending to 3 per minute; verifying to 5 attempts per minute. Past a limit the 
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/request -H 'Accept: application/json' -d phone=0522222222
+# a new customer also sends name, and may send city (saved on the account when the code is verified):
+#   -d phone=0522222222 -d name='Layla Hassan' -d city=Jeddah
 curl -X POST http://127.0.0.1:8000/api/v1/auth/customer/otp/verify  -H 'Accept: application/json' -d phone=0522222222 -d code=1234
 ```
 

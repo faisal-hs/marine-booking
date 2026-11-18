@@ -22,6 +22,15 @@ abstract class ProviderAppController extends Controller
         return $request->user()->provider;
     }
 
+    /**
+     * The authenticated user's provider, or null when they have none. Only the "becoming a provider" routes can meet a user who has none: a CUSTOMER who has not applied yet.
+     * Everything else in the provider app is for a provider (a provider is made with the account, or when a customer applies), and uses provider().
+     */
+    protected function providerOrNull(Request $request): ?Provider
+    {
+        return $request->user()->provider;
+    }
+
     protected function ok(mixed $data = null, string $message = 'Success'): JsonResponse
     {
         return ProviderEnvelope::ok($data, $message);

@@ -2,11 +2,12 @@
 
 namespace App\Services\Auth;
 
+use App\Models\Customer;
 use App\Models\User;
-use App\Services\Auth\Concerns\RefusesDeletedAccounts;
 use App\Repositories\Contracts\CustomerRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\AccountService;
+use App\Services\Auth\Concerns\RefusesDeletedAccounts;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +23,7 @@ class CustomerAuthService
         protected AccountService $accounts,
     ) {}
 
-    public function requestOtp(string $phone, ?string $name): void
+    public function requestOtp(string $phone, ?string $name, ?string $city = null): void
     {
         $this->refuseDeletedAccount($phone);
 
@@ -47,7 +48,8 @@ class CustomerAuthService
             ]);
         }
 
-        $this->otpService->issue($phone, 'registration', null, ['name' => $name]);
+        // The city is kept with the pending registration, and saved on the customer when the code is verified and the account is made.
+        $this->otpService->issue($phone, 'registration', null, ['name' => $name, 'city' => $city]);
     }
 
     public function resendOtp(string $phone): void
@@ -56,7 +58,7 @@ class CustomerAuthService
     }
 
     /**
-     * @return array{user: User, customer: \App\Models\Customer, token: string}
+     * @return array{user: User, customer: Customer, token: string}
      */
     public function verifyOtp(string $phone, string $code): array
     {
@@ -99,6 +101,7 @@ class CustomerAuthService
             $this->customerRepository->create([
                 'user_id' => $user->id,
                 'preferred_language' => 'en',
+                'city' => $payload['city'] ?? null,
             ]);
 
             return $this->accounts->session($user, 'customer', $user->createToken('customer-auth', ['customer'])->plainTextToken);

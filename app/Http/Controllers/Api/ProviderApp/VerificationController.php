@@ -6,6 +6,8 @@ use App\Exceptions\ProviderApiException;
 use App\Http\Requests\ProviderApp\UploadVerificationDocumentRequest;
 use App\Http\Requests\ProviderApp\UploadVerificationDocumentsRequest;
 use App\Models\ProviderDocument;
+use App\Models\ProviderDocumentEvent;
+use App\Models\VerificationDocumentType;
 use App\Services\ProviderDocumentService;
 use App\Services\ProviderDocumentStatuses;
 use Illuminate\Http\Request;
@@ -22,9 +24,11 @@ class VerificationController extends ProviderAppController
 
     public function index(Request $request)
     {
-        $provider = $this->requireProvider($request);
+        // A customer who is about to apply has no provider record: they see every document as missing, which is what they need to know to apply.
+        $provider = $this->providerOrNull($request);
+        $rows = $provider ? $this->statuses->all($provider) : $this->statuses->none();
 
-        return $this->ok($this->statuses->all($provider)->map(fn (array $row) => $this->describe($row))->all());
+        return $this->ok($rows->map(fn (array $row) => $this->describe($row))->all());
     }
 
     public function upload(UploadVerificationDocumentRequest $request, string $key)
@@ -68,7 +72,7 @@ class VerificationController extends ProviderAppController
         return $this->documents->download($model);
     }
 
-    /** @param  array{type: \App\Models\VerificationDocumentType, status: string, document: ?ProviderDocument, request: ?\App\Models\ProviderDocumentEvent}  $row */
+    /** @param  array{type: VerificationDocumentType, status: string, document: ?ProviderDocument, request: ?ProviderDocumentEvent}  $row */
     private function describe(array $row): array
     {
         ['type' => $type, 'status' => $status, 'document' => $document, 'request' => $update] = $row;

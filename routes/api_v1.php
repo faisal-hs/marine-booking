@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Account\AccountController;
 use App\Http\Controllers\Api\Account\ProviderRequestController;
+use App\Http\Controllers\Api\Admin\CityController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Auth\AccountAuthController;
 use App\Http\Controllers\Api\Auth\AdminAuthController;
@@ -308,6 +309,7 @@ Route::middleware(['auth:sanctum', 'staff.api'])->prefix('admin')->name('api.adm
 });
 
 Route::prefix('public')->name('api.public.')->group(function () {
+    Route::get('/cities', [CityController::class, 'index'])->name('cities.index');
     Route::get('/categories', [PublicCategoryController::class, 'index'])->name('categories.index');
     Route::get('/categories/{category}', [PublicCategoryController::class, 'show'])->name('categories.show');
     Route::get('/activities', [PublicActivityController::class, 'index'])->name('activities.index');

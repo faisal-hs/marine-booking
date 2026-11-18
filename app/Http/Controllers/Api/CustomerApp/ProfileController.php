@@ -43,6 +43,10 @@ class ProfileController extends CustomerAppController
 
         $user->save();
 
+        if ($request->has('city')) {
+            $customer->city = $request->input('city');
+        }
+
         $customer->fill(collect(['email', 'sms', 'marketing'])->filter(fn ($k) => $request->has("notifications.{$k}"))->mapWithKeys(fn ($k) => ["notify_{$k}" => $request->boolean("notifications.{$k}")])->all())->save();
 
         return $this->ok($this->profile->present($customer->refresh()->setRelation('user', $user)), 'Profile updated');

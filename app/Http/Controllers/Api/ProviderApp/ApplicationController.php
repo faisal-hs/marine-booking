@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\ProviderApp;
 use App\Exceptions\ProviderApiException;
 use App\Http\Requests\ProviderApp\ApplyAsProviderRequest;
 use App\Http\Requests\ProviderApp\ResubmitApplicationRequest;
+use App\Http\Resources\Provider\ProviderResource;
 use App\Models\ProviderRequest;
+use App\Services\ProviderApp\ProviderStats;
 use App\Services\ProviderRequestService;
 use App\Support\ProviderApi\ErrorCode;
 use Illuminate\Http\Request;
@@ -22,7 +24,7 @@ class ApplicationController extends ProviderAppController
     private const REQUIRED_AFTER_MERGE = ['business_name' => 'business_name', 'business_type' => 'business_type', 'category_ids' => 'category_ids', 'city' => 'city',
         'area' => 'area', 'marina_name' => 'marina_name', 'contact_phone' => 'phone', 'contact_email' => 'email'];
 
-    public function __construct(private readonly ProviderRequestService $applications, private readonly \App\Services\ProviderApp\ProviderStats $stats) {}
+    public function __construct(private readonly ProviderRequestService $applications, private readonly ProviderStats $stats) {}
 
     /**
      * The latest application and what the admin said about it, with the provider's own information (the same as GET /provider/profile) and their statistics
@@ -30,16 +32,16 @@ class ApplicationController extends ProviderAppController
      */
     public function show(Request $request)
     {
-        $latest = $this->provider($request)?->latestRequest;
+        // A customer who has not applied has no provider record yet: for them, as for a provider with no application, there is nothing to show yet.
+        $provider = $this->providerOrNull($request);
+        $latest = $provider?->latestRequest;
 
         if (! $latest) {
             throw ProviderApiException::notFound('You have not submitted an application yet.');
         }
 
-        $provider = $this->provider($request);
-
         return $this->ok($this->describe($latest) + [
-            'provider' => (new \App\Http\Resources\Provider\ProviderResource($provider->loadMissing('user')))->resolve($request),
+            'provider' => (new ProviderResource($provider->loadMissing('user')))->resolve($request),
             'stats' => $this->stats->for($provider),
         ]);
     }

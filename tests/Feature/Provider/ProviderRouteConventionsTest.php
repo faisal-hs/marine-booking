@@ -124,6 +124,9 @@ class ProviderRouteConventionsTest extends TestCase
             'PUT api/v1/provider/notification-preferences',
         ];
 
+        // The ONLY provider routes that also accept a CUSTOMER's token: the ones a customer needs to become a provider. Any other route that lets a customer in is a mistake.
+        $openToCustomer = ['GET api/v1/provider/categories', 'GET api/v1/provider/apply', 'POST api/v1/provider/apply', 'POST api/v1/provider/apply/resubmit', 'GET api/v1/provider/verification'];
+
         // The one provider route with no token on purpose: the statement a signed, expiring link points to (it is opened by a browser or a PDF viewer).
         // It is allowed ONLY if it is really signed.
         $signedLinks = ['GET api/v1/provider/earnings/statement/download', 'GET api/v1/provider/verification/files/{document}'];
@@ -144,6 +147,9 @@ class ProviderRouteConventionsTest extends TestCase
 
             str_contains($middleware, 'Authenticate:sanctum') || $problems[] = "{$label} does not require a token";
             str_contains($middleware, 'CheckForAnyAbility:provider') || $problems[] = "{$label} accepts a non-provider token";
+            // Exactly: a provider token, or (for these five and no other) a customer's too.
+            $acceptsCustomer = str_contains($middleware, 'CheckForAnyAbility:provider,customer');
+            $acceptsCustomer === in_array($label, $openToCustomer, true) || $problems[] = $acceptsCustomer ? "{$label} lets a customer token in and is not a route for becoming a provider" : "{$label} should accept a customer token (it is a route for becoming a provider)";
             str_contains($middleware, 'EnsureProviderApproved') || in_array($label, $openBeforeApproval, true) || $problems[] = "{$label} is open to an unapproved provider";
         }
 

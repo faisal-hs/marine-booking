@@ -29,6 +29,8 @@ class UpdateProfileRequest extends FormRequest
             'email' => ['sometimes', 'nullable', 'email', 'max:190', Rule::unique('users', 'email')->ignore($this->user()->id)],
             // A real image upload, never a path the client names.
             'avatar' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            // The customer's city (free text); null takes it off.
+            'city' => ['sometimes', 'nullable', 'string', 'max:120'],
             'notifications' => ['sometimes', 'array'],
             'notifications.email' => ['sometimes', 'boolean'],
             'notifications.sms' => ['sometimes', 'boolean'],

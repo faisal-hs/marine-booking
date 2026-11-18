@@ -17,6 +17,7 @@ class CustomerResource extends JsonResource
             'phone' => $this->user->phone,
             'date_of_birth' => $this->date_of_birth?->toDateString(),
             'preferred_language' => $this->preferred_language,
+            'city' => $this->city,
             'status' => $this->user->status,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

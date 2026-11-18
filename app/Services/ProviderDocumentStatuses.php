@@ -49,6 +49,16 @@ class ProviderDocumentStatuses
         return $this->types->active()->map(fn (VerificationDocumentType $type) => $this->row($type, $documents->get($type->key), $requests->get($type->key)))->values();
     }
 
+    /**
+     * The same list for someone who has no provider record yet (a customer about to apply): every type, with nothing on file.
+     *
+     * @return Collection<int, array{type: VerificationDocumentType, status: string, document: ?ProviderDocument, request: ?ProviderDocumentEvent}>
+     */
+    public function none(): Collection
+    {
+        return $this->types->active()->map(fn (VerificationDocumentType $type) => $this->row($type, null, null))->values();
+    }
+
     /** @return array{type: VerificationDocumentType, status: string, document: ?ProviderDocument, request: ?ProviderDocumentEvent} */
     public function of(Provider $provider, VerificationDocumentType $type): array
     {

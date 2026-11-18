@@ -163,8 +163,9 @@ class CustomerAppAccountTest extends TestCase
 
         $d = $this->ca($this->token, 'GET', '/profile')->assertOk()->json('data');
 
-        $this->assertSame(['id', 'name', 'email', 'phone', 'avatar', 'is_verified', 'phone_verified', 'email_verified', 'is_provider', 'provider_status', 'stats', 'notifications'], array_keys($d));
+        $this->assertSame(['id', 'name', 'email', 'phone', 'avatar', 'city', 'is_verified', 'phone_verified', 'email_verified', 'is_provider', 'provider_status', 'stats', 'notifications'], array_keys($d));
         $this->assertSame([$this->customer->id, 'Ahmed Al-Harbi', 'ahmed@gmail.com', '+966501234567', null, true, true, false, false, 'none'], [$d['id'], $d['name'], $d['email'], $d['phone'], $d['avatar'], $d['is_verified'], $d['phone_verified'], $d['email_verified'], $d['is_provider'], $d['provider_status']]);
+        $this->assertNull($d['city'], 'A customer who gave no city has none');
         $this->assertSame(['trips' => 2, 'saved' => 1, 'reviews' => 1], $d['stats'], 'Trips are the completed ones');
         $this->assertSame(['email' => true, 'sms' => false, 'marketing' => true], $d['notifications']);
     }
