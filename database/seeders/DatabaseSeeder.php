@@ -41,6 +41,7 @@ class DatabaseSeeder extends Seeder
             ProviderAnalyticsDemoSeeder::class,
             ProviderWithdrawalsDemoSeeder::class,
             NotificationsDemoSeeder::class,
+            ActivityReviewsDemoSeeder::class
         ]);
     }
 }
