@@ -71,6 +71,8 @@ Route::group([
     Route::get('/notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
     Route::match(['put', 'patch'], '/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
     Route::get('/verification', [VerificationController::class, 'index'])->name('verification.index');
+    // ALL the documents in one request (documents[key]=<file>), all or nothing.
+    Route::post('/verification', [VerificationController::class, 'uploadMany'])->middleware('throttle:provider-verification')->name('verification.upload-many');
     Route::post('/verification/{key}', [VerificationController::class, 'upload'])->middleware('throttle:provider-verification')->name('verification.upload');
 
     // --- Everything below needs an APPROVED provider. ---

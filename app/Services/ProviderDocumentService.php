@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -101,6 +102,55 @@ class ProviderDocumentService
         }
 
         return $this->replace($provider, $key, $file);
+    }
+
+    /**
+     * What a provider does from the app when they send ALL their documents at once: `$files` is the document key => the file, for any of the types, in one go. It is ALL OR
+     * NOTHING, so the provider is never left with some of what they sent and no idea which:
+     *   - a key that is not a document type, or a document that is approved (and nobody asked to update), refuses the whole request before anything is stored;
+     *   - if storing one of them fails, the files already stored are deleted and the rows made so far are rolled back.
+     * Each is otherwise exactly what submitForType does: the previous version is kept, superseded, and the reviewers are told: once for each document, after it is all saved.
+     *
+     * @param  array<string, UploadedFile>  $files
+     * @return list<ProviderDocument> in the order sent
+     */
+    public function submitMany(Provider $provider, array $files): array
+    {
+        $unknown = array_values(array_filter(array_keys($files), fn (string $key) => $this->types->find($key) === null));
+
+        if ($unknown !== []) {
+            throw ProviderApiException::notFound('Unknown document: '.implode(', ', $unknown).'.');
+        }
+
+        // Every document is looked at BEFORE the first is stored, so a refusal leaves nothing behind.
+        $approved = array_values(array_filter(array_keys($files), fn (string $key) => $this->statuses->of($provider, $this->types->find($key))['status'] === ProviderDocumentStatuses::APPROVED));
+
+        if ($approved !== []) {
+            throw ProviderApiException::conflict('Already approved, and so not replaced until an admin asks for an update: '.implode(', ', $approved).'. Nothing was uploaded.', ErrorCode::INVALID_STATUS_TRANSITION);
+        }
+
+        $stored = [];
+
+        try {
+            DB::transaction(function () use ($provider, $files, &$stored) {
+                foreach ($files as $key => $file) {
+                    $stored[] = $this->replace($provider, $key, $file, false);
+                }
+            });
+        } catch (Throwable $e) {
+            // The rows are rolled back; the files that were already put on the disk are taken off it.
+            foreach ($stored as $document) {
+                $this->disk()->delete($document->path);
+            }
+
+            throw $e;
+        }
+
+        foreach ($stored as $document) {
+            $this->tellReviewers($provider, $document);
+        }
+
+        return $stored;
     }
 
     public function delete(ProviderDocument $document): void

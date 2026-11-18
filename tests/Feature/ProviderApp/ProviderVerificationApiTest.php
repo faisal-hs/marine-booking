@@ -75,7 +75,7 @@ class ProviderVerificationApiTest extends TestCase
 
         $this->assertSame(['commercial_registration', 'safety_certification', 'insurance_certificate', 'business_license', 'identity_document', 'professional_certification', 'insurance', 'other'], array_column($data, 'key'));
         foreach ($data as $row) {
-            $this->assertSame(['key', 'title', 'title_ar', 'title_en', 'status', 'is_done', 'file_url', 'review_note', 'description', 'is_mandatory', 'uploaded_at', 'expires_at', 'update_requested_at', 'can_upload'], array_keys($row));
+            $this->assertSame(['key', 'title', 'title_ar', 'title_en', 'status', 'is_done', 'file_url', 'review_note', 'description', 'is_mandatory', 'uploaded_at', 'expires_at', 'update_requested_at', 'can_upload', 'accepted_formats', 'max_size_kb'], array_keys($row));
             $this->assertSame(['missing', false, null, null, true], [$row['status'], $row['is_done'], $row['file_url'], $row['review_note'], $row['can_upload']]);
         }
         $this->assertSame(['commercial_registration', 'safety_certification', 'insurance_certificate'], collect($data)->where('is_mandatory', true)->pluck('key')->all());

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\ProviderApp;
 
 use App\Exceptions\ProviderApiException;
 use App\Http\Requests\ProviderApp\UploadVerificationDocumentRequest;
+use App\Http\Requests\ProviderApp\UploadVerificationDocumentsRequest;
 use App\Models\ProviderDocument;
 use App\Services\ProviderDocumentService;
 use App\Services\ProviderDocumentStatuses;
@@ -39,6 +40,27 @@ class VerificationController extends ProviderAppController
      * The file itself, through the expiring link that GET /provider/verification hands out. Documents are private: this link is the only way a provider
      * reads their own. It carries no token on purpose; the SIGNATURE proves it was issued for that document, and it stops working after a few minutes.
      */
+    /**
+     * ALL the documents in one request (documents[key]=<file>), all or nothing. The answer says what was uploaded, which mandatory documents still have to be sent, and is the
+     * whole list as GET /provider/verification gives it, so the app can redraw its screen from this one answer.
+     */
+    public function uploadMany(UploadVerificationDocumentsRequest $request)
+    {
+        $provider = $this->requireProvider($request);
+        $uploaded = $this->documents->submitMany($provider, $request->documents());
+        $rows = $this->statuses->all($provider);
+        // What is still to be sent: a mandatory document nothing is on file for, or that was rejected, has expired, or that an admin asked to be updated.
+        $remaining = $rows->filter(fn (array $row) => $row['type']->is_mandatory && in_array($row['status'], [ProviderDocumentStatuses::MISSING, ProviderDocumentStatuses::REJECTED,
+            ProviderDocumentStatuses::EXPIRED, ProviderDocumentStatuses::UPDATE_REQUESTED], true))->pluck('type.key')->values()->all();
+
+        return $this->created([
+            'uploaded' => array_map(fn (ProviderDocument $document) => ['key' => $document->type, 'status' => 'pending', 'uploaded_at' => $document->created_at->utc()->format('Y-m-d\TH:i:s\Z')], $uploaded),
+            'required_remaining' => $remaining,
+            'all_required_uploaded' => $remaining === [],
+            'documents' => $rows->map(fn (array $row) => $this->describe($row))->all(),
+        ], count($uploaded) === 1 ? 'Document uploaded and sent for review.' : count($uploaded).' documents uploaded and sent for review.');
+    }
+
     public function file(Request $request, string $document): StreamedResponse
     {
         $model = ProviderDocument::where('uuid', $document)->firstOrFail();
@@ -73,6 +95,9 @@ class VerificationController extends ProviderAppController
             'update_requested_at' => $update?->created_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             // An approved document nobody asked to update stays as it is.
             'can_upload' => $status !== ProviderDocumentStatuses::APPROVED,
+            // What a file must be to be accepted, so the app can check it before sending it.
+            'accepted_formats' => array_values(config('providers.documents.mimes')),
+            'max_size_kb' => (int) config('providers.documents.max_kb'),
         ];
     }
 
