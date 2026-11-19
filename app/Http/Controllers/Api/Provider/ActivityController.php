@@ -31,6 +31,7 @@ class ActivityController extends BaseApiController
     protected const EAGER_LOAD = [
         'category',
         'images',
+        'city',
         'featureValues.featureDefinition',
         'options',
         'requirements',
@@ -97,7 +98,7 @@ class ActivityController extends BaseApiController
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->created(new ActivityResource($activity), 'Activity created successfully.'.($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
+        return $this->created(new ActivityResource($activity), 'Activity created successfully.' . ($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
     }
 
     public function show(Request $request, Activity $activity)
@@ -196,7 +197,7 @@ class ActivityController extends BaseApiController
     protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity, array &$stored = []): void
     {
         // A part that is missing or null is left alone (on create it is simply not there); an empty list is "none", which on an update clears it.
-        $sent = fn (string $key) => $request->has($key) && $request->input($key) !== null;
+        $sent = fn(string $key) => $request->has($key) && $request->input($key) !== null;
 
         // Photos: the ones to delete go first (a deleted cover hands the cover to the next photo), then the new ones are added.
         if ($request instanceof UpdateActivityRequest && $request->deletedImageIds() !== []) {

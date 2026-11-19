@@ -28,6 +28,13 @@ class ActivityResource extends JsonResource
                 'uuid' => $this->category->uuid,
                 'name' => $this->category->name,
             ],
+            'city' => [
+                'id' => $this->city->id,
+                'uuid' => $this->city->uuid,
+                'name_ar' => $this->city->name_ar,
+                'name_en' => $this->city->name_en,
+                'slug' => $this->city->slug,
+            ],
             'location' => $this->location,
             'meeting_point' => $this->meeting_point,
             'lat' => $this->lat,
