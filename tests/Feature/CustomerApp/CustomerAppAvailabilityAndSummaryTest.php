@@ -68,21 +68,23 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
         $data = $this->ca(null, 'GET', "/activities/{$this->a['activity']->id}/availability", ['from' => '2026-11-15', 'to' => '2026-11-22'])->assertOk()->json('data');
 
-        $this->assertSame(['timezone', 'max_guests', 'days'], array_keys($data));
-        $this->assertSame(['Asia/Riyadh', 8, 8], [$data['timezone'], $data['max_guests'], count($data['days'])]);
+        $this->assertSame(['timezone', 'from', 'to', 'booking_option', 'max_guests', 'days'], array_keys($data));
+        $this->assertSame(['Asia/Riyadh', 8, 8, '2026-11-15', '2026-11-22'], [$data['timezone'], $data['max_guests'], count($data['days']), $data['from'], $data['to']]);
         $saturday = collect($data['days'])->firstWhere('date', self::NEXT_SATURDAY);
         $this->assertSame(['date', 'is_available', 'slots'], array_keys($saturday));
-        $this->assertSame([true, [['time' => '09:00', 'spots_left' => 8]]], [$saturday['is_available'], $saturday['slots']]);
+        $this->assertSame([true, [['id' => $this->a['period'], 'time' => '09:00', 'end_time' => '13:00', 'spots_left' => 8, 'is_available' => true]]], [$saturday['is_available'], $saturday['slots']]);
         $monday = collect($data['days'])->firstWhere('date', '2026-11-16');
         $this->assertSame([false, []], [$monday['is_available'], $monday['slots']]);
     }
 
-    public function test_without_dates_it_is_the_next_fourteen_days_from_today(): void
+    public function test_a_start_without_an_end_is_the_next_fourteen_days_and_nothing_at_all_is_the_whole_month(): void
     {
-        $days = array_keys($this->days());
+        $window = array_keys($this->days(['from' => '2026-11-15']));
+        $month = array_keys($this->days());
 
-        $this->assertSame(['2026-11-15', '2026-11-28'], [$days[0], end($days)]);
-        $this->assertCount(14, $days);
+        $this->assertSame(['2026-11-15', '2026-11-28', 14], [$window[0], end($window), count($window)]);
+        // Nothing asked: every day of the current month, the ones already gone included (see CustomerAppAvailabilityMonthTest).
+        $this->assertSame(['2026-11-01', '2026-11-30', 30], [$month[0], end($month), count($month)]);
     }
 
     public function test_places_left_count_confirmed_bookings_and_held_ones_but_not_cancelled_or_expired(): void
@@ -119,7 +121,7 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
         $day = $this->days()[self::NEXT_SATURDAY];
 
-        $this->assertSame([['time' => '09:00', 'spots_left' => 0]], $day['slots']);
+        $this->assertSame([['id' => $this->a['period'], 'time' => '09:00', 'end_time' => '13:00', 'spots_left' => 0, 'is_available' => false]], $day['slots']);
         $this->assertFalse($day['is_available']);
     }
 
@@ -132,10 +134,10 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
     public function test_a_departure_that_has_already_left_is_not_listed_but_a_later_one_the_same_day_is(): void
     {
-        $this->a['activity']->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '16:00', 'end_time' => '18:00']);
+        $late = $this->a['activity']->schedulePeriods()->create(['day_of_week' => 6, 'start_time' => '16:00', 'end_time' => '18:00']);
         Carbon::setTestNow('2026-11-21 08:00:00');   // 11:00 in Riyadh: the 09:00 left, the 16:00 has not
 
-        $this->assertSame([['time' => '16:00', 'spots_left' => null]], $this->days(['from' => '2026-11-21', 'to' => '2026-11-21'])['2026-11-21']['slots'] ?: []);
+        $this->assertSame([['id' => $late->id, 'time' => '16:00', 'end_time' => '18:00', 'spots_left' => null, 'is_available' => true]], $this->days(['from' => '2026-11-21', 'to' => '2026-11-21'])['2026-11-21']['slots'] ?: []);
     }
 
     public function test_departures_are_listed_in_time_order(): void
@@ -167,7 +169,7 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
         $r = $this->summary(['guests' => 2, 'coupon_code' => 'SUMMER20'])->assertOk();
 
-        $this->assertSame(['currency', 'unit_price', 'guests', 'subtotal', 'discount', 'service_fee', 'vat', 'total', 'coupon'], array_keys($r->json('data')));
+        $this->assertSame(['currency', 'reservation_type', 'booking_option', 'slot', 'details', 'lines', 'unit_price', 'guests', 'subtotal', 'discount', 'service_fee', 'vat', 'total', 'coupon'], array_keys($r->json('data')));
         $this->assertEqualsWithDelta([450, 2, 900, 180, 27, 112.05, 859.05], [$r->json('data.unit_price'), $r->json('data.guests'), $r->json('data.subtotal'), $r->json('data.discount'), $r->json('data.service_fee'), $r->json('data.vat'), $r->json('data.total')], 0.001);
         $this->assertSame(['code' => 'SUMMER20', 'is_valid' => true, 'message' => '20% discount applied'], $r->json('data.coupon'));
         $this->assertSame('SAR', $r->json('data.currency'));
@@ -280,7 +282,9 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
         foreach ([['guests' => 0], ['guests' => 101], ['guests' => 'two'], ['date' => 'next saturday'], ['date' => '2026-11-14'], ['date' => '2028-01-01'], ['time' => '9am'], ['coupon_code' => str_repeat('x', 41)]] as $bad) {
             $this->summary($bad)->assertStatus(422)->assertJsonPath('code', 'VALIDATION_ERROR');
         }
-        $this->ca($this->token, 'POST', '/bookings/summary', [])->assertStatus(422)->assertJsonValidationErrors(['activity_id', 'date', 'time', 'guests']);
+        $this->ca($this->token, 'POST', '/bookings/summary', [])->assertStatus(422)->assertJsonValidationErrors(['activity_id', 'date', 'time', 'slot_id']);
+        // `guests` is asked for once the price option is known (a per-person one needs it, a per-hour one does not).
+        $this->summary(['guests' => null])->assertStatus(422)->assertJsonValidationErrors(['guests']);
         $this->summary(['activity_id' => 99999])->assertNotFound();
         $draft = $this->moreActivity($this->a, 'Draft', 100);
         $draft->update(['status' => 'draft']);

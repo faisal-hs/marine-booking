@@ -35,6 +35,7 @@ class UpdateActivityRequest extends FormRequest
     {
         $rules = [
             'category_id' => ['sometimes', 'integer', Rule::exists('categories', 'id')->where('status', 'active')],
+            'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('is_active', true)],
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -161,7 +162,7 @@ class UpdateActivityRequest extends FormRequest
     {
         $activity = $this->route('activity');
         $asked = (array) ($this->input('deleted_image_ids') ?? []);
-        $own = $activity->images()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $own = $activity->images()->pluck('id')->map(fn($id) => (int) $id)->all();
 
         foreach ($asked as $i => $id) {
             if (is_numeric($id) && ! in_array((int) $id, $own, true) && ! $validator->errors()->has("deleted_image_ids.{$i}")) {
@@ -171,7 +172,7 @@ class UpdateActivityRequest extends FormRequest
 
         $after = count($own) - count(array_intersect($this->deletedImageIds(), $own)) + count($this->newImageFiles());
         if ($after > self::MAX_IMAGES && ! $validator->errors()->has('new_images')) {
-            $validator->errors()->add('new_images', 'An activity can have at most '.self::MAX_IMAGES." photos; this would leave it with {$after}.");
+            $validator->errors()->add('new_images', 'An activity can have at most ' . self::MAX_IMAGES . " photos; this would leave it with {$after}.");
         }
     }
 
@@ -179,6 +180,7 @@ class UpdateActivityRequest extends FormRequest
     {
         return $this->paymentMethodPayload() + $this->only([
             'category_id',
+            'city_id',
             'title',
             'description',
             'location',

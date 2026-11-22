@@ -2,8 +2,10 @@
 
 namespace App\Services\CustomerApp;
 
+use App\Enums\BookingModel;
 use App\Models\Reservation;
 use App\Models\Review;
+use App\Support\ReservationType;
 use Carbon\Carbon;
 
 /**
@@ -57,7 +59,17 @@ class BookingPresenter
     private function activity(Reservation $r, array $favorites): array
     {
         $a = $r->activity;
-        $a->setAttribute('min_price', round((float) $r->subtotal / max(1, (int) array_sum((array) $r->participants)), 2));
+        // The price of ONE of what the booking is counted in: a guest, a unit, an hour or a day; the whole price for a booking at one price.
+        $model = BookingModel::tryFrom((string) $r->pricing_model) ?? BookingModel::PerPerson;
+        $count = match (ReservationType::of($model)) {
+            ReservationType::PERSONS => (int) array_sum((array) $r->participants),
+            ReservationType::UNITS => (int) $r->quantity,
+            ReservationType::TIME => (int) $r->duration,
+            default => 1,
+        };
+        $a->setAttribute('min_price', round((float) $r->subtotal / max(1, $count), 2));
+        // What the price is for follows the booking: a booking by the hour shows its price per hour.
+        $a->setAttribute('default_model', $r->pricing_model);
 
         return $this->catalog->card($a, $favorites);
     }
@@ -71,6 +83,10 @@ class BookingPresenter
             'status' => $this->status($r),
             'date_time' => $this->startsAt($r)->utc()->format('Y-m-d\\TH:i:s\\Z'),
             'guests' => (int) array_sum((array) $r->participants),
+            // What the booking is made of (see App\Support\ReservationType): persons (`guests`), units (`quantity`), time (`duration`) or fixed.
+            'reservation_type' => ReservationType::of(BookingModel::tryFrom((string) $r->pricing_model) ?? BookingModel::PerPerson),
+            'quantity' => $r->quantity,
+            'duration' => $r->duration,
             'total' => (float) $r->total,
             'can_cancel' => $this->canCancel($r),
             'can_review' => $this->canReview($r, in_array($r->activity_id, $reviewedActivityIds, true)),

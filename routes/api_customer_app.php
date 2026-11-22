@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\CustomerApp\ActivityController;
 use App\Http\Controllers\Api\CustomerApp\BookingController;
 use App\Http\Controllers\Api\CustomerApp\ContentController;
 use App\Http\Controllers\Api\CustomerApp\ConversationController;
+use App\Http\Controllers\Api\CustomerApp\CouponController;
 use App\Http\Controllers\Api\CustomerApp\FavoriteController;
 use App\Http\Controllers\Api\CustomerApp\HomeController;
 use App\Http\Controllers\Api\CustomerApp\NotificationController;
@@ -58,6 +59,8 @@ Route::group(['prefix' => 'customer-app', 'as' => 'customer-app.', 'envelope' =>
         Route::get('/conversations/{id}/messages', [ConversationController::class, 'messages'])->name('conversations.messages.index');
         Route::post('/conversations/{id}/messages', [ConversationController::class, 'send'])->middleware('throttle:customer-app-message')->name('conversations.messages.store');
 
+        // A coupon checked for an activity, before it is used: its own rules, and what it takes off a booking when the booking is described. Limited so it cannot be used to guess codes.
+        Route::post('/activities/{id}/coupons/validate', [CouponController::class, 'validate'])->middleware('throttle:customer-app-coupon')->name('activities.coupons.validate');
         Route::post('/bookings/summary', [BookingController::class, 'summary'])->middleware('throttle:customer-app-summary')->name('bookings.summary');
         Route::post('/bookings', [BookingController::class, 'store'])->middleware('throttle:customer-app-booking')->name('bookings.store');
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');

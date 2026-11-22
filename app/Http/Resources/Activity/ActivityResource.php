@@ -10,6 +10,7 @@ use App\Http\Resources\ActivityRequirement\ActivityRequirementResource;
 use App\Http\Resources\BookingOption\ActivityBookingOptionResource;
 use App\Http\Resources\Override\AvailabilityOverrideResource;
 use App\Http\Resources\Schedule\SchedulePeriodResource;
+use App\Services\ProviderApp\ActivityCardStats;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,13 +29,14 @@ class ActivityResource extends JsonResource
                 'uuid' => $this->category->uuid,
                 'name' => $this->category->name,
             ],
-            'city' => [
+            // An activity made through the API has no city until one is set: null, not a crash.
+            'city' => $this->city ? [
                 'id' => $this->city->id,
                 'uuid' => $this->city->uuid,
                 'name_ar' => $this->city->name_ar,
                 'name_en' => $this->city->name_en,
                 'slug' => $this->city->slug,
-            ],
+            ] : null,
             'location' => $this->location,
             'meeting_point' => $this->meeting_point,
             'lat' => $this->lat,
@@ -47,7 +49,7 @@ class ActivityResource extends JsonResource
             // An admin stopped it: the provider sees why, and that only an admin can lift it.
             'suspended' => $this->isSuspended(),
             // The card: what the activity costs and how it is doing (see ActivityCardStats).
-            ...\App\Services\ProviderApp\ActivityCardStats::of($this->resource),
+            ...ActivityCardStats::of($this->resource),
             // The buy-now-pay-later methods the provider accepts for it.
             'allowed_payment_methods' => ['tabby' => (bool) $this->allows_tabby, 'tamara' => (bool) $this->allows_tamara],
             'suspension_reason' => $this->when($this->isSuspended(), $this->suspension_reason),

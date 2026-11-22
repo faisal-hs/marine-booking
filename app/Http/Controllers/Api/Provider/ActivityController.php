@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Api\Provider;
 
-use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
 use App\Http\Controllers\Api\BaseApiController;
-use App\Http\Requests\PaginationRequest;
+use App\Http\Controllers\Api\Provider\Concerns\AppliesActivityEdits;
+use App\Http\Requests\Provider\Activity\ListActivitiesRequest;
 use App\Http\Requests\Provider\Activity\StoreActivityRequest;
 use App\Http\Requests\Provider\Activity\UpdateActivityRequest;
+use App\Http\Resources\Activity\ActivityDetailResource;
 use App\Http\Resources\Activity\ActivityResource;
 use App\Models\Activity;
 use App\Repositories\Contracts\ActivityRepositoryInterface;
@@ -16,17 +17,21 @@ use App\Services\ActivityImageService;
 use App\Services\ActivityInclusionService;
 use App\Services\ActivityOptionService;
 use App\Services\ActivityPricingRuleService;
+use App\Services\ActivityPublishingService;
 use App\Services\ActivityRequirementService;
 use App\Services\ActivityService;
 use App\Services\ScheduleService;
+use App\Services\Wallet\LedgerService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ActivityController extends BaseApiController
 {
-    use AuthorizesRequests;
     use AppliesActivityEdits;
+    use AuthorizesRequests;
 
     protected const EAGER_LOAD = [
         'category',
@@ -43,7 +48,7 @@ class ActivityController extends BaseApiController
 
     public function __construct(
         protected ActivityService $service,
-        protected \App\Services\ActivityPublishingService $publishing,
+        protected ActivityPublishingService $publishing,
         protected ActivityRepositoryInterface $repository,
         protected ActivityImageService $imageService,
         protected ActivityFeatureService $featureService,
@@ -55,12 +60,12 @@ class ActivityController extends BaseApiController
         protected ActivityPricingRuleService $pricingRuleService,
     ) {}
 
-    public function index(\App\Http\Requests\Provider\Activity\ListActivitiesRequest $request)
+    public function index(ListActivitiesRequest $request)
     {
         $provider = $request->user()->provider;
 
         // The revenue on each card is the ledger's, so the ledger is brought up to date first.
-        app(\App\Services\Wallet\LedgerService::class)->syncProvider($provider);
+        app(LedgerService::class)->syncProvider($provider);
 
         $activities = $this->repository->paginateForProvider($provider->id, $request->only(['status', 'filter']), $request->perPage());
 
@@ -98,7 +103,7 @@ class ActivityController extends BaseApiController
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->created(new ActivityResource($activity), 'Activity created successfully.' . ($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
+        return $this->created(new ActivityDetailResource($activity), 'Activity created successfully.'.($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
     }
 
     public function show(Request $request, Activity $activity)
@@ -107,7 +112,7 @@ class ActivityController extends BaseApiController
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->success(new ActivityResource($activity));
+        return $this->success(new ActivityDetailResource($activity));
     }
 
     /**
@@ -135,7 +140,7 @@ class ActivityController extends BaseApiController
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->success(new ActivityResource($activity), $message);
+        return $this->success(new ActivityDetailResource($activity), $message);
     }
 
     public function destroy(Request $request, Activity $activity)
@@ -158,7 +163,7 @@ class ActivityController extends BaseApiController
         $activity = $this->publishing->requestPublication($activity);
 
         return $this->success(
-            new ActivityResource($activity),
+            new ActivityDetailResource($activity),
             $activity->status === 'published' ? 'Activity published.' : 'Activity is ready. It stays hidden until you activate it.'
         );
     }
@@ -186,7 +191,7 @@ class ActivityController extends BaseApiController
             return DB::transaction($run);
         } catch (\Throwable $e) {
             foreach ($stored as $path) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+                Storage::disk('public')->delete($path);
             }
 
             throw $e;
@@ -197,7 +202,7 @@ class ActivityController extends BaseApiController
     protected function applyCombinedExtras(StoreActivityRequest|UpdateActivityRequest $request, Activity $activity, array &$stored = []): void
     {
         // A part that is missing or null is left alone (on create it is simply not there); an empty list is "none", which on an update clears it.
-        $sent = fn(string $key) => $request->has($key) && $request->input($key) !== null;
+        $sent = fn (string $key) => $request->has($key) && $request->input($key) !== null;
 
         // Photos: the ones to delete go first (a deleted cover hands the cover to the next photo), then the new ones are added.
         if ($request instanceof UpdateActivityRequest && $request->deletedImageIds() !== []) {
@@ -206,7 +211,7 @@ class ActivityController extends BaseApiController
             }
         }
 
-        $files = $request instanceof UpdateActivityRequest ? $request->newImageFiles() : array_values(array_filter(\Illuminate\Support\Arr::wrap($request->file('images'))));
+        $files = $request instanceof UpdateActivityRequest ? $request->newImageFiles() : array_values(array_filter(Arr::wrap($request->file('images'))));
         if ($files !== []) {
             $stored = array_merge($stored, $this->imageService->upload($activity, $files)->pluck('path')->all());
         }

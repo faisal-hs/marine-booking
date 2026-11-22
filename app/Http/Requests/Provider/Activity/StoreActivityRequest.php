@@ -33,6 +33,7 @@ class StoreActivityRequest extends FormRequest
     {
         $rules = [
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('status', 'active')],
+            'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('is_active', true)],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'location' => ['nullable', 'string', 'max:255'],
@@ -151,6 +152,7 @@ class StoreActivityRequest extends FormRequest
     {
         return $this->paymentMethodPayload() + $this->only([
             'category_id',
+            'city_id',
             'title',
             'description',
             'location',

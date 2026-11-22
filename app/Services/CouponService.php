@@ -54,7 +54,7 @@ class CouponService
      *
      * @return array{coupon: Coupon, discount: float}
      */
-    public function resolve(Activity $activity, string $code, float $subtotal, bool $lock = false): array
+    public function resolve(Activity $activity, string $code, ?float $subtotal, bool $lock = false): array
     {
         $query = Coupon::query()->where('provider_id', $activity->provider_id)->where('code', self::normalize($code))->with('activities:id');
         $coupon = ($lock ? $query->lockForUpdate() : $query)->first();
@@ -72,12 +72,17 @@ class CouponService
             $this->refuse('This coupon cannot be used for this activity.');
         }
 
-        if ($coupon->min_order_amount !== null && $subtotal < $coupon->min_order_amount) {
+        if ($subtotal !== null && $coupon->min_order_amount !== null && $subtotal < $coupon->min_order_amount) {
             $this->refuse('This coupon needs a booking of at least '.number_format($coupon->min_order_amount, 2).' '.config('platform.currency').'.');
         }
 
         if ($coupon->usage_limit !== null && $this->usedCount($coupon) >= $coupon->usage_limit) {
             $this->refuse('This coupon has been used up.');
+        }
+
+        // No price yet (a coupon being checked before a booking is priced): the coupon's own rules have all been checked, and there is no discount to work out.
+        if ($subtotal === null) {
+            return ['coupon' => $coupon, 'discount' => null];
         }
 
         $discount = $this->discountFor($coupon, $subtotal);

@@ -85,7 +85,7 @@ class CustomerAppEngagementTest extends TestCase
         $this->assertSame(['Second', 'Reef Dive'], array_column($r->json('data'), 'title'));
         $this->assertSame([true, true], array_column($r->json('data'), 'is_favorite'));
         $this->assertSame(2, $r->json('meta.total'));
-        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'original_price', 'is_premium', 'is_favorite'], array_keys($r->json('data.0')));
+        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'price_unit', 'reservation_type', 'original_price', 'is_premium', 'is_favorite'], array_keys($r->json('data.0')));
     }
 
     public function test_a_saved_activity_that_is_no_longer_visible_drops_out_and_comes_back_with_it(): void

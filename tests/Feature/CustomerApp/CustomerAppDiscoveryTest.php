@@ -57,7 +57,7 @@ class CustomerAppDiscoveryTest extends TestCase
 
         $card = $this->search()->json('data.0');
 
-        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'original_price', 'is_premium', 'is_favorite'], array_keys($card));
+        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'price_unit', 'reservation_type', 'original_price', 'is_premium', 'is_favorite'], array_keys($card));
         $this->assertSame([$this->a['activity']->id, 'Reef Dive', 'Jeddah', 3, 4.9, 247, 1500, null, true, false], [$card['id'], $card['title'], $card['city'], $card['duration_hours'], $card['rating'], $card['reviews_count'], $card['price'], $card['original_price'], $card['is_premium'], $card['is_favorite']]);
         $this->assertStringEndsWith('activities/reef.jpg', $card['image']);
     }
@@ -308,7 +308,7 @@ class CustomerAppDiscoveryTest extends TestCase
 
         $d = $this->ca(null, 'GET', "/activities/{$this->a['activity']->id}")->assertOk()->json('data');
 
-        $this->assertSame(['id', 'title', 'city', 'location', 'category', 'image', 'gallery', 'duration_hours', 'price', 'original_price', 'discount_percent', 'rating', 'reviews_count', 'booked_count', 'is_bestseller',
+        $this->assertSame(['id', 'title', 'city', 'location', 'category', 'image', 'gallery', 'duration_hours', 'price', 'price_unit', 'reservation_type', 'price_options', 'original_price', 'discount_percent', 'rating', 'reviews_count', 'booked_count', 'is_bestseller',
             'is_premium', 'is_favorite', 'free_cancellation', 'allowed_payment_methods', 'max_guests', 'is_certified', 'languages', 'description', 'included', 'not_included', 'safety_instructions', 'cancellation_rules', 'weather',
             'meeting_point', 'host', 'reviews', 'rating_distribution', 'rating_categories', 'similar'], array_keys($d));
         $this->assertSame(['Reef Dive', 'Hurghada', 2.5, 1500, 8, 4.8, ['Equipment'], ['Meals'], ['Listen to the briefing'], true, true], [$d['title'], $d['location'], $d['duration_hours'], $d['price'], $d['max_guests'], $d['rating'], $d['included'], $d['not_included'], $d['safety_instructions'], $d['is_certified'], $d['free_cancellation']]);
@@ -382,7 +382,7 @@ class CustomerAppDiscoveryTest extends TestCase
         $similar = $this->ca(null, 'GET', "/activities/{$this->a['activity']->id}")->json('data.similar');
 
         $this->assertSame(['Also Diving'], array_column($similar, 'title'));
-        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'original_price', 'is_premium', 'is_favorite'], array_keys($similar[0]));
+        $this->assertSame(['id', 'title', 'city', 'image', 'duration_hours', 'rating', 'reviews_count', 'price', 'price_unit', 'reservation_type', 'original_price', 'is_premium', 'is_favorite'], array_keys($similar[0]));
     }
 
     // --- Reviews ----------------------------------------------------------------------------------------------------

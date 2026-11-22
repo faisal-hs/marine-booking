@@ -5,11 +5,12 @@ namespace App\Services\CustomerApp;
 use App\Models\Activity;
 use App\Models\Customer;
 use App\Models\Review;
+use App\Services\PriceOptions;
 
 /** The full activity page of the customer app. Where the platform has no data for a field, the field says so (null or empty) rather than invent it. */
 class ActivityDetails
 {
-    public function __construct(private readonly ActivityCatalog $catalog, private readonly CancellationPolicy $policy) {}
+    public function __construct(private readonly ActivityCatalog $catalog, private readonly CancellationPolicy $policy, private readonly PriceOptions $priceOptions) {}
 
     /** @return array<string, mixed> */
     public function build(Activity $a, ?Customer $viewer): array
@@ -31,6 +32,9 @@ class ActivityDetails
             'gallery' => $images->map(fn ($i) => $this->catalog->url($i->path))->all(),
             'duration_hours' => round($a->duration_minutes / 60, 1),
             'price' => $price,
+            // What the price is for, what a booking is made of (persons, units, time, fixed), and every price option a customer can book, with its limits and prices.
+            ...$this->catalog->priceKind($a),
+            'price_options' => $this->priceOptions->forActivity($a),
             'original_price' => null,
             'discount_percent' => null,
             'rating' => (float) $a->average_rating,

@@ -18,7 +18,6 @@ use App\Services\CustomerApp\Checkout;
 use App\Services\PaymentService;
 use App\Services\ReservationService;
 use App\Support\ProviderApi\ErrorCode;
-use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -44,7 +43,7 @@ class BookingController extends CustomerAppController
     {
         $activity = $this->catalog->find($request->integer('activity_id')) ?? throw ProviderApiException::notFound('Activity not found.');
 
-        return $this->ok($this->checkout->summary($activity, $request->input('date'), $request->input('time'), $request->integer('guests'), $request->input('coupon_code')));
+        return $this->ok($this->checkout->summary($activity, $request->validated()));
     }
 
     /**
@@ -72,11 +71,12 @@ class BookingController extends CustomerAppController
             throw ValidationException::withMessages(['payment_method' => [ucfirst($method).' is not accepted for this activity.']]);
         }
 
-        [$option, $period, $day] = $this->checkout->slot($activity, $request->input('date'), $request->input('time'));
-        $this->checkout->assertGuests($activity, $option, $period, $day, $request->integer('guests'));
+        [$option, $period, $day] = $this->checkout->slot($activity, $request->input('date'), $request->input('time'), $request->filled('booking_option_id') ? $request->integer('booking_option_id') : null, $request->filled('slot_id') ? $request->integer('slot_id') : null);
+        // What the booking is made of, by the option's reservation type: guests (persons), a quantity (units), a duration (time).
+        $details = $this->checkout->details($activity, $option, $period, $day, $request->validated());
 
         try {
-            $reservation = $this->reservations->create($customer, $activity, $option, $period, $day, ['adult' => $request->integer('guests')], null, null, $request->input('coupon_code'),
+            $reservation = $this->reservations->create($customer, $activity, $option, $period, $day, $details['participants'], $details['quantity'], $details['duration'], $request->input('coupon_code'),
                 ActivityViewTracker::source($request), [
                     'contact_name' => $request->input('contact_name'), 'contact_phone' => $request->input('contact_phone'), 'contact_email' => $request->input('contact_email'),
                     'payment_method' => $request->input('payment_method'), 'idempotency_key' => $key,
@@ -85,8 +85,11 @@ class BookingController extends CustomerAppController
             // Two requests with the same key at the same moment: the second one gets the first one's booking.
             return $this->ok($this->created_($this->byKey($customer, $key)), 'Booking created');
         } catch (ValidationException $e) {
-            // The departure filled up between the check and the booking: that is a conflict, not a mistake in the request.
-            if (isset($e->errors()['participants']) || isset($e->errors()['quantity'])) {
+            // The departure filled up between the check and the booking: that is a conflict, not a mistake in the request. Only that: a quantity over what the option allows
+            // at all (or any other mistake in the request) stays the 422 it is, as the summary says it.
+            $full = collect(['participants', 'quantity'])->contains(fn (string $key) => str_contains((string) ($e->errors()[$key][0] ?? ''), 'remaining capacity'));
+
+            if ($full) {
                 throw new ProviderApiException('This departure no longer has room for that many guests.', 409, ErrorCode::SLOT_UNAVAILABLE);
             }
 

@@ -2,28 +2,37 @@
 
 namespace App\Services\CustomerApp;
 
+use App\Enums\BookingModel;
 use App\Models\Activity;
 use App\Models\ActivityBookingOption;
 use App\Models\Favorite;
 use App\Models\Review;
+use App\Support\ReservationType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * What the customer app shows of an activity, defined once so every list, filter, sort and detail page agrees.
  *
- * VISIBLE: published (live), not suspended by an admin, and BOOKABLE: it has a default booking option (an active per-person one: the one marked default,
- * else the first) with an adult price. The customer app books per-person activities; one with only other booking models is not shown.
+ * VISIBLE: published (live), not suspended by an admin, and BOOKABLE: it has a default booking option with a price. The default option is the active one the provider marked
+ * default, else the first, of ANY booking model (per person, per unit, per hour, per day, per trip, per group, fixed, package): the same rule the provider app uses. So an
+ * activity is booked by the number of people, by units, by time, or at one price, as its option says (see App\Support\ReservationType). (The customer app used to show
+ * per-person activities only.)
  *
- * PRICE: the lowest active adult price of that default option. There is no "original price" in the platform, so it is always null.
+ * PRICE: the lowest active price of that default option: the adult price for a per-person one, the price of the unit, the hour, the day or the whole booking for the others, and
+ * `price_unit` says which. There is no "original price" in the platform, so it is always null.
  *
  * BOOKED COUNT: confirmed and completed bookings, for the activity's whole life. POPULAR means most booked.
  */
 class ActivityCatalog
 {
-    private const DEFAULT_OPTION_SQL = "SELECT o.id FROM activity_booking_options o WHERE o.activity_id = activities.id AND o.is_active = 1 AND o.deleted_at IS NULL AND o.booking_model = 'per_person' ORDER BY o.is_default DESC, o.sort_order ASC, o.id ASC LIMIT 1";
+    private const DEFAULT_OPTION_SQL = 'SELECT o.id FROM activity_booking_options o WHERE o.activity_id = activities.id AND o.is_active = 1 AND o.deleted_at IS NULL ORDER BY o.is_default DESC, o.sort_order ASC, o.id ASC LIMIT 1';
 
-    public const PRICE_SQL = "(SELECT MIN(pr.price) FROM activity_pricing_rules pr WHERE pr.is_active = 1 AND pr.participant_type = 'adult' AND pr.activity_booking_option_id = (".self::DEFAULT_OPTION_SQL.'))';
+    // The adult price of a per-person option; the one price (for no kind of person) of any other. A rule of the wrong kind for its option is not a price.
+    public const PRICE_SQL = "(SELECT MIN(pr.price) FROM activity_pricing_rules pr JOIN activity_booking_options po ON po.id = pr.activity_booking_option_id WHERE pr.is_active = 1 AND ((po.booking_model = 'per_person' AND pr.participant_type = 'adult') OR (po.booking_model <> 'per_person' AND pr.participant_type IS NULL)) AND po.id = (".self::DEFAULT_OPTION_SQL.'))';
+
+    /** The booking model of the default option: what the price is for. */
+    public const MODEL_SQL = '(SELECT dm.booking_model FROM activity_booking_options dm WHERE dm.id = ('.self::DEFAULT_OPTION_SQL.'))';
 
     public const BOOKED_SQL = "(SELECT COUNT(*) FROM reservations rv WHERE rv.activity_id = activities.id AND rv.status IN ('confirmed', 'completed') AND rv.deleted_at IS NULL)";
 
@@ -33,7 +42,7 @@ class ActivityCatalog
     public function visible(): Builder
     {
         return Activity::query()->where('activities.status', 'published')->whereNull('activities.suspended_at')->whereRaw(self::PRICE_SQL.' IS NOT NULL')
-            ->select('activities.*')->selectRaw(self::PRICE_SQL.' AS min_price')->selectRaw(self::BOOKED_SQL.' AS booked_count');
+            ->select('activities.*')->selectRaw(self::PRICE_SQL.' AS min_price')->selectRaw(self::MODEL_SQL.' AS default_model')->selectRaw(self::BOOKED_SQL.' AS booked_count');
     }
 
     public function find(int|string $id): ?Activity
@@ -44,7 +53,7 @@ class ActivityCatalog
     /** The booking option a booking of this activity is for. */
     public function defaultOption(Activity $activity): ?ActivityBookingOption
     {
-        return $activity->bookingOptions()->where('is_active', true)->where('booking_model', 'per_person')->orderByDesc('is_default')->orderBy('sort_order')->orderBy('id')->first();
+        return $activity->bookingOptions()->where('is_active', true)->reorder()->orderByDesc('is_default')->orderBy('sort_order')->orderBy('id')->first();
     }
 
     /** @param  array<string, mixed>  $f */
@@ -113,10 +122,25 @@ class ActivityCatalog
             'rating' => (float) $a->average_rating,
             'reviews_count' => (int) $a->reviews_count,
             'price' => $a->min_price !== null ? (float) $a->min_price : null,
+            // What the price is for (per person, per hour, ...) and what a booking is made of (persons, units, time, fixed).
+            ...$this->priceKind($a),
             'original_price' => null,
             'is_premium' => (bool) $a->is_featured,
             'is_favorite' => in_array($a->id, $favorites, true),
         ];
+    }
+
+    /**
+     * `price_unit` and `reservation_type` of an activity's default option. An activity that was not read through visible() carries no model, and is then the per-person one it
+     * always was.
+     *
+     * @return array{price_unit: string, reservation_type: string}
+     */
+    public function priceKind(Activity $a): array
+    {
+        $model = BookingModel::tryFrom((string) $a->getAttribute('default_model')) ?? BookingModel::PerPerson;
+
+        return ['price_unit' => ReservationType::priceUnit($model), 'reservation_type' => ReservationType::of($model)];
     }
 
     /** "Sara Al-Qahtani" is shown as "Sara A.": a customer's name is not published in full. */

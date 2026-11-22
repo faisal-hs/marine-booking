@@ -20,6 +20,7 @@ class ActivityService
 
     public function create(Provider $provider, array $data): Activity
     {
+
         return DB::transaction(function () use ($provider, $data) {
             $data['provider_id'] = $provider->id;
             $data['slug'] = $this->generateUniqueSlug($data['title']);
@@ -83,7 +84,7 @@ class ActivityService
         $suffix = 1;
 
         while ($this->repository->slugExists($slug, $ignoreId)) {
-            $slug = $base.'-'.$suffix;
+            $slug = $base . '-' . $suffix;
             $suffix++;
         }
 

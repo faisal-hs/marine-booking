@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api\CustomerApp;
 
 use App\Exceptions\ProviderApiException;
+use App\Http\Requests\CustomerApp\AvailabilityRequest;
 use App\Http\Requests\CustomerApp\ListActivityReviewsRequest;
 use App\Http\Requests\CustomerApp\SearchActivitiesRequest;
 use App\Services\ActivityViewTracker;
 use App\Services\CustomerApp\ActivityCatalog;
 use App\Services\CustomerApp\ActivityDetails;
 use App\Services\CustomerApp\Checkout;
-use App\Http\Requests\CustomerApp\AvailabilityRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /** Searching, and one activity's page and reviews. Only activities a customer can see and book exist here. */
 class ActivityController extends CustomerAppController
@@ -37,7 +37,10 @@ class ActivityController extends CustomerAppController
         return $this->ok($this->details->build($activity, $this->viewer($request)));
     }
 
-    /** The days of a window (14 days from today unless asked, at most 62) with each departure still to come and the places left on it. */
+    /**
+     * EVERY day of a month (the current one unless `month` asks for another, up to a year ahead) with each departure still to come and the places left on it: a day with none is
+     * listed too, as not available. `from` and `to` (a window of at most 62 days) give a window instead, and `booking_option_id` counts the places of that price option.
+     */
     public function availability(AvailabilityRequest $request, string $id)
     {
         $activity = $this->catalog->find($id) ?? throw ProviderApiException::notFound('Activity not found.');
@@ -45,11 +48,19 @@ class ActivityController extends CustomerAppController
         // "Today" is today in the platform's timezone, as a plain date.
         $today = Carbon::parse(Carbon::now($tz)->toDateString())->startOfDay();
 
-        $from = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : $today->copy();
-        $from = $from->lt($today) ? $today->copy() : $from;
-        $to = $request->filled('to') ? Carbon::parse($request->input('to'))->startOfDay() : $from->copy()->addDays(13);
+        $optionId = $request->filled('booking_option_id') ? $request->integer('booking_option_id') : null;
 
-        return $this->ok($to->lt($from) ? ['timezone' => $tz, 'max_guests' => $activity->max_participants, 'days' => []] : $this->checkout->availability($activity, $from, $to));
+        if ($request->filled('from') || $request->filled('to')) {
+            $from = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : $today->copy();
+            $from = $from->lt($today) ? $today->copy() : $from;
+            $to = $request->filled('to') ? Carbon::parse($request->input('to'))->startOfDay() : $from->copy()->addDays(13);
+        } else {
+            // The whole month, from its first day (the days already gone are in it, as not available) to its last.
+            $from = ($request->filled('month') ? Carbon::createFromFormat('!Y-m', $request->input('month')) : $today->copy())->startOfMonth()->startOfDay();
+            $to = $from->copy()->endOfMonth()->startOfDay();
+        }
+
+        return $this->ok($to->lt($from) ? ['timezone' => $tz, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'booking_option' => null, 'max_guests' => $activity->max_participants, 'days' => []] : $this->checkout->availability($activity, $from, $to, $optionId));
     }
 
     public function reviews(ListActivityReviewsRequest $request, string $id)

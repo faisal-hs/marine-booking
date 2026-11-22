@@ -22,7 +22,7 @@ Success: `{"status": true, "message": "Success", "data": …}`, and for a page a
 
 **Ownership.** The customer is always the signed-in one: no endpoint takes a customer id. Another customer's booking, conversation, notification or favourite is `404`, the same answer as one that does not exist, so ids cannot be probed.
 
-## 2. The 34 operations
+## 2. The 34 operations, and the coupon check
 
 Open = no token needed (a customer's token only makes it personal). Customer = a customer's token.
 
@@ -32,15 +32,15 @@ Open = no token needed (a customer's token only makes it personal). Customer = a
 | 2 | `GET /activities` | open | search: `q, category_id, city_id, min_price, max_price, max_duration, min_rating, sort, page, per_page` |
 | 3 | `GET /search/popular` | open | a configured list |
 | 4 | `GET /filters` | open | cities and categories that have something to book, the price range, the sorts |
-| 5 | `GET /activities/{id}` | open | the full page; counts as a page view for the provider |
+| 5 | `GET /activities/{id}` | open | the full page; counts as a page view for the provider. Has `price_unit`, `reservation_type` and `price_options` |
 | 6 | `POST /favorites/{activity_id}` | customer | idempotent |
 | 7 | `DELETE /favorites/{activity_id}` | customer | idempotent |
 | 8 | `POST /conversations` | customer | starts or returns the conversation (201 or 200) |
 | 9 | `GET /activities/{id}/reviews` | open | `rating` filter; includes the provider's reply |
 | 10 | `POST /activities/{id}/reviews` | customer | `booking_id, rating, text` |
-| 11 | `GET /activities/{id}/availability` | open | `from, to`: days, departures, places left |
-| 12 | `POST /bookings/summary` | customer | the price, with the coupon; books and uses nothing |
-| 13 | `POST /bookings` | customer | needs an `Idempotency-Key` header |
+| 11 | `GET /activities/{id}/availability` | open | **every day of a month** (`month`, else the current one), or a window (`from, to`); each departure with its `id`, times and places left; `booking_option_id` |
+| 12 | `POST /bookings/summary` | customer | the price of a booking of any reservation type, with the coupon; books and uses nothing |
+| 13 | `POST /bookings` | customer | needs an `Idempotency-Key` header; same fields as the summary |
 | 14 | `GET /bookings/{id}` | customer | |
 | 15 | `GET /bookings` | customer | `status` filter, counts over all trips |
 | 16 | `POST /bookings/{id}/cancel` | customer | the refund is the backend's |
@@ -62,24 +62,43 @@ Open = no token needed (a customer's token only makes it personal). Customer = a
 | 32 | `GET /pages/terms` | open | |
 | 33 | `GET /pages/privacy` | open | |
 | 34 | `GET /about` | open | `platform` (ios, android) and the app's `version` |
+| 35 | `POST /activities/{id}/coupons/validate` | customer | a coupon checked for the activity: its rules, and what it takes off when the booking (or an `amount`) is given. Limited to 20 a minute |
 
 Sign-in, one-time codes and the payment webhook are not part of the 34: they are the existing `/auth/customer/*` and `/webhooks/payments/{gateway}` routes.
 
 ## 3. Rules
 
 ### Which activities a customer sees
-An activity is **visible** when it is published, not suspended by an admin, and **bookable**: it has a default booking option (an active per-person one: the one marked default, else the first) with an adult price. The customer app books per-person activities; one with only other booking models is not shown (it still works in the older API). Home, search, details, availability, favourites, similar activities and conversations all use this one definition.
+An activity is **visible** when it is published, not suspended by an admin, and **bookable**: it has a default booking option with a price. The default option is the active one the provider marked default (else the first), **of any booking model**: the same rule the provider app uses. (The customer app used to show per-person activities only; an activity with only per-unit, per-hour, per-day, per-trip, per-group, fixed or package options is now listed and bookable, and priced as its option says.) A rule of the wrong kind for its option (an adult price on a per-unit option, say) is not a price, so such an activity stays hidden. Home, search, details, availability, favourites, similar activities and conversations answer only for visible activities.
 
 ### Price and badges
-`price` is the lowest active adult price of the default option. There is no "original price" in the platform, so `original_price` and `discount_percent` are null. `booked_count` is the confirmed and completed bookings of the activity; `is_bestseller` is `booked_count >= BESTSELLER_MIN_BOOKINGS`. `is_premium` means an admin featured the activity (the Feature button in the admin's Activities list). `popular` means most booked. A customer's name on a review is shown as "Sara A."; a deleted customer's is "Deleted customer".
+`price` is the lowest active price of the default option: the adult price for a per-person one, the price of the unit, the hour, the day or the whole booking for the others; `price_unit` (`per_person`, `per_unit`, `per_hour`, `per_day`, `per_trip`, `per_group`, `fixed`, `package`) says which, and `reservation_type` what a booking is made of (below). Cards and the activity page both have them. There is no "original price" in the platform, so `original_price` and `discount_percent` are null. `booked_count` is the confirmed and completed bookings of the activity; `is_bestseller` is `booked_count >= BESTSELLER_MIN_BOOKINGS`. `is_premium` means an admin featured the activity (the Feature button in the admin's Activities list). `popular` means most booked. A customer's name on a review is shown as "Sara A."; a deleted customer's is "Deleted customer".
 
 ### Fields the platform has no data for
 Returned empty rather than invented: `weather` (null: no weather service), `languages` (empty), `rating_categories` (null), `host.response_rate` (null: nothing measures it), `is_online` in a conversation (null: no presence service), the meeting point's `note` (null).
 
+### Reservation types and price options
+What a booking is made of is the **reservation type** of its price option, in four words (`booking_model` stays the exact model):
+
+| `reservation_type` | Booking models | What to send with the booking |
+|---|---|---|
+| `persons` | `per_person` | `participants` `{adult, child, infant}`, or `guests` (that many adults) |
+| `units` | `per_unit` | `quantity` |
+| `time` | `per_hour`, `per_day` | `duration` (hours or days, as the option counts: `duration_unit`) |
+| `fixed` | `per_trip`, `per_group`, `fixed`, `package` | nothing; `guests` / `participants` may be sent for the places the booking takes |
+
+`GET /activities/{id}` has `price_unit`, `reservation_type` (of the default option) and `price_options`: every active option with its `id`, `name`, `reservation_type`, `booking_model`, `is_default`, its limits (`min_participants`, `max_participants`, `min_quantity`, `max_quantity`, `min_duration`, `max_duration`, `duration_unit`) and its `prices` (`{type, label, price, currency}`: adult, child and infant for persons; `unit`, `hour`, `day`, `trip`, `group`, `fixed` or `package` for the rest). `has_departure_prices` is true when the provider priced a particular departure differently: the exact price of a booking is always what `POST /bookings/summary` answers. The provider app's `GET /provider/activities/{uuid}` has the same `reservation_type` and `price_options` (with the switched-off options marked `is_active: false`).
+
+### Availability
+`GET /activities/{id}/availability` lists **every day** of a month: `month` (`YYYY-MM`) asks for one, from this month to twelve months ahead, and the **current month** is the answer when nothing is asked; `from` and `to` (at most 62 days) give a window instead (a `from` alone is 14 days). A day with nothing to book (gone, closed by the provider, or full) is listed all the same, with `is_available: false` and no slots, so a calendar can draw the whole month. A departure has its `id` (what a booking names it by), `time`, `end_time`, `spots_left` (null where there is no limit) and `is_available`. The places are those of the default price option, or of `booking_option_id`; for a per-unit option they are units. The answer starts with `timezone`, `from`, `to`, `booking_option` and `max_guests`.
+
+### Coupon check
+`POST /activities/{id}/coupons/validate` checks a coupon (`coupon_code`, or `code`) for the activity, before it is used. With nothing more it checks the coupon's own rules (it exists, is on, has not expired, is for this activity, has not been used up). Given the booking (`date` with `time` or `slot_id`, and what it is made of: the summary's fields) it prices the booking as the summary does and answers what the coupon takes off; given an `amount` it does the same for that price. The answer is `{code, is_valid, message, type, value, max_discount, min_order_amount, currency, subtotal, discount, service_fee, vat, total}`. **A coupon that cannot be used is a normal `200` with `is_valid: false` and why**, as in the summary; an unknown code, a switched-off one and another provider's are answered alike (`This coupon code is not valid.`), so the answer never tells which codes exist. Checking uses nothing up. Limited to 20 a minute for each customer, so it cannot be used to guess codes.
+
 ### Checkout
-- A booking is for a `date` and a `time` that is the start of one of the activity's schedule periods, **in the platform timezone** (`PLATFORM_TIMEZONE`, default Asia/Riyadh); `date_time` in answers is UTC. A departure that does not exist, is on a closed day, or has already left is `409 SLOT_UNAVAILABLE`.
-- **Capacity** is the option's maximum, else the activity's, else no limit, less the confirmed bookings and the unexpired holds on that departure: the same count the booking itself uses. More guests than the departure can ever take is `422` on `guests`; fewer places than that left is `409`.
-- **Price** = the price of the guests. **Service fee** = `CUSTOMER_SERVICE_FEE_PERCENT` of that price *before the coupon*. **VAT** = `CUSTOMER_VAT_PERCENT` of (price − coupon + service fee). **Total** = price − coupon + service fee + VAT, each amount rounded to two decimals. Both percentages are **0** until the business confirms them; the specification's example (450 × 2, a 20% coupon, 3% fee, 15% VAT) comes out as 900 − 180 + 27 + 112.05 = 859.05.
+- A booking is for a `date` and a departure named by its `time` or its `slot_id` (the id the availability gives; the id wins when both are sent), a price option (`booking_option_id`, else the default one) and what it is made of (above). A booking is for a departure that is one of the activity's schedule periods, **in the platform timezone** (`PLATFORM_TIMEZONE`, default Asia/Riyadh); `date_time` in answers is UTC. A departure that does not exist, is on a closed day, or has already left is `409 SLOT_UNAVAILABLE`.
+- **Capacity** is the option's maximum, else the activity's, else no limit, less the confirmed bookings and the unexpired holds on that departure: the same count the booking itself uses. More guests than the departure can ever take is `422` on `guests`, a quantity beyond the option's maximum is `422` on `quantity`, and a duration outside its limits `422` on `duration`; fewer places (or units) than asked left is `409`.
+- **Price** = the price of what the booking is made of: the guests by kind, the units, the hours or days, or the one price. The summary answers `reservation_type`, `booking_option`, `slot`, `details` and the `lines` the price is made of, besides `unit_price`, `guests`, `subtotal`, `discount`, `service_fee`, `vat`, `total` and `coupon`. **Service fee** = `CUSTOMER_SERVICE_FEE_PERCENT` of that price *before the coupon*. **VAT** = `CUSTOMER_VAT_PERCENT` of (price − coupon + service fee). **Total** = price − coupon + service fee + VAT, each amount rounded to two decimals. Both percentages are **0** until the business confirms them; the specification's example (450 × 2, a 20% coupon, 3% fee, 15% VAT) comes out as 900 − 180 + 27 + 112.05 = 859.05.
 - **The service fee is the platform's and the VAT the tax authority's: a provider earns the price after their own coupon** (`Reservation::providerAmount()`), and the wallet ledger, the provider's booking list, customer spend and revenue projection all use it. A refund of part of what the customer paid takes back the same share of the provider's amount.
 - **Coupons** follow the provider rules (docs/PROVIDER_API.md): provider-funded, per provider, one per booking, never below `COUPON_MINIMUM_TOTAL`. The summary **reports** a coupon that cannot be used (`coupon.is_valid: false` and why) and prices without it; creating the booking **refuses** it (`422` on `coupon_code`). Neither the summary nor availability uses anything up.
 - **Idempotency.** `POST /bookings` needs an `Idempotency-Key` header (up to 80 characters, new for each attempt). The same key again returns the booking the first request made (200, not 201) and books and charges nothing more; keys are per customer. Without one: `422 IDEMPOTENCY_KEY_REQUIRED`.
@@ -143,7 +162,7 @@ Support tickets are kept with an optional attachment (jpg, png or pdf up to 5 MB
 
 ## 5. Rate limits
 
-120 reads a minute; 30 summaries; 10 bookings or cancellations (together); 30 conversations and messages (together); 10 reviews; 5 support tickets; 3 account deletions. Each has its own budget.
+120 reads a minute; 30 summaries; 20 coupon checks; 10 bookings or cancellations (together); 30 conversations and messages (together); 10 reviews; 5 support tickets; 3 account deletions. Each has its own budget.
 
 ## 6. Settings (`.env`, listed in `.env.example`)
 
@@ -157,7 +176,7 @@ Support tickets are kept with an optional attachment (jpg, png or pdf up to 5 MB
 
 - No admin screen for support tickets (they are stored; there is no list or reply yet).
 - Providers cannot read or answer conversations yet.
-- Only per-person activities are bookable in this API.
+- A booking by units or by time takes no check of the provider's own opening hours beyond the departure it is for: the duration is the customer's to choose within the option's limits.
 - The static pages, FAQs and popular terms are edited in the language files, not in the admin.
 - The booking `source` is the app's say-so, as in the provider analytics.
 - Booking creation is checked for places before it is made, and again inside the booking; two customers racing for the last place get one booking and one `409`.
