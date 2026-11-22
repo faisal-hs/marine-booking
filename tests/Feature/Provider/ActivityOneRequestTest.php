@@ -485,7 +485,7 @@ class ActivityOneRequestTest extends TestCase
         $keptPhoto = $activity->images()->where('id', '!=', $oldPhoto->id)->first();
 
         $r = $this->update($activity, [
-            'title' => 'Sunrise Dive', 'description' => 'New description', 'location' => 'Hurghada', 'meeting_point' => 'Marina Gate 4', 'duration_minutes' => 120, 'min_age' => 10, 'max_participants' => 8,
+            'title' => 'Sunrise Dive', 'description' => 'New description', 'location' => 'Hurghada', 'meeting_point' => 'Marina Gate 4', 'duration_minutes' => 120, 'max_participants' => 8,
             'allowed_payment_methods' => ['tamara' => true],
             'options' => [['name' => 'Snacks', 'extra_price' => 25], ['name' => 'Photos', 'extra_price' => 40]],
             'requirements' => [['text' => 'Swimming ability', 'is_mandatory' => true]],
@@ -497,7 +497,9 @@ class ActivityOneRequestTest extends TestCase
         ])->assertOk();
 
         $d = $r->json('data');
-        $this->assertSame(['Sunrise Dive', 'New description', 'Hurghada', 'Marina Gate 4', 120, 10, 8], [$d['title'], $d['description'], $d['location'], $d['meeting_point'], $d['duration_minutes'], $d['min_age'], $d['max_participants']]);
+        $this->assertSame(['Sunrise Dive', 'New description', 'Hurghada', 'Marina Gate 4', 120, 8], [$d['title'], $d['description'], $d['location'], $d['meeting_point'], $d['duration_minutes'], $d['max_participants']]);
+        $this->assertArrayNotHasKey('min_participants', $d, 'An activity has no minimum of participants or age any more');
+        $this->assertArrayNotHasKey('min_age', $d);
         $this->assertSame(['tabby' => true, 'tamara' => true], $d['allowed_payment_methods'], 'The flag that was not sent stays');
         $this->assertSame(['Snacks', 'Photos'], array_column($d['options'], 'name'));
         $this->assertSame(['Swimming ability'], array_column($d['requirements'], 'text'));

@@ -117,9 +117,12 @@ class ProviderApplicationApiTest extends TestCase
         $response = $this->hitWithFiles($p['token'], '/api/v1/provider/apply', [])->assertStatus(422);
 
         $this->assertSame('VALIDATION_ERROR', $response->json('code'));
-        foreach (['business_name', 'business_type', 'category_ids', 'city', 'area', 'marina_name', 'phone', 'email', 'commercial_registration', 'safety_certification', 'insurance_certificate'] as $field) {
+        foreach (['business_name', 'business_type', 'category_ids', 'city', 'area', 'marina_name', 'phone', 'commercial_registration', 'safety_certification', 'insurance_certificate'] as $field) {
             $this->assertArrayHasKey($field, $response->json('errors'), "{$field} should be required");
         }
+        // The contact email and the sex are optional: a provider may have no email, and nobody has to say.
+        $this->assertArrayNotHasKey('email', $response->json('errors'));
+        $this->assertArrayNotHasKey('sex', $response->json('errors'));
         $this->assertSame(0, DB::table('provider_requests')->count());
     }
 
@@ -279,9 +282,11 @@ class ProviderApplicationApiTest extends TestCase
 
         $response = $this->hitWithFiles($p['token'], '/api/v1/provider/apply/resubmit', ['application_id' => $id])->assertStatus(422);
 
-        foreach (['business_type', 'category_ids', 'marina_name', 'phone', 'email'] as $field) {
+        foreach (['business_type', 'category_ids', 'marina_name', 'phone'] as $field) {
             $this->assertArrayHasKey($field, $response->json('errors'), $field);
         }
+        // The contact email never has to be sent: a provider may have none.
+        $this->assertArrayNotHasKey('email', $response->json('errors'));
         $this->assertSame(1, DB::table('provider_requests')->count());
     }
 

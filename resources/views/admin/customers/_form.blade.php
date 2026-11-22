@@ -9,6 +9,7 @@
     <x-admin.field name="phone" :label="__('admin.users.phone')" :value="$account?->phone" required
         :help="__('admin.customers.phone_help')" />
     <x-admin.field name="email" type="email" :label="__('admin.users.email')" :value="$account?->email" />
+    @include('admin.partials.sex-field', ['value' => $account?->sex])
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

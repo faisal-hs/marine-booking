@@ -38,6 +38,11 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
             });
         }
 
+        // Only the male or the female customers (anything else is no filter).
+        if (in_array($filters['sex'] ?? null, \App\Enums\Sex::values(), true)) {
+            $query->whereHas('user', fn ($u) => $u->where('users.sex', $filters['sex']));
+        }
+
         if (! empty($filters['search'])) {
             $term = '%'.$filters['search'].'%';
 

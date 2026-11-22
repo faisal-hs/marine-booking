@@ -37,6 +37,7 @@ class CustomerManagementService
             $user = $this->users->create([
                 'name' => $data['name'],
                 'email' => $data['email'] ?? null,
+                'sex' => $data['sex'] ?? null,
                 'phone' => $data['phone'],
                 'user_type' => 'customer',
                 'status' => 'active',
@@ -53,7 +54,7 @@ class CustomerManagementService
     public function update(Customer $customer, array $data): Customer
     {
         DB::transaction(function () use ($customer, $data) {
-            $contact = array_intersect_key($data, array_flip(['name', 'email', 'phone']));
+            $contact = array_intersect_key($data, array_flip(['name', 'email', 'sex', 'phone']));
             if ($contact !== []) {
                 $customer->user->update($contact);
             }

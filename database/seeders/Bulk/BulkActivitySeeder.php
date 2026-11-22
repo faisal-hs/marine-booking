@@ -89,12 +89,10 @@ class BulkActivitySeeder extends BulkSeeder
                 'lat' => round((float) $provider->lat + $this->rand(-500, 500) / 10000, 6),
                 'lng' => round((float) $provider->lng + $this->rand(-500, 500) / 10000, 6),
                 'duration_minutes' => $this->pick([60, 90, 120, 180, 240, 300, 360, 480]),
-                'min_participants' => $this->pick([1, 1, 1, 2]),
                 // At least 12, which the reservation seeder relies on to keep a day within capacity.
                 'max_participants' => $this->rand(12, 40),
                 'average_rating' => 0,
                 'reviews_count' => 0,
-                'min_age' => $this->pick([null, null, 6, 8, 12, 16]),
                 'status' => $status,
                 'rejection_reason' => null,
                 'suspended_at' => $suspended ? $this->ts($published->copy()->addDays($this->rand(1, 30))->min($this->now)) : null,

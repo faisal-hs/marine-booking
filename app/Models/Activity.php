@@ -12,7 +12,6 @@ class Activity extends Model
 
     protected $attributes = [
         'status' => 'draft',
-        'min_participants' => 1,
     ];
 
     protected $fillable = [
@@ -30,9 +29,7 @@ class Activity extends Model
         'lat',
         'lng',
         'duration_minutes',
-        'min_participants',
         'max_participants',
-        'min_age',
         'status',
         'rejection_reason',
         'published_at',

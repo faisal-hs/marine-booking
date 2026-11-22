@@ -41,6 +41,11 @@ class ProfileController extends CustomerAppController
             $old && Storage::disk('public')->delete($old);
         }
 
+        // male or female, or null to take it off: set BEFORE the user is saved.
+        if ($request->has('sex')) {
+            $user->sex = $request->input('sex');
+        }
+
         $user->save();
 
         if ($request->has('city')) {

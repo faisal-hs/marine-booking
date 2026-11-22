@@ -53,7 +53,5 @@ provider is fixed once it exists).
 
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
     <x-admin.field name="duration_minutes" type="number" min="1" :label="__('admin.activities.duration_minutes')" :value="$activity?->duration_minutes" />
-    <x-admin.field name="min_participants" type="number" min="1" :label="__('admin.activities.min_participants')" :value="$activity?->min_participants ?? 1" />
     <x-admin.field name="max_participants" type="number" min="1" :label="__('admin.activities.max_participants')" :value="$activity?->max_participants" />
-    <x-admin.field name="min_age" type="number" min="0" max="120" :label="__('admin.activities.min_age')" :value="$activity?->min_age" />
 </div>

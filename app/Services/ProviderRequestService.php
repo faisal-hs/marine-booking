@@ -37,7 +37,7 @@ class ProviderRequestService
     /**
      * Submit a request, or resubmit one that was rejected.
      *
-     * @param  array{business_name: string, city: string, area: string, bio?: ?string, address?: ?string}  $data
+     * @param  array{business_name: string, city: string, area: string, bio?: ?string, address?: ?string, sex?: ?string}  $data
      * @param  array<string, UploadedFile|null>  $files  keyed by document type (any active type: required or optional); a REQUIRED type may be left out only if a
      *                                                   document of it is already on file, an optional one may always be
      */
@@ -63,6 +63,11 @@ class ProviderRequestService
             $request = DB::transaction(function () use ($user, $data, $files, $provider, &$stored) {
                 $source = $user->user_type === 'provider' ? ProviderRequest::SOURCE_REGISTRATION : ProviderRequest::SOURCE_CUSTOMER_UPGRADE;
                 $provider = $this->saveProvider($user, $provider, $data);
+
+                // The applicant's sex, when they gave it, is on their account (it is not the business's).
+                if (! empty($data['sex'])) {
+                    $user->update(['sex' => $data['sex']]);
+                }
 
                 // EVERY document type an admin has switched on, by its requirement: a document that was sent is kept (required or optional), a REQUIRED one that was not
                 // sent has to be on file already, and an OPTIONAL one that was not sent is simply left out.
@@ -182,6 +187,11 @@ class ProviderRequestService
 
         if (in_array($filters['source'] ?? null, [ProviderRequest::SOURCE_REGISTRATION, ProviderRequest::SOURCE_CUSTOMER_UPGRADE], true)) {
             $query->where('source', $filters['source']);
+        }
+
+        // Only the applications of a male, or of a female, applicant (anything else is no filter).
+        if (in_array($filters['sex'] ?? null, \App\Enums\Sex::values(), true)) {
+            $query->whereHas('user', fn ($u) => $u->where('users.sex', $filters['sex']));
         }
 
         if (! empty($filters['search'])) {

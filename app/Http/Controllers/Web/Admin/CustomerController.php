@@ -27,7 +27,7 @@ class CustomerController extends Controller
     {
         $this->authorize('viewAny', Customer::class);
 
-        $filters = $request->only(['account', 'search']);
+        $filters = $request->only(['account', 'search', 'sex']);
 
         return view('admin.customers.index', [
             'customers' => $this->repository->paginateForAdmin($filters),

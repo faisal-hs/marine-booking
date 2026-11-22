@@ -18,7 +18,7 @@ class ProviderAuthController extends BaseApiController
     {
         $data = $request->payload();
 
-        $this->authService->requestOtp($data['phone'], $data['owner_name'] ?? null, $data['business_name'] ?? null);
+        $this->authService->requestOtp($data['phone'], $data['owner_name'] ?? null, $data['business_name'] ?? null, $data['sex'] ?? null);
 
         return $this->success(null, 'Verification code sent.');
     }

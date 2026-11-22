@@ -17,6 +17,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'nullable', 'email', Rule::unique('users', 'email')->ignore($this->user()->id)],
+            'sex' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::enum(\App\Enums\Sex::class)],
             'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
             'preferred_language' => ['sometimes', 'string', 'in:en,ar'],
         ];
@@ -24,6 +25,6 @@ class UpdateProfileRequest extends FormRequest
 
     public function payload(): array
     {
-        return $this->only(['name', 'email', 'date_of_birth', 'preferred_language']);
+        return $this->only(['name', 'email', 'sex', 'date_of_birth', 'preferred_language']);
     }
 }

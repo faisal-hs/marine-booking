@@ -30,6 +30,7 @@ class ProfileController extends BaseApiController
             $user->update(array_filter([
                 'name' => $data['name'] ?? null,
                 'email' => $data['email'] ?? null,
+                'sex' => $data['sex'] ?? null,
             ], fn($v) => $v !== null));
 
             $user->customer->update(array_filter([

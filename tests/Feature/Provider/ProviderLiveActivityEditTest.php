@@ -197,7 +197,7 @@ class ProviderLiveActivityEditTest extends TestCase
         $rule = $option->pricingRules()->create(['participant_type' => 'adult', 'price' => 150]);
 
         $response = match ($edit) {
-            'limits' => $as()->putJson($base, ['min_participants' => 2, 'max_participants' => 12, 'duration_minutes' => 90, 'min_age' => 10]),
+            'limits' => $as()->putJson($base, ['max_participants' => 12, 'duration_minutes' => 90]),
             'schedule' => $as()->postJson("{$base}/schedule", ['day_of_week' => 'sunday', 'start_time' => '09:00', 'end_time' => '12:00']),
             'blackout' => $as()->postJson("{$base}/overrides", ['date_from' => $this->daysFromNow(10)->toDateString(), 'date_to' => $this->daysFromNow(10)->toDateString(), 'is_unavailable' => true]),
             'extras' => $as()->putJson("{$base}/options", ['options' => [['name' => 'Underwater Photos', 'extra_price' => 25, 'is_required' => false]]]),

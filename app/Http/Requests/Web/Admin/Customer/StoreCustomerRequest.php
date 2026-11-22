@@ -19,6 +19,7 @@ class StoreCustomerRequest extends FormRequest
             // Unique across ALL users, deleted accounts included: a deleted account still holds its phone.
             'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            'sex' => ['nullable', Rule::enum(\App\Enums\Sex::class)],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'preferred_language' => ['nullable', Rule::in(['en', 'ar'])],
         ];

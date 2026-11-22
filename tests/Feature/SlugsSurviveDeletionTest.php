@@ -64,7 +64,7 @@ class SlugsSurviveDeletionTest extends TestCase
         $admin = $this->makeAdmin();
 
         $this->actingAs($admin, 'web')->post(route('admin.activities.store'), [
-            'provider_id' => $provider->id, 'category_id' => $category->id, 'title' => 'Reef Day', 'min_participants' => 1,
+            'provider_id' => $provider->id, 'category_id' => $category->id, 'title' => 'Reef Day',
         ])->assertSessionHasNoErrors();
         $this->actingAs($admin, 'web')->post(route('admin.activities.restore', $old))->assertSessionHasNoErrors();
 

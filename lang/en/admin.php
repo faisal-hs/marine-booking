@@ -1,6 +1,14 @@
 <?php
 
 return [
+    // The sex of the person behind an account (users.sex), in forms and in the filter of the lists.
+    'sex' => [
+        'label' => 'Sex',
+        'male' => 'Male',
+        'female' => 'Female',
+        'any' => 'Any sex',
+    ],
+
     'brand' => 'Marine Booking',
     'brand_subtitle' => 'Admin Console',
     'logout' => 'Log out',
@@ -233,9 +241,7 @@ return [
         'location' => 'Location',
         'meeting_point' => 'Meeting point',
         'duration_minutes' => 'Duration (minutes)',
-        'min_participants' => 'Minimum participants',
         'max_participants' => 'Maximum participants',
-        'min_age' => 'Minimum age',
         'create_submit' => 'Create activity (as a draft)',
         'save_submit' => 'Save details',
         'save_section' => 'Save',

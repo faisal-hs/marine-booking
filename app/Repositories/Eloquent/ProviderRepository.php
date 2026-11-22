@@ -74,6 +74,11 @@ class ProviderRepository extends BaseRepository implements ProviderRepositoryInt
             });
         }
 
+        // Only the providers whose owner is male, or female (anything else is no filter).
+        if (in_array($filters['sex'] ?? null, \App\Enums\Sex::values(), true)) {
+            $query->whereHas('user', fn ($u) => $u->where('users.sex', $filters['sex']));
+        }
+
         if (! empty($filters['search'])) {
             $term = '%' . $filters['search'] . '%';
 

@@ -32,6 +32,7 @@ class UpdateProfileRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
+            'sex' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::enum(\App\Enums\Sex::class)],
             'business_name' => ['sometimes', 'string', 'max:255'],
             'bio' => ['sometimes', 'nullable', 'string'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -48,6 +49,6 @@ class UpdateProfileRequest extends FormRequest
 
     public function payload(): array
     {
-        return $this->only(['name', 'business_name', 'bio', 'address', 'city', 'area', 'lat', 'lng', 'email']);
+        return $this->only(['name', 'business_name', 'bio', 'address', 'city', 'area', 'lat', 'lng', 'email', 'sex']);
     }
 }

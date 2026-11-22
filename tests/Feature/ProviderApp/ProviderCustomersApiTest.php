@@ -92,7 +92,7 @@ class ProviderCustomersApiTest extends TestCase
     {
         $fatima = $this->list()['data']['customers'][0];
 
-        $this->assertSame(['id', 'name', 'logo', 'bookings_count', 'total_spent', 'last_booking', 'tier', 'vip_score'], array_keys($fatima));
+        $this->assertSame(['id', 'name', 'logo', 'sex', 'bookings_count', 'total_spent', 'last_booking', 'tier', 'vip_score'], array_keys($fatima));
         $this->assertNull($fatima['logo'], 'A customer with no picture has a null logo');
         $this->assertSame($this->customers['Fatima']->id, $fatima['id']);
         $this->assertSame(6, $fatima['bookings_count']);

@@ -32,6 +32,10 @@ class ResubmitApplicationRequest extends ApplyAsProviderRequest
     {
         $data = $this->safe()->only(['business_name', 'business_type', 'category_ids', 'city', 'area', 'marina_name', 'bio', 'address']);
 
+        if ($this->filled('sex')) {
+            $data['sex'] = $this->input('sex');
+        }
+
         foreach (['phone' => 'contact_phone', 'email' => 'contact_email'] as $input => $column) {
             if ($this->has($input)) {
                 $data[$column] = $this->input($input);

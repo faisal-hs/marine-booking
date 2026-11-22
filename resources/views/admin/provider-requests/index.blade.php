@@ -6,7 +6,7 @@
 @section('content')
     <div class="flex flex-wrap gap-2 mb-4 text-xs">
         @foreach (['pending', 'approved', 'rejected', 'all'] as $tab)
-            <a href="{{ route('admin.provider-requests.index', array_filter(['status' => $tab, 'source' => $filters['source'] ?? null, 'search' => $filters['search'] ?? null])) }}"
+            <a href="{{ route('admin.provider-requests.index', array_filter(['status' => $tab, 'source' => $filters['source'] ?? null, 'search' => $filters['search'] ?? null, 'sex' => $filters['sex'] ?? null])) }}"
                 class="px-3 py-1 rounded-full border {{ ($filters['status'] ?? 'pending') === $tab ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200' }}">
                 {{ __('admin.provider_requests.tabs.' . $tab) }} ({{ $counts[$tab] }})
             </a>
@@ -25,6 +25,7 @@
                     {{ __('admin.provider_requests.sources.' . $source) }}</option>
             @endforeach
         </select>
+        @include('admin.partials.sex-filter', ['value' => $filters['sex'] ?? ''])
         <button type="submit"
             class="bg-slate-100 rounded-lg px-3 py-1.5">{{ __('admin.provider_requests.filter') }}</button>
     </form>

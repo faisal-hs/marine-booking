@@ -30,7 +30,7 @@ class ProviderRequestController extends Controller
         $this->authorize('viewAny', ProviderRequest::class);
 
         // Waiting requests first: that is what an admin opens this screen for.
-        $filters = array_merge(['status' => 'pending'], $request->only(['status', 'source', 'search']));
+        $filters = array_merge(['status' => 'pending'], $request->only(['status', 'source', 'search', 'sex']));
 
         return view('admin.provider-requests.index', [
             'requests' => $this->service->paginateForAdmin($filters),

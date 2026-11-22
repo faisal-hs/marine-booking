@@ -21,6 +21,7 @@
             <option value="suspended" @selected(($filters['account'] ?? '') === 'suspended')>{{ __('admin.statuses.suspended') }}</option>
             <option value="deleted" @selected(($filters['account'] ?? '') === 'deleted')>{{ __('admin.customers.deleted_accounts') }}</option>
         </select>
+        @include('admin.partials.sex-filter', ['value' => $filters['sex'] ?? ''])
         <button type="submit" class="bg-slate-100 rounded-lg px-3 py-1.5">{{ __('admin.customers.filter') }}</button>
     </form>
 

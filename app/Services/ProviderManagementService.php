@@ -54,6 +54,7 @@ class ProviderManagementService
             $user = $this->users->create([
                 'name' => $data['name'],
                 'email' => $data['email'] ?? null,
+                'sex' => $data['sex'] ?? null,
                 'phone' => $data['phone'],
                 'user_type' => 'provider',
                 'status' => 'active',
@@ -93,7 +94,7 @@ class ProviderManagementService
     public function update(Provider $provider, array $data): Provider
     {
         DB::transaction(function () use ($provider, $data) {
-            $contact = array_intersect_key($data, array_flip(['name', 'email', 'phone']));
+            $contact = array_intersect_key($data, array_flip(['name', 'email', 'sex', 'phone']));
             if ($contact !== []) {
                 $provider->user->update($contact);
             }

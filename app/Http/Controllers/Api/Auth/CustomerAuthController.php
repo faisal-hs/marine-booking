@@ -18,7 +18,7 @@ class CustomerAuthController extends BaseApiController
     {
         $data = $request->payload();
 
-        $this->authService->requestOtp($data['phone'], $data['name'] ?? null, $data['city'] ?? null);
+        $this->authService->requestOtp($data['phone'], $data['name'] ?? null, $data['city'] ?? null, $data['sex'] ?? null);
 
         return $this->success(null, 'Verification code sent.');
     }

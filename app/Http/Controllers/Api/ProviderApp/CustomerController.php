@@ -11,7 +11,7 @@ class CustomerController extends ProviderAppController
 
     public function index(ListCustomersRequest $request)
     {
-        $result = $this->customers->list($this->provider($request), $request->only(['tier', 'q']), $request->perPage(), $request->page());
+        $result = $this->customers->list($this->provider($request), $request->only(['tier', 'q', 'sex']), $request->perPage(), $request->page());
 
         return $this->page($result['page'], ['summary' => $result['summary'], 'customers' => $result['customers']]);
     }

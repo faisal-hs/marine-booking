@@ -55,9 +55,7 @@ class ActivityManagementTest extends TestCase
             'lat' => 27.2,
             'lng' => 33.8,
             'duration_minutes' => 120,
-            'min_participants' => 1,
             'max_participants' => 8,
-            'min_age' => 12,
         ], $overrides);
     }
 
@@ -247,7 +245,6 @@ class ActivityManagementTest extends TestCase
         $this->assertSame('draft', $activity->status);
         $this->assertSame('sunrise-reef-dive', $activity->slug);
         $this->assertSame('Sunrise Reef Dive', $activity->title);
-        $this->assertSame(12, $activity->min_age);
         $this->assertSame(8, $activity->max_participants);
     }
 
@@ -262,13 +259,16 @@ class ActivityManagementTest extends TestCase
         $this->assertNull($activity->published_at);
     }
 
-    public function test_an_empty_minimum_uses_the_default_of_one(): void
+    public function test_an_activity_has_no_minimum_of_participants_or_age_to_set(): void
     {
         [, $provider] = $this->makeProvider('verified');
 
-        $this->asAdmin()->post(route('admin.activities.store'), $this->validPayload($provider, $this->makeCategory(), ['min_participants' => '']));
+        // The fields are gone: sent anyway, they are not validated and not stored (the booking option has its own minimum of places).
+        $this->asAdmin()->post(route('admin.activities.store'), $this->validPayload($provider, $this->makeCategory(), ['min_participants' => 5, 'min_age' => 121]))->assertSessionHasNoErrors();
 
-        $this->assertSame(1, Activity::firstOrFail()->min_participants);
+        $activity = Activity::firstOrFail();
+        $this->assertSame(1, (int) $activity->min_participants, 'The column keeps its default; nothing sets it');
+        $this->assertNull($activity->min_age);
     }
 
     /** @return array<string, array{0: array<string, mixed>, 1: string}> */
@@ -283,8 +283,7 @@ class ActivityManagementTest extends TestCase
             'latitude out of range' => [['lat' => 95], 'lat'],
             'longitude out of range' => [['lng' => 200], 'lng'],
             'a zero duration' => [['duration_minutes' => 0], 'duration_minutes'],
-            'a maximum below the minimum' => [['min_participants' => 5, 'max_participants' => 2], 'max_participants'],
-            'a minimum age over 120' => [['min_age' => 121], 'min_age'],
+            'a maximum of zero' => [['max_participants' => 0], 'max_participants'],
         ];
     }
 
@@ -344,7 +343,7 @@ class ActivityManagementTest extends TestCase
         $activity = $this->makeActivity($provider, 'draft', ['category' => $category]);
 
         $this->asAdmin()->put(route('admin.activities.update', $activity), $this->validPayload($provider, $category, [
-            'title' => 'Completely New Title', 'location' => 'Dahab', 'max_participants' => 20, 'min_age' => 8,
+            'title' => 'Completely New Title', 'location' => 'Dahab', 'max_participants' => 20,
         ]))->assertRedirect(route('admin.activities.edit', $activity));
 
         $activity->refresh();

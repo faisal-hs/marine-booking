@@ -35,6 +35,8 @@ class PatchProfileRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'nullable', 'email', Rule::unique('users', 'email')->ignore($this->user()->id)],
+            // male or female; null takes it off.
+            'sex' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::enum(\App\Enums\Sex::class)],
             // The profile picture: an image (not an SVG, which can carry a script) up to 4 MB, or `remove_image: true` to take it off.
             'image' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_image' => ['sometimes', 'boolean', 'prohibits:image'],

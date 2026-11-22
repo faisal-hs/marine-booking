@@ -34,7 +34,7 @@ class ProviderController extends Controller
     {
         $this->authorize('viewAny', Provider::class);
 
-        $filters = $request->only(['status', 'account', 'search']);
+        $filters = $request->only(['status', 'account', 'search', 'sex']);
 
         return view('admin.providers.index', [
             'providers' => $this->repository->paginateForAdmin($filters),

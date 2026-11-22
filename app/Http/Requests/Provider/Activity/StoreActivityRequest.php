@@ -23,10 +23,6 @@ class StoreActivityRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalisePaymentMethods();
-
-        $this->merge([
-            'min_participants' => $this->input('min_participants', 1),
-        ]);
     }
 
     public function rules(): array
@@ -41,9 +37,7 @@ class StoreActivityRequest extends FormRequest
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
-            'min_participants' => ['integer', 'min:1'],
-            'max_participants' => ['nullable', 'integer', 'gte:min_participants'],
-            'min_age' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'max_participants' => ['nullable', 'integer', 'min:1'],
 
             // A new activity is active (live) by default; `draft` keeps it as a draft until the provider publishes it. `active` is the same as leaving it out.
             'status' => ['sometimes', 'nullable', 'in:active,draft'],
@@ -160,9 +154,7 @@ class StoreActivityRequest extends FormRequest
             'lat',
             'lng',
             'duration_minutes',
-            'min_participants',
             'max_participants',
-            'min_age',
         ]);
     }
 

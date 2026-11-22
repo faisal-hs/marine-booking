@@ -13,11 +13,6 @@ class StoreActivityRequest extends FormRequest
         return $this->user()->can('activities.create');
     }
 
-    protected function prepareForValidation(): void
-    {
-        $this->merge(ActivityFieldRules::withDefaultMinimum($this->all()));
-    }
-
     public function rules(): array
     {
         return [

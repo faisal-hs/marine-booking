@@ -32,7 +32,10 @@ class ApplyAsProviderRequest extends FormRequest
             'area' => ['required', 'string', 'max:120'],
             'marina_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'regex:/^\+?[0-9][0-9\s\-]{6,18}$/'],
-            'email' => ['required', 'email:rfc', 'max:255'],
+            // The contact email is optional: a provider may have none.
+            'email' => ['nullable', 'email:rfc', 'max:255'],
+            // male or female, optional: saved on the applicant's account.
+            'sex' => ['nullable', \Illuminate\Validation\Rule::enum(\App\Enums\Sex::class)],
             'bio' => ['nullable', 'string', 'max:2000'],
             'address' => ['nullable', 'string', 'max:255'],
         ];
@@ -51,7 +54,7 @@ class ApplyAsProviderRequest extends FormRequest
     {
         $data = $this->safe()->only(['business_name', 'business_type', 'category_ids', 'city', 'area', 'marina_name', 'bio', 'address']);
 
-        return $data + ['contact_phone' => $this->input('phone'), 'contact_email' => $this->input('email')];
+        return $data + ['contact_phone' => $this->input('phone'), 'contact_email' => $this->input('email')] + ($this->filled('sex') ? ['sex' => $this->input('sex')] : []);
     }
 
     /** @return array<string, UploadedFile|null> every active document type's key, and the file sent for it (null when none was) */

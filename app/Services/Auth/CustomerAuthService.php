@@ -23,7 +23,7 @@ class CustomerAuthService
         protected AccountService $accounts,
     ) {}
 
-    public function requestOtp(string $phone, ?string $name, ?string $city = null): void
+    public function requestOtp(string $phone, ?string $name, ?string $city = null, ?string $sex = null): void
     {
         $this->refuseDeletedAccount($phone);
 
@@ -49,7 +49,7 @@ class CustomerAuthService
         }
 
         // The city is kept with the pending registration, and saved on the customer when the code is verified and the account is made.
-        $this->otpService->issue($phone, 'registration', null, ['name' => $name, 'city' => $city]);
+        $this->otpService->issue($phone, 'registration', null, ['name' => $name, 'city' => $city, 'sex' => $sex]);
     }
 
     public function resendOtp(string $phone): void
@@ -92,6 +92,7 @@ class CustomerAuthService
 
             $user = $this->userRepository->create([
                 'name' => $payload['name'],
+                'sex' => $payload['sex'] ?? null,
                 'phone' => $phone,
                 'user_type' => 'customer',
                 'status' => 'active',

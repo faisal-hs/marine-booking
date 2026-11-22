@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
 class ApplicationController extends ProviderAppController
 {
     private const REQUIRED_AFTER_MERGE = ['business_name' => 'business_name', 'business_type' => 'business_type', 'category_ids' => 'category_ids', 'city' => 'city',
-        'area' => 'area', 'marina_name' => 'marina_name', 'contact_phone' => 'phone', 'contact_email' => 'email'];
+        'area' => 'area', 'marina_name' => 'marina_name', 'contact_phone' => 'phone'];   // (the contact email is optional)
 
     public function __construct(private readonly ProviderRequestService $applications, private readonly ProviderStats $stats) {}
 
@@ -92,7 +92,7 @@ class ApplicationController extends ProviderAppController
             'contact_email' => $provider->contact_email,
         ], $request->changes());
 
-        // An older provider may have no business type, marina, contact or categories on file: then they have to be sent now.
+        // An older provider may have no business type, marina, contact phone or categories on file: then they have to be sent now. (An email never has to be.)
         $missing = [];
         foreach (self::REQUIRED_AFTER_MERGE as $column => $field) {
             if (empty($data[$column])) {

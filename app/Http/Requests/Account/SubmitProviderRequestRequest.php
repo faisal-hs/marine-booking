@@ -27,6 +27,8 @@ class SubmitProviderRequestRequest extends FormRequest
             'area' => ['required', 'string', 'max:120'],
             'bio' => ['nullable', 'string', 'max:2000'],
             'address' => ['nullable', 'string', 'max:255'],
+            // male or female, optional: saved on the applicant's account.
+            'sex' => ['nullable', \Illuminate\Validation\Rule::enum(\App\Enums\Sex::class)],
         ];
 
         // The documents are whatever the admin has switched on, each required or optional as its type says (see HasApplicationDocuments).
@@ -41,7 +43,7 @@ class SubmitProviderRequestRequest extends FormRequest
     /** @return array<string, mixed> */
     public function details(): array
     {
-        return $this->safe()->only(['business_name', 'city', 'area', 'bio', 'address']);
+        return $this->safe()->only(['business_name', 'city', 'area', 'bio', 'address']) + ($this->filled('sex') ? ['sex' => $this->input('sex')] : []);
     }
 
     /** @return array<string, UploadedFile|null> */

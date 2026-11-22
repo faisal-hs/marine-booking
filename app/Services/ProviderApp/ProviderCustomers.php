@@ -18,15 +18,15 @@ use Illuminate\Support\Facades\Storage;
 class ProviderCustomers
 {
     /**
-     * @param  array{tier?: string, q?: string}  $filters
+     * @param  array{tier?: string, q?: string, sex?: string}  $filters
      * @return array{summary: array{total: int, vip: int, new_this_month: int}, customers: list<array<string, mixed>>, page: LengthAwarePaginator}
      */
     public function list(Provider $provider, array $filters, int $perPage, int $page): array
     {
-        $all = $this->all($provider, $filters['q'] ?? null);
+        $all = $this->all($provider, $filters['q'] ?? null, $filters['sex'] ?? null);
 
-        // The summary describes all the provider's customers, so the tabs keep their counts whatever is filtered.
-        $everyone = isset($filters['q']) && $filters['q'] !== '' ? $this->all($provider, null) : $all;
+        // The summary describes all the provider's customers, so the tabs keep their counts whatever is filtered (by name or phone, or by sex).
+        $everyone = (isset($filters['q']) && $filters['q'] !== '') || ! empty($filters['sex']) ? $this->all($provider, null, null) : $all;
         $monthStart = Carbon::now()->startOfMonth()->toDateString();
         $summary = [
             'total' => $everyone->count(),
@@ -46,6 +46,8 @@ class ProviderCustomers
                 'name' => $c['name'],
                 // The customer's picture as a URL (null when they have none): the same one the customer sees on their own profile.
                 'logo' => $c['logo'],
+                // male, female or null (the customer did not say).
+                'sex' => $c['sex'],
                 'bookings_count' => $c['bookings_count'],
                 'total_spent' => $c['total_spent'],
                 'last_booking' => Carbon::parse($c['last_booking'])->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -57,7 +59,7 @@ class ProviderCustomers
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    private function all(Provider $provider, ?string $search)
+    private function all(Provider $provider, ?string $search, ?string $sex = null)
     {
         $config = config('provider_app.customer_tiers');
         $recentSince = Carbon::now()->subDays($config['recent_days'])->toDateTimeString();
@@ -68,9 +70,9 @@ class ProviderCustomers
             ->join('customers as c', 'c.id', '=', 'r.customer_id')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('a.provider_id', $provider->id)->whereNull('r.deleted_at')
-            ->groupBy('c.id', 'u.name', 'u.avatar_path')
+            ->groupBy('c.id', 'u.name', 'u.avatar_path', 'u.sex')
             ->havingRaw("SUM(CASE WHEN r.status IN ('confirmed', 'completed') THEN 1 ELSE 0 END) > 0")
-            ->selectRaw("c.id AS id, u.name AS name, u.avatar_path AS avatar_path,
+            ->selectRaw("c.id AS id, u.name AS name, u.avatar_path AS avatar_path, u.sex AS sex,
                 SUM(CASE WHEN r.status IN ('confirmed', 'completed') THEN 1 ELSE 0 END) AS bookings_count,
                 SUM(CASE WHEN r.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
                 SUM(CASE WHEN r.status = 'completed' THEN r.total - r.service_fee - r.tax ELSE 0 END) AS total_spent,
@@ -78,6 +80,10 @@ class ProviderCustomers
                 SUM(CASE WHEN r.status = 'cancelled' AND r.cancelled_at >= ? THEN 1 ELSE 0 END) AS recent_cancellations,
                 MAX(CASE WHEN r.status IN ('confirmed', 'completed') THEN r.reservation_date END) AS last_booking,
                 MIN(CASE WHEN r.status IN ('confirmed', 'completed') THEN r.reservation_date END) AS first_booking", [$recentSince, $cancelledSince]);
+
+        if ($sex !== null && $sex !== '') {
+            $query->where('u.sex', $sex);
+        }
 
         if ($search !== null && $search !== '') {
             // '!' escapes a literal %, _ or ! in what the person typed (a backslash would be an escape character in MySQL itself).
@@ -92,6 +98,7 @@ class ProviderCustomers
                 'id' => (int) $row->id,
                 'name' => $row->name,
                 'logo' => $row->avatar_path ? Storage::disk('public')->url($row->avatar_path) : null,
+                'sex' => $row->sex,
                 'bookings_count' => (int) $row->bookings_count,
                 'total_spent' => round((float) $row->total_spent, 2),
                 'last_booking' => substr((string) $row->last_booking, 0, 10),

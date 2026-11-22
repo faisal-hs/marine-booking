@@ -27,7 +27,7 @@ class ProviderAuthService
      * Requests an OTP for either a new provider registration or an
      * existing provider login, determined by whether the phone is known.
      */
-    public function requestOtp(string $phone, ?string $ownerName, ?string $businessName): void
+    public function requestOtp(string $phone, ?string $ownerName, ?string $businessName, ?string $sex = null): void
     {
         $this->refuseDeletedAccount($phone);
 
@@ -57,6 +57,7 @@ class ProviderAuthService
         $this->otpService->issue($phone, 'registration', null, [
             'owner_name' => $ownerName,
             'business_name' => $businessName,
+            'sex' => $sex,
         ]);
     }
 
@@ -98,6 +99,7 @@ class ProviderAuthService
 
             $user = $this->userRepository->create([
                 'name' => $payload['owner_name'],
+                'sex' => $payload['sex'] ?? null,
                 'phone' => $phone,
                 'user_type' => 'provider',
                 'status' => 'active',

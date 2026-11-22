@@ -83,7 +83,7 @@ class ProviderProfileService
         }
 
         $pending = DB::transaction(function () use ($user, $provider, $data, $now, $requested) {
-            $account = array_intersect_key($data, array_flip(['name', 'email']));
+            $account = array_intersect_key($data, array_flip(['name', 'email', 'sex']));
             if ($account !== []) {
                 $user->update($account);
             }

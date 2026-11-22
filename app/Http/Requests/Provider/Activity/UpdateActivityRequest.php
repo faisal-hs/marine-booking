@@ -23,12 +23,6 @@ class UpdateActivityRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalisePaymentMethods();
-
-        if (! $this->has('min_participants')) {
-            $this->merge([
-                'min_participants' => $this->route('activity')?->min_participants ?? 1,
-            ]);
-        }
     }
 
     public function rules(): array
@@ -43,9 +37,7 @@ class UpdateActivityRequest extends FormRequest
             'lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'min_participants' => ['integer', 'min:1'],
-            'max_participants' => ['sometimes', 'nullable', 'integer', 'gte:min_participants'],
-            'min_age' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:120'],
+            'max_participants' => ['sometimes', 'nullable', 'integer', 'min:1'],
 
             // Which buy-now-pay-later methods the provider accepts for this activity.
             ...$this->paymentMethodRules(),
@@ -188,9 +180,7 @@ class UpdateActivityRequest extends FormRequest
             'lat',
             'lng',
             'duration_minutes',
-            'min_participants',
             'max_participants',
-            'min_age',
         ]);
     }
 

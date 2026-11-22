@@ -18,24 +18,8 @@ final class ActivityFieldRules
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
-            'min_participants' => ['nullable', 'integer', 'min:1'],
-            'max_participants' => ['nullable', 'integer', 'gte:min_participants'],
-            'min_age' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'max_participants' => ['nullable', 'integer', 'min:1'],
         ];
-    }
-
-    /**
-     * An empty minimum means "use the default of 1", not "none". This is applied BEFORE
-     * validation: "max_participants must be at least min_participants" cannot compare
-     * against an empty field and would reject a form that merely left the minimum blank.
-     */
-    public static function withDefaultMinimum(array $input): array
-    {
-        if (($input['min_participants'] ?? null) === null || $input['min_participants'] === '') {
-            $input['min_participants'] = 1;
-        }
-
-        return $input;
     }
 
     public static function payload(array $validated): array

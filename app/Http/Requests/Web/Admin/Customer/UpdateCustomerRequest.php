@@ -20,6 +20,7 @@ class UpdateCustomerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($ownerId)],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($ownerId)],
+            'sex' => ['nullable', Rule::enum(\App\Enums\Sex::class)],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'preferred_language' => ['nullable', Rule::in(['en', 'ar'])],
         ];

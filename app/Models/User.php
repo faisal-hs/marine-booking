@@ -20,6 +20,7 @@ class User extends Authenticatable
         'uuid',
         'name',
         'email',
+        'sex',
         'phone',
         'avatar_path',
         'password',

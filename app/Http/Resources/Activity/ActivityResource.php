@@ -42,9 +42,7 @@ class ActivityResource extends JsonResource
             'lat' => $this->lat,
             'lng' => $this->lng,
             'duration_minutes' => $this->duration_minutes,
-            'min_participants' => $this->min_participants,
             'max_participants' => $this->max_participants,
-            'min_age' => $this->min_age,
             'status' => $this->status,
             // An admin stopped it: the provider sees why, and that only an admin can lift it.
             'suspended' => $this->isSuspended(),

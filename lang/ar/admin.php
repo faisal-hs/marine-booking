@@ -1,6 +1,14 @@
 <?php
 
 return [
+    // The sex of the person behind an account (users.sex), in forms and in the filter of the lists.
+    'sex' => [
+        'label' => 'الجنس',
+        'male' => 'ذكر',
+        'female' => 'أنثى',
+        'any' => 'أي جنس',
+    ],
+
     'brand' => 'مارين بوكينج',
     'brand_subtitle' => 'لوحة الإدارة',
     'logout' => 'تسجيل الخروج',
@@ -234,9 +242,7 @@ return [
         'location' => 'الموقع',
         'meeting_point' => 'نقطة اللقاء',
         'duration_minutes' => 'المدة (دقائق)',
-        'min_participants' => 'الحد الأدنى للمشاركين',
         'max_participants' => 'الحد الأقصى للمشاركين',
-        'min_age' => 'الحد الأدنى للعمر',
         'create_submit' => 'إنشاء النشاط (كمسودة)',
         'save_submit' => 'حفظ التفاصيل',
         'save_section' => 'حفظ',

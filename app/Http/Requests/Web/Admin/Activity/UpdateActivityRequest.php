@@ -11,11 +11,6 @@ class UpdateActivityRequest extends FormRequest
         return $this->user()->can('activities.update');
     }
 
-    protected function prepareForValidation(): void
-    {
-        $this->merge(ActivityFieldRules::withDefaultMinimum($this->all()));
-    }
-
     public function rules(): array
     {
         return ActivityFieldRules::core();

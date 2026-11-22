@@ -48,6 +48,7 @@ class AuthResource extends JsonResource
             'uuid' => $user->uuid,
             'name' => $user->name,
             'email' => $user->email,
+            'sex' => $user->sex,
             'phone' => $user->phone,
             'user_type' => $user->user_type,
             'status' => $user->status,

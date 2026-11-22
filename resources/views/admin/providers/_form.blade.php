@@ -8,6 +8,7 @@
     <x-admin.field name="phone" :label="__('admin.users.phone')" :value="$owner?->phone" required
         :help="__('admin.providers.phone_help')" />
     <x-admin.field name="email" type="email" :label="__('admin.users.email')" :value="$owner?->email" />
+    @include('admin.partials.sex-field', ['value' => $owner?->sex])
 </div>
 
 <hr class="border-slate-100">

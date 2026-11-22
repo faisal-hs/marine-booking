@@ -53,7 +53,7 @@ Open = no token needed (a customer's token only makes it personal). Customer = a
 | 23 | `POST /conversations/{id}/messages` | customer | |
 | 24 | `GET /profile` | customer | |
 | 25 | `POST /auth/logout` | customer | this device only |
-| 26 | `POST /profile/update` | customer | partial; JSON or form (avatar is a file) |
+| 26 | `POST /profile/update` | customer | partial; JSON or form (avatar is a file); `email`, `sex` (`male`/`female`) and `city` can be set, and taken off with `null` |
 | 27 | `DELETE /profile` | customer | `confirm: true` |
 | 28 | `GET /pages/cancellation-policy` | open | built from the real policy |
 | 29 | `GET /settings` | open | support phone, email, WhatsApp |
