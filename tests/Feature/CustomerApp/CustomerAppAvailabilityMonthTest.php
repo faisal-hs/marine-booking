@@ -60,7 +60,7 @@ class CustomerAppAvailabilityMonthTest extends TestCase
     {
         $data = $this->availability()->assertOk()->json('data');
 
-        $this->assertSame(['timezone', 'from', 'to', 'booking_option', 'max_guests', 'days'], array_keys($data));
+        $this->assertSame(['timezone', 'from', 'to', 'booking_option', 'booking_options', 'max_guests', 'days'], array_keys($data));
         $this->assertSame(['2026-11-01', '2026-11-30', 30], [$data['from'], $data['to'], count($data['days'])]);
         $this->assertSame(range(1, 30), array_map(fn ($d) => (int) substr($d['date'], 8), $data['days']), 'Every day, in order');
         $this->assertSame('Asia/Riyadh', $data['timezone']);

@@ -41,6 +41,9 @@ class ReservationService
         protected CouponService $coupons,
     ) {}
 
+    /** The lock row of a booking option booked by time (`schedule_period_id` 0 and a date that is none): one per option, whatever the departure or the day. */
+    private const OPTION_LOCK = ['schedule_period_id' => 0, 'reservation_date' => '1970-01-01'];
+
     public function create(
         Customer $customer,
         Activity $activity,
@@ -53,6 +56,8 @@ class ReservationService
         ?string $couponCode = null,
         ?string $source = null,
         array $attributes = [],
+        // A booking by the hour for a WINDOW: ['from' => Carbon, 'to' => Carbon, 'minutes' => int] (see TimeWindows). It is priced by the minute and kept, and it cannot overlap another.
+        ?array $window = null,
     ): Reservation {
         if ($bookingOption->activity_id !== $activity->id) {
             throw ValidationException::withMessages([
@@ -87,23 +92,34 @@ class ReservationService
 
         // Priced BEFORE the capacity lock is taken — a pricing failure
         // (missing rule, inactive option, etc.) should never hold a lock.
-        $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration);
+        $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration, $window['minutes'] ?? null);
 
-        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source, $attributes) {
-            // Guarantees a lockable row exists even for the very first
-            // reservation attempt on this exact slot — see
-            // ReservationCapacityLock's class doc comment for why a plain
-            // lockForUpdate() on the reservations table alone can't do this.
-            $lock = ReservationCapacityLock::firstOrCreate([
-                'activity_booking_option_id' => $bookingOption->id,
-                'schedule_period_id' => $schedulePeriod?->id ?? 0,
-                'reservation_date' => $date->toDateString(),
-            ]);
+        if ($window !== null) {
+            // The option's lock row is made HERE, on its own, before the transaction: made inside it, the first bookings would each hold a shared lock on the row and then all want it
+            // exclusively, which deadlocks. INSERT IGNORE: if another request just made it, that is as good.
+            DB::table('reservation_capacity_locks')->insertOrIgnore(self::OPTION_LOCK + ['activity_booking_option_id' => $bookingOption->id, 'created_at' => now(), 'updated_at' => now()]);
+        }
 
-            ReservationCapacityLock::whereKey($lock->id)->lockForUpdate()->first();
-
-            $this->assertCapacityAvailable($bookingOption, $schedulePeriod, $date, $participants, $quantity);
-
+        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source, $window, $attributes) {
+            if ($window !== null) {
+                // A booking by TIME. The lock is the option's: nobody else books time on this option until this booking is made. Locking is the FIRST thing this transaction does, so
+                // everything it reads afterwards is what the one before it committed (a read made before the lock would not see that, on MySQL's default isolation level).
+                ReservationCapacityLock::where(self::OPTION_LOCK + ['activity_booking_option_id' => $bookingOption->id])->lockForUpdate()->first();
+                // Free? Looked at across the WHOLE option, not just this departure.
+                app(TimeWindows::class)->assertFree($bookingOption, $window['from'], $window['to']);
+            } else {
+                // Guarantees a lockable row exists even for the very first
+                // reservation attempt on this exact slot — see
+                // ReservationCapacityLock's class doc comment for why a plain
+                // lockForUpdate() on the reservations table alone can't do this.
+                $lock = ReservationCapacityLock::firstOrCreate([
+                    'activity_booking_option_id' => $bookingOption->id,
+                    'schedule_period_id' => $schedulePeriod?->id ?? 0,
+                    'reservation_date' => $date->toDateString(),
+                ]);
+                ReservationCapacityLock::whereKey($lock->id)->lockForUpdate()->first();
+                $this->assertCapacityAvailable($bookingOption, $schedulePeriod, $date, $participants, $quantity);
+            }
             // A coupon is checked, and its last use taken, under a lock: two bookings cannot both have it. The provider funds the discount, so what the
             // customer pays (and what the provider earns on) is the total after it.
             $coupon = null;
@@ -124,7 +140,11 @@ class ReservationService
                 'reservation_date' => $date->toDateString(),
                 'participants' => $participants,
                 'quantity' => $quantity,
-                'duration' => $duration,
+                // A window keeps its two times (as UTC instants) and its minutes; `duration` is then the hours it takes, rounded up.
+                'duration' => $window !== null ? (int) ceil($window['minutes'] / 60) : $duration,
+                'starts_at' => $window !== null ? $window['from']->copy()->utc() : null,
+                'ends_at' => $window !== null ? $window['to']->copy()->utc() : null,
+                'duration_minutes' => $window['minutes'] ?? null,
                 'status' => ReservationStatus::Pending->value,
                 'hold_expires_at' => now()->addMinutes((int) config('reservations.hold_minutes')),
                 'pricing_model' => $quote['pricing_model'],

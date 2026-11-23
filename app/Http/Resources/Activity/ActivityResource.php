@@ -18,6 +18,8 @@ class ActivityResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $card = ActivityCardStats::of($this->resource);
+
         return [
             'id' => $this->id,
             'uuid' => $this->uuid,
@@ -47,7 +49,9 @@ class ActivityResource extends JsonResource
             // An admin stopped it: the provider sees why, and that only an admin can lift it.
             'suspended' => $this->isSuspended(),
             // The card: what the activity costs and how it is doing (see ActivityCardStats).
-            ...ActivityCardStats::of($this->resource),
+            ...$card,
+            // Can customers see it? (live, not suspended, and priced). The page of the activity says why not: customer_visibility.
+            'visible_to_customers' => $this->status === 'published' && ! $this->isSuspended() && $card['price'] !== null,
             // The buy-now-pay-later methods the provider accepts for it.
             'allowed_payment_methods' => ['tabby' => (bool) $this->allows_tabby, 'tamara' => (bool) $this->allows_tamara],
             'suspension_reason' => $this->when($this->isSuspended(), $this->suspension_reason),

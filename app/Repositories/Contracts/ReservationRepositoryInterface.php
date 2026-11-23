@@ -2,7 +2,10 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Models\Reservation;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface ReservationRepositoryInterface extends BaseRepositoryInterface
 {
@@ -17,6 +20,22 @@ interface ReservationRepositoryInterface extends BaseRepositoryInterface
      * @return array{participants: int, quantity: int}
      */
     public function consumedCapacity(int $bookingOptionId, ?int $schedulePeriodId, string $date): array;
+
+    /**
+     * The reservations of this option that hold TIME between `$from` and `$to` (a window each: confirmed, or pending with a hold that has not run out, the same ones consumedCapacity
+     * counts).
+     *
+     * @return Collection<int, Reservation>
+     */
+    public function windowsOverlapping(int $bookingOptionId, CarbonInterface $from, CarbonInterface $to): Collection;
+
+    /**
+     * The reservations of this option that hold time but have no window of their own: a booking by the hour made as a number of hours, which holds its departure from its start.
+     * Only those of departures on the days from `$fromDate` to `$toDate`.
+     *
+     * @return Collection<int, Reservation>
+     */
+    public function holdsWithoutWindow(int $bookingOptionId, string $fromDate, string $toDate): Collection;
 
     /**
      * Bookings that still matter to somebody: CONFIRMED and still ahead (the date has not

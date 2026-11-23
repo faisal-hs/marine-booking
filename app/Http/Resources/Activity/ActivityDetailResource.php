@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Activity;
 
+use App\Services\ActivityVisibility;
 use App\Services\PriceOptions;
 use App\Support\ReservationType;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class ActivityDetailResource extends ActivityResource
             }
         }
 
-        return $result + ['price_options' => $options];
+        // Why customers can or cannot see it, and what to do about it (see ActivityVisibility).
+        return $result + ['price_options' => $options, 'customer_visibility' => app(ActivityVisibility::class)->of($this->resource)];
     }
 }

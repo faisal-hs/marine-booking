@@ -38,8 +38,8 @@ Open = no token needed (a customer's token only makes it personal). Customer = a
 | 8 | `POST /conversations` | customer | starts or returns the conversation (201 or 200) |
 | 9 | `GET /activities/{id}/reviews` | open | `rating` filter; includes the provider's reply |
 | 10 | `POST /activities/{id}/reviews` | customer | `booking_id, rating, text` |
-| 11 | `GET /activities/{id}/availability` | open | **every day of a month** (`month`, else the current one), or a window (`from, to`); each departure with its `id`, times and places left; `booking_option_id` |
-| 12 | `POST /bookings/summary` | customer | the price of a booking of any reservation type, with the coupon; books and uses nothing |
+| 11 | `GET /activities/{id}/availability` | open | **every day of a month** (`month`, else the current one), or a window (`from, to`); each departure with its `id`, times and places left; `booking_option_id`; has `booking_options` (every option with its adult and child price, or its block of time and what the shortest booking costs) |
+| 12 | `POST /bookings/summary` | customer | the price of a booking of any reservation type, with the coupon; books and uses nothing; **two kinds**: by persons (adult and child) or by time (`slot_id`, `from`, `to`) |
 | 13 | `POST /bookings` | customer | needs an `Idempotency-Key` header; same fields as the summary |
 | 14 | `GET /bookings/{id}` | customer | |
 | 15 | `GET /bookings` | customer | `status` filter, counts over all trips |
@@ -84,13 +84,33 @@ What a booking is made of is the **reservation type** of its price option, in fo
 |---|---|---|
 | `persons` | `per_person` | `participants` `{adult, child, infant}`, or `guests` (that many adults) |
 | `units` | `per_unit` | `quantity` |
-| `time` | `per_hour`, `per_day` | `duration` (hours or days, as the option counts: `duration_unit`) |
+| `time` | `per_hour`, `per_day` | by time: `slot_id`, `from` and `to` (a window; `per_hour`, see "Booking by time"), or `duration` (hours or days, as the option counts: `duration_unit`) |
 | `fixed` | `per_trip`, `per_group`, `fixed`, `package` | nothing; `guests` / `participants` may be sent for the places the booking takes |
 
 `GET /activities/{id}` has `price_unit`, `reservation_type` (of the default option) and `price_options`: every active option with its `id`, `name`, `reservation_type`, `booking_model`, `is_default`, its limits (`min_participants`, `max_participants`, `min_quantity`, `max_quantity`, `min_duration`, `max_duration`, `duration_unit`) and its `prices` (`{type, label, price, currency}`: adult, child and infant for persons; `unit`, `hour`, `day`, `trip`, `group`, `fixed` or `package` for the rest). `has_departure_prices` is true when the provider priced a particular departure differently: the exact price of a booking is always what `POST /bookings/summary` answers. The provider app's `GET /provider/activities/{uuid}` has the same `reservation_type` and `price_options` (with the switched-off options marked `is_active: false`).
 
 ### Availability
 `GET /activities/{id}/availability` lists **every day** of a month: `month` (`YYYY-MM`) asks for one, from this month to twelve months ahead, and the **current month** is the answer when nothing is asked; `from` and `to` (at most 62 days) give a window instead (a `from` alone is 14 days). A day with nothing to book (gone, closed by the provider, or full) is listed all the same, with `is_available: false` and no slots, so a calendar can draw the whole month. A departure has its `id` (what a booking names it by), `time`, `end_time`, `spots_left` (null where there is no limit) and `is_available`. The places are those of the default price option, or of `booking_option_id`; for a per-unit option they are units. The answer starts with `timezone`, `from`, `to`, `booking_option` and `max_guests`.
+
+**`booking_options`** (new) lists every active booking option a customer can choose, flat, so one call shows what can be booked and what it costs: `id`, `name`, `reservation_type`, `booking_model`, `price_unit`, `is_default`, `currency`, and
+- for a booking **by persons**: `adult_price`, `child_price`, `infant_price` (the others `null`);
+- for the others: `price`, the one price (of a unit, of a block of time, of a day, of the whole booking);
+- for a booking **by time**: `increment_minutes` (the block it is made of, and what `price` is the price of), `min_minutes` (the shortest booking) with **`min_minutes_price`** (what the shortest costs), and `max_minutes` (the longest, or `null`).
+
+A departure of an option booked by time also has `booked_windows` (the times already taken inside it, `{from, to}`, so an app can show what is free) and `ends_next_day` (true for a period that runs past midnight, 20:00 to 05:00). The departures of the other options are as they were.
+
+### Booking by time (from and to)
+A booking option booked by time is configured by the provider (docs/PROVIDER_API.md): the **shortest booking in minutes**, which is also the **block** a booking grows by, and the **price of one block**; optionally the longest. 30 minutes at 200 means 30 minutes costs 200, 60 costs 400, 90 costs 600, 120 costs 800. The price is the number of blocks times the block price: it is **not** prorated by the minute, and a length that is not a whole number of blocks is refused.
+
+`POST /bookings/summary` and `POST /bookings` take it as `slot_id` (the operating period, as the availability lists it), `from` and `to` (`"2026-11-28 20:30"`, in `PLATFORM_TIMEZONE`; ISO `T` and seconds are accepted), and, if there are several, `booking_option_id` (an option booked by time; the default one if it is, else the activity's one that is). `booking_type` may be sent as `time_window` (or `persons`, for a booking by persons); it is worked out from what is sent, and every answer says it. The summary answers `details.from`, `to` and `minutes`, and `lines`: `{type: duration_unit, label: "30 minutes", quantity: 3, unit_minutes: 30, unit_price: 200, total: 600}`; an option in whole hours (blocks of 60 minutes) has `type: hour`, as it always had.
+
+- **Inside the operating period.** A window must be wholly inside the period. A period may **cross midnight**: 20:00 to 05:00 is one period, a window may cross midnight too, and one that starts after midnight (02:00) belongs to the period that started the evening before: its operating day is that evening's date (`slot.date`, and `date` may be sent and must then be that). The period runs on the weekday it starts.
+- **Length.** A whole number of blocks, from the shortest to the longest the option allows. A window may start at any minute.
+- **Future, and not closed.** It must start after now, on a day the provider has not closed.
+- **Free.** Windows of one option never overlap, wherever they are (the same period, another period of the option, or the next day of an overnight one): `409 SLOT_UNAVAILABLE` says which time is taken. Windows that only touch (one ends at 11:00, the next starts at 11:00) are fine.
+- **An unpaid booking holds its time** until its hold runs out (`RESERVATION_HOLD_MINUTES`), like a place; a confirmed one holds it for good. **A cancelled, expired or refunded one gives it back at once.**
+- **Safe when several customers book at once.** The check is made again inside the booking, under a lock on the option, so two customers asking for overlapping times get one booking and one `409`; a customer who sends the same booking twice (one `Idempotency-Key`) gets the booking that was made, not a conflict.
+- **The booking** (`GET /bookings/{id}`) has `booking_type`, `from`, `to`, `duration_minutes` (all `null` for a booking by persons), and its card is priced per block (`price_unit: per_30_minutes`).
 
 ### Coupon check
 `POST /activities/{id}/coupons/validate` checks a coupon (`coupon_code`, or `code`) for the activity, before it is used. With nothing more it checks the coupon's own rules (it exists, is on, has not expired, is for this activity, has not been used up). Given the booking (`date` with `time` or `slot_id`, and what it is made of: the summary's fields) it prices the booking as the summary does and answers what the coupon takes off; given an `amount` it does the same for that price. The answer is `{code, is_valid, message, type, value, max_discount, min_order_amount, currency, subtotal, discount, service_fee, vat, total}`. **A coupon that cannot be used is a normal `200` with `is_valid: false` and why**, as in the summary; an unknown code, a switched-off one and another provider's are answered alike (`This coupon code is not valid.`), so the answer never tells which codes exist. Checking uses nothing up. Limited to 20 a minute for each customer, so it cannot be used to guess codes.
@@ -176,11 +196,11 @@ Support tickets are kept with an optional attachment (jpg, png or pdf up to 5 MB
 
 - No admin screen for support tickets (they are stored; there is no list or reply yet).
 - Providers cannot read or answer conversations yet.
-- A booking by units or by time takes no check of the provider's own opening hours beyond the departure it is for: the duration is the customer's to choose within the option's limits.
+- A booking by units, or by a number of hours (not a window), takes no check of the provider's own opening hours beyond the departure it is for: the duration is the customer's to choose within the option's limits. A booking by time (from and to) is checked against the operating period and against every other booking of the option.
 - The static pages, FAQs and popular terms are edited in the language files, not in the admin.
 - The booking `source` is the app's say-so, as in the provider analytics.
 - Booking creation is checked for places before it is made, and again inside the booking; two customers racing for the last place get one booking and one `409`.
-- Row locks are real on MySQL and ignored by SQLite, so the concurrent-coupon and last-place guarantees are tested on the logic, not on simultaneous connections.
+- Row locks are real on MySQL and ignored by SQLite, so the tests run on logic, not on simultaneous connections. **Bookings by time** are checked under real simultaneous connections by `tests/Concurrency/check_booking_concurrency.py` (run it on the database you will use). **Bookings by persons are not yet guaranteed under heavy simultaneous load on MySQL**: when many customers take the last places at the very same instant the places can be over-sold and some requests can fail with a deadlock error (see FILES.md).
 
 ## 9. Data
 

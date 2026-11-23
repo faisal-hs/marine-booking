@@ -37,8 +37,13 @@ final class ReservationType
     }
 
     /** What the price is for, as one word an app can print after it: "per person", "per unit", "per hour", "per day", "per trip", "per group", "fixed", "package". */
-    public static function priceUnit(BookingModel $model): string
+    public static function priceUnit(BookingModel $model, ?int $blockMinutes = null): string
     {
+        // A booking by time whose block is not an hour says what the block is: `per_30_minutes`, not `per_hour`.
+        if ($model === BookingModel::PerHour && $blockMinutes !== null && $blockMinutes !== 60) {
+            return "per_{$blockMinutes}_minutes";
+        }
+
         return $model->value;
     }
 }

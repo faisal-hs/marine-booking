@@ -19,6 +19,9 @@ class Reservation extends Model
     ];
 
     protected $fillable = [
+        'starts_at',
+        'ends_at',
+        'duration_minutes',
         'activity_id',
         'activity_booking_option_id',
         'customer_id',
@@ -52,6 +55,8 @@ class Reservation extends Model
 
     protected $casts = [
         'reservation_date' => 'date:Y-m-d',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
         'participants' => 'array',
         'pricing_breakdown' => 'array',
         'status' => ReservationStatus::class,

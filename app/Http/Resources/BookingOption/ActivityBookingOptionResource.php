@@ -22,6 +22,10 @@ class ActivityBookingOptionResource extends JsonResource
             'min_quantity' => $this->min_quantity,
             'max_quantity' => $this->max_quantity,
             'min_duration' => $this->min_duration,
+            // A booking by TIME (per_hour) is measured in minutes: the block it is made of (the price is the price of ONE block), the shortest and the longest. Null for the others.
+            'min_duration_minutes' => $this->min_duration_minutes,
+            'max_duration_minutes' => $this->max_duration_minutes,
+            'time_booking' => $this->booking_model === \App\Enums\BookingModel::PerHour ? \App\Support\TimeBounds::minutes($this->resource) : null,
             'max_duration' => $this->max_duration,
             'duration_unit' => $this->duration_unit,
             'is_active' => $this->is_active,

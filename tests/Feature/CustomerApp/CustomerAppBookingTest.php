@@ -328,7 +328,7 @@ class CustomerAppBookingTest extends TestCase
 
         $d = $this->ca($this->token, 'GET', "/bookings/{$id}")->assertOk()->json('data');
 
-        $this->assertSame(['id', 'reference', 'status', 'date_time', 'guests', 'reservation_type', 'quantity', 'duration', 'total', 'can_cancel', 'can_review', 'activity', 'payment_method', 'payment_status', 'subtotal', 'discount', 'service_fee', 'vat',
+        $this->assertSame(['id', 'reference', 'status', 'date_time', 'guests', 'reservation_type', 'quantity', 'duration', 'booking_type', 'from', 'to', 'duration_minutes', 'total', 'can_cancel', 'can_review', 'activity', 'payment_method', 'payment_status', 'subtotal', 'discount', 'service_fee', 'vat',
             'refund_amount', 'coupon', 'cancellation_reason', 'meeting_point', 'host'], array_keys($d));
         $this->assertSame([$id, 'BH-261121-0001', 'upcoming', '2026-11-21T06:00:00Z', 2, 2400, true, false, 'card', 'succeeded', 3000, 600, 0, 0, 0], [$d['id'], $d['reference'], $d['status'], $d['date_time'], $d['guests'], $d['total'],
             $d['can_cancel'], $d['can_review'], $d['payment_method'], $d['payment_status'], $d['subtotal'], $d['discount'], $d['service_fee'], $d['vat'], $d['refund_amount']]);
@@ -408,7 +408,7 @@ class CustomerAppBookingTest extends TestCase
 
         $this->assertSame(['upcoming' => 2, 'completed' => 3, 'cancelled' => 1, 'pending_payment' => 1, 'expired' => 0], $r->json('data.counts'));
         $this->assertCount(2, $r->json('data.bookings'));
-        $this->assertSame(['id', 'reference', 'status', 'date_time', 'guests', 'reservation_type', 'quantity', 'duration', 'total', 'can_cancel', 'can_review', 'activity'], array_keys($r->json('data.bookings.0')));
+        $this->assertSame(['id', 'reference', 'status', 'date_time', 'guests', 'reservation_type', 'quantity', 'duration', 'booking_type', 'from', 'to', 'duration_minutes', 'total', 'can_cancel', 'can_review', 'activity'], array_keys($r->json('data.bookings.0')));
         $this->assertSame(2, $r->json('meta.total'));
     }
 

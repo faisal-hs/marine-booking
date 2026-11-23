@@ -4,7 +4,9 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\Reservation;
 use App\Repositories\Contracts\ReservationRepositoryInterface;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class ReservationRepository extends BaseRepository implements ReservationRepositoryInterface
 {
@@ -40,25 +42,7 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
 
     public function consumedCapacity(int $bookingOptionId, ?int $schedulePeriodId, string $date): array
     {
-        $query = $this->model->newQuery()
-            ->where('activity_booking_option_id', $bookingOptionId)
-            ->where('reservation_date', $date);
-
-        if ($schedulePeriodId !== null) {
-            $query->where('schedule_period_id', $schedulePeriodId);
-        } else {
-            $query->whereNull('schedule_period_id');
-        }
-
-        // 'status' is compared here as the raw string stored in the DB —
-        // Eloquent's enum cast only affects hydrated model attributes, not
-        // how the query builder's where() filters against the column.
-        $query->where(function ($q) {
-            $q->where('status', 'confirmed')
-                ->orWhere(function ($q2) {
-                    $q2->where('status', 'pending')->where('hold_expires_at', '>', now());
-                });
-        });
+        $query = $this->activeQuery($bookingOptionId, $schedulePeriodId, $date);
 
         $rows = $query->get(['participants', 'quantity']);
 
@@ -75,6 +59,53 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
         }
 
         return ['participants' => $participants, 'quantity' => $quantity];
+    }
+
+    public function windowsOverlapping(int $bookingOptionId, CarbonInterface $from, CarbonInterface $to): Collection
+    {
+        $query = $this->holding($this->model->newQuery()->where('activity_booking_option_id', $bookingOptionId))
+            ->whereNotNull('starts_at')
+            ->where('starts_at', '<', $to->copy()->utc())
+            ->where('ends_at', '>', $from->copy()->utc());
+
+        return $query->get();
+    }
+
+    public function holdsWithoutWindow(int $bookingOptionId, string $fromDate, string $toDate): Collection
+    {
+        $query = $this->holding($this->model->newQuery()->where('activity_booking_option_id', $bookingOptionId))
+            ->whereNull('starts_at')->whereNotNull('duration')->whereNotNull('schedule_period_id')
+            ->whereBetween('reservation_date', [$fromDate, $toDate]);
+
+        return $query->get();
+    }
+
+    /** Only the reservations that hold their place: confirmed, or pending with a hold that has not run out. */
+    private function holding($query)
+    {
+        // 'status' is compared as the raw string stored in the DB: Eloquent's enum cast only affects hydrated model attributes, not how the query builder's where() filters.
+        return $query->where(function ($q) {
+            $q->where('status', 'confirmed')
+                ->orWhere(function ($q2) {
+                    $q2->where('status', 'pending')->where('hold_expires_at', '>', now());
+                });
+        });
+    }
+
+    /** The reservations of an option, slot and day that hold a place: confirmed, or pending with a hold that has not run out. */
+    private function activeQuery(int $bookingOptionId, ?int $schedulePeriodId, string $date)
+    {
+        $query = $this->model->newQuery()
+            ->where('activity_booking_option_id', $bookingOptionId)
+            ->where('reservation_date', $date);
+
+        if ($schedulePeriodId !== null) {
+            $query->where('schedule_period_id', $schedulePeriodId);
+        } else {
+            $query->whereNull('schedule_period_id');
+        }
+
+        return $this->holding($query);
     }
 
     public function forCustomer(int $customerId, array $filters, int $perPage = 15): LengthAwarePaginator

@@ -32,6 +32,9 @@ class ActivityCatalog
     public const PRICE_SQL = "(SELECT MIN(pr.price) FROM activity_pricing_rules pr JOIN activity_booking_options po ON po.id = pr.activity_booking_option_id WHERE pr.is_active = 1 AND ((po.booking_model = 'per_person' AND pr.participant_type = 'adult') OR (po.booking_model <> 'per_person' AND pr.participant_type IS NULL)) AND po.id = (".self::DEFAULT_OPTION_SQL.'))';
 
     /** The booking model of the default option: what the price is for. */
+    /** The block, in minutes, of the default option when it is booked by time and the provider configured it in minutes. */
+    public const UNIT_SQL = '(SELECT dm.min_duration_minutes FROM activity_booking_options dm WHERE dm.id = ('.self::DEFAULT_OPTION_SQL.'))';
+
     public const MODEL_SQL = '(SELECT dm.booking_model FROM activity_booking_options dm WHERE dm.id = ('.self::DEFAULT_OPTION_SQL.'))';
 
     public const BOOKED_SQL = "(SELECT COUNT(*) FROM reservations rv WHERE rv.activity_id = activities.id AND rv.status IN ('confirmed', 'completed') AND rv.deleted_at IS NULL)";
@@ -42,7 +45,7 @@ class ActivityCatalog
     public function visible(): Builder
     {
         return Activity::query()->where('activities.status', 'published')->whereNull('activities.suspended_at')->whereRaw(self::PRICE_SQL.' IS NOT NULL')
-            ->select('activities.*')->selectRaw(self::PRICE_SQL.' AS min_price')->selectRaw(self::MODEL_SQL.' AS default_model')->selectRaw(self::BOOKED_SQL.' AS booked_count');
+            ->select('activities.*')->selectRaw(self::PRICE_SQL.' AS min_price')->selectRaw(self::MODEL_SQL.' AS default_model')->selectRaw(self::UNIT_SQL.' AS default_unit_minutes')->selectRaw(self::BOOKED_SQL.' AS booked_count');
     }
 
     public function find(int|string $id): ?Activity
@@ -140,7 +143,9 @@ class ActivityCatalog
     {
         $model = BookingModel::tryFrom((string) $a->getAttribute('default_model')) ?? BookingModel::PerPerson;
 
-        return ['price_unit' => ReservationType::priceUnit($model), 'reservation_type' => ReservationType::of($model)];
+        $block = $a->getAttribute('default_unit_minutes');
+
+        return ['price_unit' => ReservationType::priceUnit($model, $block !== null ? (int) $block : null), 'reservation_type' => ReservationType::of($model)];
     }
 
     /** "Sara Al-Qahtani" is shown as "Sara A.": a customer's name is not published in full. */

@@ -90,6 +90,8 @@ class StoreActivityRequest extends FormRequest
             'booking_options.*.max_participants' => ['nullable', 'integer'],
             'booking_options.*.min_quantity' => ['nullable', 'integer', 'min:1'],
             'booking_options.*.max_quantity' => ['nullable', 'integer'],
+            'booking_options.*.min_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
+            'booking_options.*.max_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:10080'],
             'booking_options.*.min_duration' => ['nullable', 'integer', 'min:1'],
             'booking_options.*.max_duration' => ['nullable', 'integer'],
             'booking_options.*.duration_unit' => ['nullable', 'string', Rule::in(['hour', 'day'])],
@@ -131,11 +133,26 @@ class StoreActivityRequest extends FormRequest
             foreach ((array) ($this->input('booking_options') ?? []) as $index => $option) {
                 $model = $option['booking_model'] ?? null;
 
-                if (in_array($model, ['per_hour', 'per_day', 'package'], true) && empty($option['min_duration'])) {
+                $inMinutes = ! empty($option['min_duration_minutes']) && is_numeric($option['min_duration_minutes']) && (int) $option['min_duration_minutes'] >= 1;
+
+                // An option booked by TIME may be configured in minutes (the block, its price, and the longest) instead of in hours.
+                if (($inMinutes || ! empty($option['max_duration_minutes'])) && $model !== 'per_hour') {
+                    $validator->errors()->add("booking_options.{$index}.min_duration_minutes", 'Minutes are for a booking option booked by the hour (per_hour).');
+                }
+
+                if (! empty($option['max_duration_minutes']) && is_numeric($option['max_duration_minutes'])) {
+                    if (! $inMinutes) {
+                        $validator->errors()->add("booking_options.{$index}.min_duration_minutes", 'The min_duration_minutes field is required when max_duration_minutes is given.');
+                    } elseif ((int) $option['max_duration_minutes'] < (int) $option['min_duration_minutes'] || (int) $option['max_duration_minutes'] % (int) $option['min_duration_minutes'] !== 0) {
+                        $validator->errors()->add("booking_options.{$index}.max_duration_minutes", "The longest booking must be a whole number of {$option['min_duration_minutes']}-minute blocks.");
+                    }
+                }
+
+                if (in_array($model, ['per_hour', 'per_day', 'package'], true) && empty($option['min_duration']) && ! ($model === 'per_hour' && $inMinutes)) {
                     $validator->errors()->add("booking_options.{$index}.min_duration", 'The min_duration field is required for this booking model.');
                 }
 
-                if (in_array($model, ['per_hour', 'per_day'], true) && empty($option['max_duration'])) {
+                if (in_array($model, ['per_hour', 'per_day'], true) && empty($option['max_duration']) && ! ($model === 'per_hour' && $inMinutes)) {
                     $validator->errors()->add("booking_options.{$index}.max_duration", 'The max_duration field is required for this booking model.');
                 }
             }

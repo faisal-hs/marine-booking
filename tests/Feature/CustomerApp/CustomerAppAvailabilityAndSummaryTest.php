@@ -68,7 +68,7 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
         $data = $this->ca(null, 'GET', "/activities/{$this->a['activity']->id}/availability", ['from' => '2026-11-15', 'to' => '2026-11-22'])->assertOk()->json('data');
 
-        $this->assertSame(['timezone', 'from', 'to', 'booking_option', 'max_guests', 'days'], array_keys($data));
+        $this->assertSame(['timezone', 'from', 'to', 'booking_option', 'booking_options', 'max_guests', 'days'], array_keys($data));
         $this->assertSame(['Asia/Riyadh', 8, 8, '2026-11-15', '2026-11-22'], [$data['timezone'], $data['max_guests'], count($data['days']), $data['from'], $data['to']]);
         $saturday = collect($data['days'])->firstWhere('date', self::NEXT_SATURDAY);
         $this->assertSame(['date', 'is_available', 'slots'], array_keys($saturday));
@@ -169,7 +169,7 @@ class CustomerAppAvailabilityAndSummaryTest extends TestCase
 
         $r = $this->summary(['guests' => 2, 'coupon_code' => 'SUMMER20'])->assertOk();
 
-        $this->assertSame(['currency', 'reservation_type', 'booking_option', 'slot', 'details', 'lines', 'unit_price', 'guests', 'subtotal', 'discount', 'service_fee', 'vat', 'total', 'coupon'], array_keys($r->json('data')));
+        $this->assertSame(['currency', 'booking_type', 'reservation_type', 'booking_option', 'slot', 'details', 'lines', 'unit_price', 'guests', 'subtotal', 'discount', 'service_fee', 'vat', 'total', 'coupon'], array_keys($r->json('data')));
         $this->assertEqualsWithDelta([450, 2, 900, 180, 27, 112.05, 859.05], [$r->json('data.unit_price'), $r->json('data.guests'), $r->json('data.subtotal'), $r->json('data.discount'), $r->json('data.service_fee'), $r->json('data.vat'), $r->json('data.total')], 0.001);
         $this->assertSame(['code' => 'SUMMER20', 'is_valid' => true, 'message' => '20% discount applied'], $r->json('data.coupon'));
         $this->assertSame('SAR', $r->json('data.currency'));

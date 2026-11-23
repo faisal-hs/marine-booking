@@ -5,6 +5,7 @@ namespace App\Services\CustomerApp;
 use App\Enums\BookingModel;
 use App\Models\Reservation;
 use App\Models\Review;
+use App\Services\TimeWindows;
 use App\Support\ReservationType;
 use Carbon\Carbon;
 
@@ -64,12 +65,14 @@ class BookingPresenter
         $count = match (ReservationType::of($model)) {
             ReservationType::PERSONS => (int) array_sum((array) $r->participants),
             ReservationType::UNITS => (int) $r->quantity,
-            ReservationType::TIME => (int) $r->duration,
+            // By time: the blocks it is made of (a window is a number of minutes; the block is the option's, an hour when it says nothing).
+            ReservationType::TIME => $r->duration_minutes ? max(1, intdiv((int) $r->duration_minutes, max(1, (int) ($r->bookingOption?->min_duration_minutes ?? 60)))) : (int) $r->duration,
             default => 1,
         };
         $a->setAttribute('min_price', round((float) $r->subtotal / max(1, $count), 2));
         // What the price is for follows the booking: a booking by the hour shows its price per hour.
         $a->setAttribute('default_model', $r->pricing_model);
+        $a->setAttribute('default_unit_minutes', $r->bookingOption?->min_duration_minutes);
 
         return $this->catalog->card($a, $favorites);
     }
@@ -87,6 +90,11 @@ class BookingPresenter
             'reservation_type' => ReservationType::of(BookingModel::tryFrom((string) $r->pricing_model) ?? BookingModel::PerPerson),
             'quantity' => $r->quantity,
             'duration' => $r->duration,
+            // A booking by time: the window it is for (in the platform's timezone) and its length in minutes; null for every other booking.
+            'booking_type' => $r->starts_at ? 'time_window' : ReservationType::of(BookingModel::tryFrom((string) $r->pricing_model) ?? BookingModel::PerPerson),
+            'from' => $r->starts_at?->copy()->setTimezone(TimeWindows::tz())->format('Y-m-d H:i'),
+            'to' => $r->ends_at?->copy()->setTimezone(TimeWindows::tz())->format('Y-m-d H:i'),
+            'duration_minutes' => $r->duration_minutes,
             'total' => (float) $r->total,
             'can_cancel' => $this->canCancel($r),
             'can_review' => $this->canReview($r, in_array($r->activity_id, $reviewedActivityIds, true)),

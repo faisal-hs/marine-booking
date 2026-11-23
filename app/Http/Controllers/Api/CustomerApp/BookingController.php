@@ -71,16 +71,33 @@ class BookingController extends CustomerAppController
             throw ValidationException::withMessages(['payment_method' => [ucfirst($method).' is not accepted for this activity.']]);
         }
 
-        [$option, $period, $day] = $this->checkout->slot($activity, $request->input('date'), $request->input('time'), $request->filled('booking_option_id') ? $request->integer('booking_option_id') : null, $request->filled('slot_id') ? $request->integer('slot_id') : null);
-        // What the booking is made of, by the option's reservation type: guests (persons), a quantity (units), a duration (time).
-        $details = $this->checkout->details($activity, $option, $period, $day, $request->validated());
+        $window = null;
+
+        if ($request->filled('from')) {
+            // A booking BY TIME: a window from one time to another inside a departure. It must be free; it is priced and kept by the minute.
+            try {
+                [$option, $period, $day, $window] = $this->checkout->windowSlot($activity, $request->validated());
+            } catch (ProviderApiException $e) {
+                // The time is taken, perhaps by THIS very booking, sent twice (a double tap): the same key gets the booking that was made.
+                if ($existing = $this->byKey($customer, $key)) {
+                    return $this->ok($this->created_($existing), 'Booking created');
+                }
+
+                throw $e;
+            }
+            $details = ['participants' => null, 'quantity' => null, 'duration' => null];
+        } else {
+            [$option, $period, $day] = $this->checkout->slot($activity, $request->input('date'), $request->input('time'), $request->filled('booking_option_id') ? $request->integer('booking_option_id') : null, $request->filled('slot_id') ? $request->integer('slot_id') : null);
+            // What the booking is made of, by the option's reservation type: guests (persons), a quantity (units), a duration (time).
+            $details = $this->checkout->details($activity, $option, $period, $day, $request->validated());
+        }
 
         try {
             $reservation = $this->reservations->create($customer, $activity, $option, $period, $day, $details['participants'], $details['quantity'], $details['duration'], $request->input('coupon_code'),
                 ActivityViewTracker::source($request), [
                     'contact_name' => $request->input('contact_name'), 'contact_phone' => $request->input('contact_phone'), 'contact_email' => $request->input('contact_email'),
                     'payment_method' => $request->input('payment_method'), 'idempotency_key' => $key,
-                ]);
+                ], $window);
         } catch (UniqueConstraintViolationException) {
             // Two requests with the same key at the same moment: the second one gets the first one's booking.
             return $this->ok($this->created_($this->byKey($customer, $key)), 'Booking created');
@@ -91,6 +108,15 @@ class BookingController extends CustomerAppController
 
             if ($full) {
                 throw new ProviderApiException('This departure no longer has room for that many guests.', 409, ErrorCode::SLOT_UNAVAILABLE);
+            }
+
+            // Someone took the time between the check and the booking.
+            if (isset($e->errors()['window'])) {
+                if ($existing = $this->byKey($customer, $key)) {
+                    return $this->ok($this->created_($existing), 'Booking created');
+                }
+
+                throw new ProviderApiException('This time was just booked by someone else.', 409, ErrorCode::SLOT_UNAVAILABLE);
             }
 
             throw $e;

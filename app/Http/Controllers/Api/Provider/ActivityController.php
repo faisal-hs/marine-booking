@@ -20,6 +20,7 @@ use App\Services\ActivityPricingRuleService;
 use App\Services\ActivityPublishingService;
 use App\Services\ActivityRequirementService;
 use App\Services\ActivityService;
+use App\Services\ActivityVisibility;
 use App\Services\ScheduleService;
 use App\Services\Wallet\LedgerService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -103,7 +104,23 @@ class ActivityController extends BaseApiController
 
         $activity->load(self::EAGER_LOAD);
 
-        return $this->created(new ActivityDetailResource($activity), 'Activity created successfully.'.($whyDraft ? " It was saved as a draft: {$whyDraft}" : ''));
+        // A draft already says why. Otherwise, if customers still cannot see it (it has no price yet, say), that is said too.
+        return $this->created(new ActivityDetailResource($activity), 'Activity created successfully.'.($whyDraft ? " It was saved as a draft: {$whyDraft}" : $this->visibilityNote($activity)));
+    }
+
+    /**
+     * One sentence for the end of an answer when customers cannot see the activity, or cannot book it yet, and why: the first thing to put right (see ActivityVisibility).
+     */
+    private function visibilityNote(Activity $activity): string
+    {
+        $visibility = app(ActivityVisibility::class)->of($activity);
+        $first = collect($visibility['problems'])->firstWhere('blocks', $visibility['is_visible'] ? 'booking' : 'visibility');
+
+        if ($first === null) {
+            return '';
+        }
+
+        return $visibility['is_visible'] ? ' Customers can see it, but '.lcfirst($first['message']) : ' Customers cannot see it yet: '.$first['message'];
     }
 
     public function show(Request $request, Activity $activity)
@@ -164,7 +181,7 @@ class ActivityController extends BaseApiController
 
         return $this->success(
             new ActivityDetailResource($activity),
-            $activity->status === 'published' ? 'Activity published.' : 'Activity is ready. It stays hidden until you activate it.'
+            ($activity->status === 'published' ? 'Activity published.' : 'Activity is ready. It stays hidden until you activate it.').($activity->status === 'published' ? $this->visibilityNote($activity->loadMissing(self::EAGER_LOAD)) : '')
         );
     }
 

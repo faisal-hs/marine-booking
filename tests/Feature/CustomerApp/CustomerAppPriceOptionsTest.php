@@ -19,7 +19,7 @@ class CustomerAppPriceOptionsTest extends TestCase
     use RefreshDatabase;
 
     private const OPTION_KEYS = ['id', 'name', 'description', 'reservation_type', 'booking_model', 'price_unit', 'is_default', 'is_active', 'min_participants', 'max_participants',
-        'min_quantity', 'max_quantity', 'min_duration', 'max_duration', 'duration_unit', 'prices', 'has_departure_prices'];
+        'min_quantity', 'max_quantity', 'min_duration', 'max_duration', 'min_duration_minutes', 'max_duration_minutes', 'time_booking', 'duration_unit', 'prices', 'has_departure_prices'];
 
     private array $a;
 

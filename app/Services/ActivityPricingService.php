@@ -8,6 +8,7 @@ use App\Models\Activity;
 use App\Models\ActivityBookingOption;
 use App\Models\ActivitySchedulePeriod;
 use App\Repositories\Contracts\ActivityPricingRuleRepositoryInterface;
+use App\Support\TimeBounds;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -36,6 +37,8 @@ class ActivityPricingService
         ?array $participants = null,
         ?int $quantity = null,
         ?int $duration = null,
+        // A booking by the hour can be for a number of MINUTES (a window from one time to another): priced by blocks, see quotePerBlocks.
+        ?int $minutes = null,
     ): array {
         if ($bookingOption->activity_id !== $activity->id) {
             throw ValidationException::withMessages([
@@ -62,7 +65,10 @@ class ActivityPricingService
             BookingModel::PerTrip, BookingModel::PerGroup, BookingModel::Fixed, BookingModel::Package
             => $this->quoteFlat($bookingOption, $rules, $schedulePeriod, $participants),
             BookingModel::PerUnit => $this->quotePerUnit($bookingOption, $rules, $schedulePeriod, $quantity),
-            BookingModel::PerHour, BookingModel::PerDay => $this->quotePerDuration($bookingOption, $rules, $schedulePeriod, $duration),
+            BookingModel::PerHour, BookingModel::PerDay => $bookingOption->booking_model === BookingModel::PerHour && ($minutes !== null || $bookingOption->min_duration_minutes !== null)
+                // By minutes: a window (`$minutes`), or any booking of an option the provider configured in minutes (an hour count is then that many hours of minutes).
+                ? $this->quotePerBlocks($bookingOption, $rules, $schedulePeriod, $minutes ?? ($duration !== null ? $duration * 60 : null))
+                : $this->quotePerDuration($bookingOption, $rules, $schedulePeriod, $duration),
         };
     }
 
@@ -281,6 +287,38 @@ class ActivityPricingService
                 'quantity' => ["Maximum quantity for this booking option is {$option->max_quantity}."],
             ]);
         }
+    }
+
+    /**
+     * A booking by TIME measured in minutes: the option's price is the price of ONE block (its `min_duration_minutes`: 30 minutes at 200, an hour when it has none), and the booking is a
+     * whole number of blocks between the shortest and the longest, charged block by block: 30 minutes is 200, 60 is 400, 90 is 600, 120 is 800. A length that is not a whole number of
+     * blocks, or is too short or too long, is refused (see TimeBounds::problem). The answer says the minutes, the block and how many blocks.
+     */
+    protected function quotePerBlocks(ActivityBookingOption $option, Collection $rules, ?ActivitySchedulePeriod $period, ?int $minutes): array
+    {
+        if (! $minutes || $minutes < 1) {
+            throw ValidationException::withMessages(['duration' => ['A duration is required for this booking option.']]);
+        }
+
+        if ($problem = TimeBounds::problem($option, $minutes)) {
+            throw ValidationException::withMessages(['duration' => [$problem]]);
+        }
+
+        $rule = $this->resolveRule($rules, $period?->id, null);
+
+        if (! $rule) {
+            throw ValidationException::withMessages(['booking_option' => ['No active price is configured for this booking option.']]);
+        }
+
+        $unit = TimeBounds::minutes($option)['unit'];
+        $blocks = intdiv($minutes, $unit);
+        $blockPrice = (float) $rule->price;
+        $total = round($blockPrice * $blocks, 2);
+
+        // A block of an hour is still "hour" (as it always was); any other block is a "duration_unit" of `unit_minutes`.
+        return $this->buildResult($option, $rule->currency, $total, [
+            ['type' => $unit === 60 ? 'hour' : 'duration_unit', 'quantity' => $blocks, 'unit_minutes' => $unit, 'minutes' => $minutes, 'unit_price' => $blockPrice, 'total' => $total],
+        ]);
     }
 
     protected function assertDurationWithinBounds(ActivityBookingOption $option, int $duration): void

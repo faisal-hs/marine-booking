@@ -31,6 +31,8 @@ class ActivityBookingOption extends Model
         'min_duration',
         'max_duration',
         'duration_unit',
+        'min_duration_minutes',
+        'max_duration_minutes',
         'is_active',
         'is_default',
         'sort_order',
