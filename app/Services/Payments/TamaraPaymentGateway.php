@@ -12,18 +12,7 @@ use App\Support\Jwt;
 use App\Support\Money\GatewayAmount;
 use Illuminate\Http\Request;
 
-/**
- * Tamara (https://docs.tamara.co), buy now pay later. The flow:
- *
- *   1. charge()         POST /checkout creates the order and a `checkout_url`; the customer is sent there.
- *   2. the customer approves at Tamara (order `approved`); Tamara sends a notification, signed with OUR notification token, and sends the customer back to our return URL.
- *   3. verify()         GET /merchants/orders/reference-id/{our reference}: the order's status. This is what is believed, never the notification body.
- *   4. capture()        an approved order is first AUTHORISED (POST /orders/{id}/authorise), then CAPTURED (POST /payments/capture): only then is the money taken and a refund possible.
- *   void()              POST /orders/{id}/cancel cancels an authorised order that will not be captured.
- *   refund()            POST /payments/simplified-refund/{id}, partial or full, of a captured order.
- *
- * Every call carries the merchant API token. Sandbox and production are different hosts (TAMARA_ENV).
- */
+
 class TamaraPaymentGateway implements AsyncPaymentGateway
 {
     use TalksToGateways;
@@ -46,20 +35,21 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
 
     public function charge(Payment $payment, array $params = []): array
     {
+
         $payment->loadMissing('reservation.activity', 'reservation.customer.user');
         $buyer = $this->buyerOf($payment);
         $reservation = $payment->reservation;
         $country = strtoupper((string) ($this->config['country_code'] ?? 'SA'));
-        $money = fn ($amount) => ['amount' => (float) GatewayAmount::format($amount, $payment->currency), 'currency' => strtoupper($payment->currency)];
+        $money = fn($amount) => ['amount' => (float) GatewayAmount::format($amount, $payment->currency), 'currency' => strtoupper($payment->currency)];
         [$first, $last] = array_pad(explode(' ', $buyer['name'], 2), 2, '');
         $phone = $this->internationalPhone($buyer['phone'], $country);
         $address = ['first_name' => $first, 'last_name' => $last ?: $first, 'line1' => 'Online booking', 'city' => 'Riyadh', 'country_code' => $country, 'phone_number' => $phone];
 
-        $response = $this->send('create checkout', 'POST', $this->url('/checkout'), fn () => $this->client((string) $this->config['api_token']), [
+        $response = $this->send('create checkout', 'POST', $this->url('/checkout'), fn() => $this->client((string) $this->config['api_token']), [
             'order_reference_id' => $payment->reference_id,
             'order_number' => $payment->reference_id,
             'total_amount' => $money($payment->amount),
-            'description' => mb_substr('Booking '.$payment->reference_id, 0, 250),
+            'description' => mb_substr('Booking ' . $payment->reference_id, 0, 250),
             'country_code' => $country,
             'payment_type' => 'PAY_BY_INSTALMENTS',
             'locale' => app()->getLocale() === 'ar' ? 'ar_SA' : 'en_US',
@@ -68,7 +58,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
                 'reference_id' => (string) $reservation->uuid,
                 'type' => 'Digital',
                 'name' => mb_substr((string) ($reservation->activity?->title ?: 'Activity booking'), 0, 120),
-                'sku' => 'ACT-'.$reservation->activity_id,
+                'sku' => 'ACT-' . $reservation->activity_id,
                 'quantity' => 1,
                 'unit_price' => $money($payment->amount),
                 'discount_amount' => $money(0),
@@ -87,6 +77,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
         ], PaymentGatewayUnavailableException::class);
 
         $json = $response->json() ?? [];
+        dd($payment, $json);
         $orderId = (string) data_get($json, 'order_id', '');
         $checkoutUrl = (string) data_get($json, 'checkout_url', '');
 
@@ -165,7 +156,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
 
         // An order the customer approved must be authorised before it can be captured.
         if ($state['gateway_status'] === 'approved') {
-            $authorise = $this->send('authorise', 'POST', $this->url("/orders/{$payment->payment_id}/authorise"), fn () => $this->client((string) $this->config['api_token']));
+            $authorise = $this->send('authorise', 'POST', $this->url("/orders/{$payment->payment_id}/authorise"), fn() => $this->client((string) $this->config['api_token']));
 
             if (! $authorise->successful()) {
                 $this->log('warning', 'authorise refused', ['payment' => $payment->reference_id, 'http' => $authorise->status(), 'reason' => $this->reasonFrom($authorise)]);
@@ -174,7 +165,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
             }
         }
 
-        $response = $this->send('capture', 'POST', $this->url('/payments/capture'), fn () => $this->client((string) $this->config['api_token']), [
+        $response = $this->send('capture', 'POST', $this->url('/payments/capture'), fn() => $this->client((string) $this->config['api_token']), [
             'order_id' => $payment->payment_id,
             'total_amount' => ['amount' => (float) GatewayAmount::format($payment->amount, $payment->currency), 'currency' => strtoupper($payment->currency)],
             'shipping_info' => ['shipped_at' => now()->toIso8601String(), 'shipping_company' => 'Digital service (no shipping)'],
@@ -198,7 +189,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
             return;
         }
 
-        $response = $this->send('cancel', 'POST', $this->url("/orders/{$payment->payment_id}/cancel"), fn () => $this->client((string) $this->config['api_token']), [
+        $response = $this->send('cancel', 'POST', $this->url("/orders/{$payment->payment_id}/cancel"), fn() => $this->client((string) $this->config['api_token']), [
             'total_amount' => ['amount' => (float) GatewayAmount::format($payment->amount, $payment->currency), 'currency' => strtoupper($payment->currency)],
         ]);
 
@@ -212,9 +203,9 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
         $remaining = round((float) $payment->amount - (float) $payment->refunded_amount, 2);
         $amount = $amount === null ? $remaining : min($amount, $remaining);
 
-        $response = $this->send('refund', 'POST', $this->url("/payments/simplified-refund/{$payment->payment_id}"), fn () => $this->client((string) $this->config['api_token']), [
+        $response = $this->send('refund', 'POST', $this->url("/payments/simplified-refund/{$payment->payment_id}"), fn() => $this->client((string) $this->config['api_token']), [
             'total_amount' => ['amount' => (float) GatewayAmount::format($amount, $payment->currency), 'currency' => strtoupper($payment->currency)],
-            'comment' => 'Booking cancelled ('.$payment->reference_id.')',
+            'comment' => 'Booking cancelled (' . $payment->reference_id . ')',
         ]);
 
         if (! $response->successful()) {
@@ -229,7 +220,7 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
     /** @return array<string, mixed> */
     private function order(Payment $payment): array
     {
-        $response = $this->send('retrieve order', 'GET', $this->url('/merchants/orders/reference-id/'.rawurlencode($payment->reference_id)), fn () => $this->client((string) $this->config['api_token']));
+        $response = $this->send('retrieve order', 'GET', $this->url('/merchants/orders/reference-id/' . rawurlencode($payment->reference_id)), fn() => $this->client((string) $this->config['api_token']));
 
         if (! $response->successful()) {
             $this->log('error', 'order could not be read', ['payment' => $payment->reference_id, 'http' => $response->status()]);
@@ -244,6 +235,6 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
     {
         $base = $this->config['base_url'] ?: (($this->config['environment'] ?? 'sandbox') === 'production' ? 'https://api.tamara.co' : 'https://api-sandbox.tamara.co');
 
-        return rtrim((string) $base, '/').$path;
+        return rtrim((string) $base, '/') . $path;
     }
 }

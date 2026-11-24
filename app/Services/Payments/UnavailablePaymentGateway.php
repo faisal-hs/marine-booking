@@ -44,6 +44,6 @@ class UnavailablePaymentGateway implements PaymentGatewayInterface
     {
         Log::critical("Payment {$operation} refused: {$this->reason}");
 
-        throw new PaymentGatewayUnavailableException();
+        throw new PaymentGatewayUnavailableException(null, $this->reason);
     }
 }

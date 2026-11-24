@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\Provider\ReservationController;
 use App\Http\Controllers\Api\Provider\ScheduleController;
 use App\Http\Controllers\Api\Public\ActivityController as PublicActivityController;
 use App\Http\Controllers\Api\Public\CategoryController as PublicCategoryController;
+use App\Http\Controllers\Api\Public\ProviderController as PublicProviderController;
 use App\Http\Controllers\Api\Shared\DeviceController;
 use App\Http\Controllers\Api\Shared\NotificationController;
 use App\Http\Controllers\Api\Webhooks\PaymentWebhookController;
@@ -318,6 +319,11 @@ Route::prefix('public')->name('api.public.')->group(function () {
         ->name('activities.availability');
     Route::get('/activities/{activity}/reviews', [PublicActivityController::class, 'reviews'])
         ->name('activities.reviews');
+
+    // A provider, with no sign-in: the page, its reviews and its activities. The provider is found by id (or uuid, or slug).
+    Route::get('/providers/{provider}', [PublicProviderController::class, 'show'])->name('providers.show');
+    Route::get('/providers/{provider}/reviews', [PublicProviderController::class, 'reviews'])->name('providers.reviews');
+    Route::get('/providers/{provider}/activities', [PublicProviderController::class, 'activities'])->name('providers.activities');
 });
 
 /*

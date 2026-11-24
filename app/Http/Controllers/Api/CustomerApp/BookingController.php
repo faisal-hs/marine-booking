@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api\CustomerApp;
 
+use App\Enums\PaymentStatus;
+use App\Enums\ReservationStatus;
 use App\Exceptions\PaymentGatewayUnavailableException;
 use App\Exceptions\ProviderApiException;
 use App\Http\Requests\CustomerApp\BookingSummaryRequest;
 use App\Http\Requests\CustomerApp\CancelBookingRequest;
 use App\Http\Requests\CustomerApp\CreateBookingRequest;
 use App\Http\Requests\CustomerApp\ListBookingsRequest;
+use App\Http\Requests\CustomerApp\PayBookingRequest;
 use App\Models\Customer;
 use App\Models\Reservation;
 use App\Services\ActivityViewTracker;
@@ -124,14 +127,42 @@ class BookingController extends CustomerAppController
 
         try {
             $paid = $this->payments->initiate($reservation, array_filter(['payment_method' => $request->input('payment_method'), 'simulate' => $request->input('simulate')]));
-        } catch (PaymentGatewayUnavailableException) {
+        } catch (PaymentGatewayUnavailableException $e) {
             // Nothing was charged and nothing can be, so the booking is let go at once (its place and any coupon use come back).
             $reservation->update(['status' => 'expired', 'hold_expires_at' => now()]);
 
-            throw new ProviderApiException('Payment is not available right now. Nothing was booked or charged; please try again shortly.', 503, ErrorCode::PAYMENT_UNAVAILABLE);
+            throw new ProviderApiException('Payment is not available right now. Nothing was booked or charged; please try again shortly.', 503, ErrorCode::PAYMENT_UNAVAILABLE, $this->whyUnavailable($e));
         }
 
         return $this->created($this->created_($reservation->fresh(), $paid['redirect_url'] ?? null), 'Booking created');
+    }
+
+    /**
+     * Starts (or resumes) the payment of a booking that is waiting for it, and answers as a new booking does: `payment_id`, `payment_status` and `redirect_url`, the checkout of Tabby or
+     * Tamara. A checkout that is still alive is the same one (it is never made twice); one that failed or ran out is replaced by a new one; `payment_method` may change how. This is how the
+     * app gets the checkout address again after it lost it. The booking is NOT let go when the gateway is unavailable: the customer may try again before the hold runs out.
+     */
+    public function pay(PayBookingRequest $request, string $id)
+    {
+        $reservation = $this->own($this->customer($request), $id);
+
+        if ($reservation->status !== ReservationStatus::Pending || ($reservation->hold_expires_at !== null && $reservation->hold_expires_at->isPast())) {
+            throw new ProviderApiException('This booking is no longer waiting for payment.', 409, ErrorCode::BOOKING_NOT_PAYABLE);
+        }
+
+        try {
+            $paid = $this->payments->initiate($reservation, array_filter(['payment_method' => $request->input('payment_method'), 'simulate' => $request->input('simulate')]));
+        } catch (PaymentGatewayUnavailableException $e) {
+            throw new ProviderApiException('Payment is not available right now. Please try again shortly.', 503, ErrorCode::PAYMENT_UNAVAILABLE, $this->whyUnavailable($e));
+        }
+
+        return $this->ok($this->created_($reservation->fresh(), $paid['redirect_url'] ?? null), 'Payment started');
+    }
+
+    /** The reason a payment is unavailable, for the answer while the app is in debug mode (a missing setting, an unreachable gateway); nothing in production. @return array<string, list<string>>|null */
+    private function whyUnavailable(PaymentGatewayUnavailableException $e): ?array
+    {
+        return config('app.debug') && $e->reason() ? ['reason' => [$e->reason()]] : null;
     }
 
     public function show(Request $request, string $id)
@@ -184,6 +215,11 @@ class BookingController extends CustomerAppController
     {
         $r->loadMissing(self::WITH);
         $payment = $r->payments->sortByDesc('id')->first();
+
+        // The same booking answered again (a retry with the same Idempotency-Key) must still say where to pay: the checkout of a payment that is waiting and has not run out.
+        $redirectUrl ??= $payment && $payment->status === PaymentStatus::Pending && $payment->checkout_url && ($payment->expires_at === null || $payment->expires_at->isFuture())
+            ? $payment->checkout_url
+            : null;
 
         return [
             'booking_id' => $r->id, 'reference' => $this->presenter->reference($r), 'status' => $this->presenter->status($r), 'total' => (float) $r->total,

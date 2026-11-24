@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CustomerApp\FavoriteController;
 use App\Http\Controllers\Api\CustomerApp\HomeController;
 use App\Http\Controllers\Api\CustomerApp\NotificationController;
 use App\Http\Controllers\Api\CustomerApp\ProfileController;
+use App\Http\Controllers\Api\CustomerApp\ProviderController;
 use App\Http\Controllers\Api\CustomerApp\ReviewController;
 use App\Http\Controllers\Api\CustomerApp\SearchController;
 use App\Http\Controllers\Api\CustomerApp\SupportController;
@@ -40,6 +41,11 @@ Route::group(['prefix' => 'customer-app', 'as' => 'customer-app.', 'envelope' =>
     Route::get('/activities/{id}/reviews', [ActivityController::class, 'reviews'])->name('activities.reviews.index');
     Route::get('/activities/{id}/availability', [ActivityController::class, 'availability'])->name('activities.availability');
 
+    // A provider, open to everyone: the page (who they are, how they have done, what customers say, what they offer), all their reviews and all their activities.
+    Route::get('/providers/{id}', [ProviderController::class, 'show'])->name('providers.show');
+    Route::get('/providers/{id}/reviews', [ProviderController::class, 'reviews'])->name('providers.reviews.index');
+    Route::get('/providers/{id}/activities', [ProviderController::class, 'activities'])->name('providers.activities.index');
+
     Route::get('/pages/cancellation-policy', [ContentController::class, 'cancellationPolicy'])->name('pages.cancellation');
     Route::get('/pages/terms', [ContentController::class, 'legal'])->defaults('slug', 'terms')->name('pages.terms');
     Route::get('/pages/privacy', [ContentController::class, 'legal'])->defaults('slug', 'privacy')->name('pages.privacy');
@@ -66,6 +72,8 @@ Route::group(['prefix' => 'customer-app', 'as' => 'customer-app.', 'envelope' =>
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/{id}', [BookingController::class, 'show'])->name('bookings.show');
         Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->middleware('throttle:customer-app-booking')->name('bookings.cancel');
+        // Start or resume the payment of a booking that is waiting for it: the app's way to get the Tabby or Tamara checkout address (again).
+        Route::post('/bookings/{id}/pay', [BookingController::class, 'pay'])->middleware('throttle:customer-app-booking')->name('bookings.pay');
 
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');

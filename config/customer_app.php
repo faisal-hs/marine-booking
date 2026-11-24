@@ -35,6 +35,13 @@ return [
     // An activity with at least this many bookings carries the "bestseller" badge.
     'bestseller_min_bookings' => (int) env('BESTSELLER_MIN_BOOKINGS', 25),
 
+    // A provider's page: the "top_rated" badge needs this average over at least this many reviews; the figures (trips, guests, response) are kept this many seconds before they are
+    // worked out again (0: never kept); and the response rate and time look at the conversations customers began in the last this many days.
+    'top_rated_min_rating' => 4.5,
+    'top_rated_min_reviews' => 10,
+    'provider_stats_cache_seconds' => 300,
+    'response_window_days' => 90,
+
     // The date the terms, the privacy policy and the cancellation page were last changed (shown on those pages).
     'content_updated_at' => env('CONTENT_UPDATED_AT', '2026-11-01'),
 

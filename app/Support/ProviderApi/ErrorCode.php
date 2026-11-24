@@ -37,6 +37,9 @@ final class ErrorCode
 
     public const PAYMENT_UNAVAILABLE = 'PAYMENT_UNAVAILABLE';
 
+    /** The booking is not waiting for payment any more (paid, cancelled, or its hold ran out). */
+    public const BOOKING_NOT_PAYABLE = 'BOOKING_NOT_PAYABLE';
+
     public const IDEMPOTENCY_KEY_REQUIRED = 'IDEMPOTENCY_KEY_REQUIRED';
 
     public const BOOKING_NOT_CANCELLABLE = 'BOOKING_NOT_CANCELLABLE';

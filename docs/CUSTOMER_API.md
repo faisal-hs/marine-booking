@@ -22,7 +22,7 @@ Success: `{"status": true, "message": "Success", "data": …}`, and for a page a
 
 **Ownership.** The customer is always the signed-in one: no endpoint takes a customer id. Another customer's booking, conversation, notification or favourite is `404`, the same answer as one that does not exist, so ids cannot be probed.
 
-## 2. The 34 operations, and the coupon check
+## 2. The 34 operations, the coupon check, paying again and the provider's page
 
 Open = no token needed (a customer's token only makes it personal). Customer = a customer's token.
 
@@ -62,6 +62,10 @@ Open = no token needed (a customer's token only makes it personal). Customer = a
 | 32 | `GET /pages/terms` | open | |
 | 33 | `GET /pages/privacy` | open | |
 | 34 | `GET /about` | open | `platform` (ios, android) and the app's `version` |
+| 36 | `POST /bookings/{id}/pay` | customer | starts or resumes the payment of a booking that is waiting for it; answers as a new booking does (`payment_id`, `payment_status`, `redirect_url`). `payment_method` (and, locally, `simulate`) optional. `409 BOOKING_NOT_PAYABLE` once it is paid, cancelled or out of time. Counts with the 10 bookings a minute |
+| 37 | `GET /providers/{id}` | open | a provider's page: `provider`, `stats`, `rating`, `recent_reviews` (5), `activities` (10) |
+| 38 | `GET /providers/{id}/reviews` | open | all the provider's visible reviews, a page at a time; `rating` filter, `page`, `per_page` (1 to 50) |
+| 39 | `GET /providers/{id}/activities` | open | all the provider's visible activities, a page at a time; `sort`, `category_id`, `page`, `per_page` |
 | 35 | `POST /activities/{id}/coupons/validate` | customer | a coupon checked for the activity: its rules, and what it takes off when the booking (or an `amount`) is given. Limited to 20 a minute |
 
 Sign-in, one-time codes and the payment webhook are not part of the 34: they are the existing `/auth/customer/*` and `/webhooks/payments/{gateway}` routes.
@@ -101,6 +105,16 @@ A departure of an option booked by time also has `booked_windows` (the times alr
 
 ### Paying with Tabby or Tamara
 `payment_method: tabby` or `tamara` (the activity must accept it: `allowed_payment_methods`) pays through that gateway. The booking answer has `payment_id`, `payment_status` (`pending`) and **`redirect_url`**: send the customer there. They come back to the app at `PAYMENT_RETURN_*_URL` with `?booking=&payment=&status=` (`paid`, `pending`, `failed`, `cancelled`, `expired`); the status is checked with the gateway, so poll `GET /bookings/{id}` if it says `pending`. `GET /customer/payments/{payment}` has `status`, `failure_code` (`declined`, `cancelled`, `expired`, `mismatch`, `late_payment`, `error`), `checkout_url` (while it is waiting) and `expires_at` (the end of the booking's hold). To **pay again** (after a payment that failed, or another way): `POST /customer/reservations/{uuid}/payments` with `payment_method`; a booking that is still waiting gets the same checkout back, one that is paid is refused (`422`). A gateway that is not ready is `503 PAYMENT_UNAVAILABLE`. See docs/PAYMENTS.md.
+
+### Sending a booking again, and paying again
+The same `Idempotency-Key` sent again (a request that timed out, a double tap) returns the SAME booking, and still says where to pay: `redirect_url` is the Tabby or Tamara checkout while it is alive (null once it failed or ran out). To get the address later, without sending the booking again, call **`POST /bookings/{id}/pay`**: a checkout that is alive comes back (it is never made twice), one that failed or ran out is replaced, and `payment_method` may change how to pay. If the payment gateway is not available the answer is `503 PAYMENT_UNAVAILABLE` and the booking is kept so the customer can try again; while the app is in debug mode the answer also says why (`errors.reason`: a missing setting, a gateway that could not be reached).
+
+### A provider's page, reviews and activities (open)
+`GET /providers/{id}` (no token): who the provider is (`provider`: id, uuid, business name, slug, logo, bio, city with its platform id and both names, area, marina, position, member since, years hosting, categories, `badges`), what they have done (`stats`: `activities_count`, `completed_trips`, `guests_hosted`, `response_rate`, `response_time_minutes`), how customers rate them (`rating`: `average`, `reviews_count`, a `breakdown` of every star from 5 to 1), the five latest reviews (`recent_reviews`, each with its `activity` and the provider's reply as `{text, date}` or null) and ten of their activities as cards with their `category`. `GET /providers/{id}/reviews` and `/activities` page through all of them (`page`, `per_page` 1 to 50; reviews: `rating`; activities: `sort`, `category_id`).
+
+- **Who is shown:** a verified provider whose account is active and not deleted; anyone else is `404`. Only the activities customers can see count, and only the reviews of those that are not hidden, so the page's numbers and the lists always agree.
+- **Real data only.** `response_rate` (the share of conversations customers began in the last 90 days that the provider answered) and `response_time_minutes` (the average wait for the first answer) are measured from real conversations, and are null when there are none. `badges`: `safety_certified` and `insured` from approved, unexpired documents; `top_rated` from an average of 4.5 over at least 10 reviews (`customer_app.top_rated_*`). Not held by the platform, so empty: `cover` (null: a provider has no cover picture), `languages` (empty), `is_favorite` (false: only activities can be favourites).
+- **The same data in the older public API's envelope** (`{success, message, data}`, and `pagination` for a list): `GET /api/v1/public/providers/{provider}` (and `/reviews`, `/activities`), where the provider is found by id, uuid or slug.
 
 ### Booking by time (from and to)
 A booking option booked by time is configured by the provider (docs/PROVIDER_API.md): the **shortest booking in minutes**, which is also the **block** a booking grows by, and the **price of one block**; optionally the longest. 30 minutes at 200 means 30 minutes costs 200, 60 costs 400, 90 costs 600, 120 costs 800. The price is the number of blocks times the block price: it is **not** prorated by the minute, and a length that is not a whole number of blocks is refused.
@@ -185,7 +199,7 @@ Support tickets are kept with an optional attachment (jpg, png or pdf up to 5 MB
 
 ## 5. Rate limits
 
-120 reads a minute; 30 summaries; 20 coupon checks; 10 bookings or cancellations (together); 30 conversations and messages (together); 10 reviews; 5 support tickets; 3 account deletions. Each has its own budget.
+120 reads a minute; 30 summaries; 20 coupon checks; 10 bookings, cancellations or payments (together); 30 conversations and messages (together); 10 reviews; 5 support tickets; 3 account deletions. Each has its own budget.
 
 ## 6. Settings (`.env`, listed in `.env.example`)
 

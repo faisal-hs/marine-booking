@@ -73,6 +73,7 @@ class ActivityCatalog
                 ->orWhereHas('category', fn ($c) => $c->where('name', 'like', $like))
                 ->orWhereHas('city', fn ($c) => $c->where('name_en', 'like', $like)->orWhere('name_ar', 'like', $like)));
         });
+        $q->when(! empty($f['provider_id']), fn (Builder $query) => $query->where('activities.provider_id', (int) $f['provider_id']));
         $q->when(! empty($f['category_id']), fn (Builder $query) => $query->where('activities.category_id', (int) $f['category_id']));
         $q->when(! empty($f['city_id']), fn (Builder $query) => $query->where('activities.city_id', (int) $f['city_id']));
         $q->when(isset($f['min_price']), fn (Builder $query) => $query->whereRaw(self::PRICE_SQL.' >= CAST(? AS DECIMAL(12,2))', [(float) $f['min_price']]));

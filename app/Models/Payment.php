@@ -21,6 +21,10 @@ class Payment extends Model
         'gateway',
         'payment_id',
         'provider_reference',
+        'checkout_url',
+        'expires_at',
+        'gateway_status',
+        'failure_code',
         'amount',
         'currency',
         'status',
@@ -35,6 +39,7 @@ class Payment extends Model
         'amount' => 'decimal:2',
         'refunded_amount' => 'decimal:2',
         'paid_at' => 'datetime',
+        'expires_at' => 'datetime',
         'raw_payload' => 'array',
     ];
 

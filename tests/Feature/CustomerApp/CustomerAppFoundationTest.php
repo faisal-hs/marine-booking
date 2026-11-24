@@ -32,8 +32,9 @@ class CustomerAppFoundationTest extends TestCase
     {
         $routes = collect(Route::getRoutes()->getRoutes())->filter(fn ($r) => str_starts_with($r->uri(), 'api/v1/customer-app/'));
 
-        // The specification's 34, and the coupon check an activity has (POST /activities/{id}/coupons/validate).
-        $this->assertCount(35, $routes);
+        // The specification's 34, the coupon check an activity has (POST /activities/{id}/coupons/validate), paying for a booking again (POST /bookings/{id}/pay) and a provider's page, reviews
+        // and activities (GET /providers/{id}, /reviews, /activities).
+        $this->assertCount(39, $routes);
         foreach ($routes as $route) {
             $this->assertSame('customer-app', $route->getAction('envelope'), $route->uri());
         }
@@ -44,10 +45,10 @@ class CustomerAppFoundationTest extends TestCase
         $provider = $this->approvedProvider();
         $needsCustomer = [['GET', '/favorites'], ['POST', '/favorites/1'], ['DELETE', '/favorites/1'], ['POST', '/activities/1/reviews'], ['POST', '/conversations'], ['GET', '/conversations'],
             ['GET', '/conversations/1/messages'], ['POST', '/conversations/1/messages'], ['POST', '/bookings/summary'], ['POST', '/bookings'], ['GET', '/bookings'], ['GET', '/bookings/1'],
-            ['POST', '/bookings/1/cancel'], ['POST', '/activities/1/coupons/validate'], ['GET', '/notifications'], ['POST', '/notifications/read-all'], ['POST', '/notifications/x/read'], ['GET', '/profile'], ['POST', '/profile/update'],
+            ['POST', '/bookings/1/cancel'], ['POST', '/bookings/1/pay'], ['POST', '/activities/1/coupons/validate'], ['GET', '/notifications'], ['POST', '/notifications/read-all'], ['POST', '/notifications/x/read'], ['GET', '/profile'], ['POST', '/profile/update'],
             ['DELETE', '/profile'], ['POST', '/auth/logout'], ['POST', '/support/tickets']];
 
-        $this->assertCount(22, $needsCustomer, 'Every route that is not open to everyone');
+        $this->assertCount(23, $needsCustomer, 'Every route that is not open to everyone');
 
         foreach ($needsCustomer as [$method, $path]) {
             $nobody = $this->ca(null, $method, $path)->assertUnauthorized();

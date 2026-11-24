@@ -11,19 +11,7 @@ use App\Services\Payments\Concerns\TalksToGateways;
 use App\Support\Money\GatewayAmount;
 use Illuminate\Http\Request;
 
-/**
- * Tabby (https://docs.tabby.ai), pay in instalments. The flow:
- *
- *   1. charge()         POST /api/v2/checkout creates a session; the customer is sent to its `web_url`. A session Tabby will not offer (`rejected`: the amount is too high or low, or
- *                       the customer is not eligible) is a failed payment, with Tabby's reason.
- *   2. the customer approves at Tabby; Tabby sends a webhook (a custom header carries OUR secret) and sends the customer back to our return URL.
- *   3. verify()         GET /api/v2/payments/{id}: AUTHORIZED means approved. This is what is believed, never the webhook body.
- *   4. capture()        POST /api/v2/payments/{id}/captures takes the money (status CLOSED). A payment cannot be refunded before.
- *   void()              POST /api/v2/payments/{id}/close cancels an authorised payment that will not be captured (the hold lapsed, the booking was cancelled).
- *   refund()            POST /api/v2/payments/{id}/refunds, partial or full, of a captured payment.
- *
- * The session is created with the PUBLIC key; everything about an existing payment uses the SECRET key.
- */
+
 class TabbyPaymentGateway implements AsyncPaymentGateway
 {
     use TalksToGateways;
@@ -52,11 +40,11 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
         $amount = GatewayAmount::format($payment->amount, $payment->currency);
         $country = strtoupper((string) ($this->config['merchant_code'] ?? 'SA'));
 
-        $response = $this->send('create session', 'POST', $this->url('/api/v2/checkout'), fn () => $this->client((string) ($this->config['public_key'] ?: $this->config['secret_key'])), [
+        $response = $this->send('create session', 'POST', $this->url('/api/v2/checkout'), fn() => $this->client((string) ($this->config['public_key'] ?: $this->config['secret_key'])), [
             'payment' => [
                 'amount' => $amount,
                 'currency' => strtoupper($payment->currency),
-                'description' => mb_substr('Booking '.$payment->reference_id, 0, 250),
+                'description' => mb_substr('Booking ' . $payment->reference_id, 0, 250),
                 'buyer' => array_filter(['name' => $buyer['name'], 'phone' => $this->internationalPhone($buyer['phone'], $country), 'email' => $buyer['email']]),
                 // One line for the booking, at what the customer pays (the price after any coupon, with any fee): so the lines add up to the amount, whatever the booking was made of.
                 'order' => [
@@ -128,7 +116,7 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
     {
         $json = $this->payment($payment);
         $gatewayStatus = strtoupper((string) ($json['status'] ?? ''));
-        $captured = collect($json['captures'] ?? [])->sum(fn ($c) => (float) ($c['amount'] ?? 0));
+        $captured = collect($json['captures'] ?? [])->sum(fn($c) => (float) ($c['amount'] ?? 0));
 
         $status = match ($gatewayStatus) {
             'AUTHORIZED' => 'authorized',
@@ -150,7 +138,7 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
 
     public function capture(Payment $payment): array
     {
-        $response = $this->send('capture', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/captures"), fn () => $this->client((string) $this->config['secret_key']), [
+        $response = $this->send('capture', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/captures"), fn() => $this->client((string) $this->config['secret_key']), [
             'amount' => GatewayAmount::format($payment->amount, $payment->currency),
             'reference_id' => $payment->reference_id,
         ]);
@@ -167,7 +155,7 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
 
     public function void(Payment $payment): void
     {
-        $response = $this->send('close', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/close"), fn () => $this->client((string) $this->config['secret_key']));
+        $response = $this->send('close', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/close"), fn() => $this->client((string) $this->config['secret_key']));
 
         // A payment that cannot be closed (never approved: it expires by itself; already closed) is not a problem. Only an unreachable gateway is, and that was thrown above.
         if (! $response->successful()) {
@@ -180,11 +168,11 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
         $remaining = round((float) $payment->amount - (float) $payment->refunded_amount, 2);
         $amount = $amount === null ? $remaining : min($amount, $remaining);
 
-        $response = $this->send('refund', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/refunds"), fn () => $this->client((string) $this->config['secret_key']), [
+        $response = $this->send('refund', 'POST', $this->url("/api/v2/payments/{$payment->payment_id}/refunds"), fn() => $this->client((string) $this->config['secret_key']), [
             'amount' => GatewayAmount::format($amount, $payment->currency),
             'reason' => 'Booking cancelled',
             // The same cumulative refund is the same reference: sending it twice cannot refund twice.
-            'reference_id' => $payment->reference_id.'-R'.(int) round(((float) $payment->refunded_amount + $amount) * 100),
+            'reference_id' => $payment->reference_id . '-R' . (int) round(((float) $payment->refunded_amount + $amount) * 100),
         ]);
 
         if (! $response->successful()) {
@@ -199,7 +187,7 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
     /** @return array<string, mixed> */
     private function payment(Payment $payment): array
     {
-        $response = $this->send('retrieve payment', 'GET', $this->url("/api/v2/payments/{$payment->payment_id}"), fn () => $this->client((string) $this->config['secret_key']));
+        $response = $this->send('retrieve payment', 'GET', $this->url("/api/v2/payments/{$payment->payment_id}"), fn() => $this->client((string) $this->config['secret_key']));
 
         if (! $response->successful()) {
             $this->log('error', 'payment could not be read', ['payment' => $payment->reference_id, 'http' => $response->status()]);
@@ -212,7 +200,7 @@ class TabbyPaymentGateway implements AsyncPaymentGateway
 
     private function url(string $path): string
     {
-        return rtrim((string) $this->config['base_url'], '/').$path;
+        return rtrim((string) $this->config['base_url'], '/') . $path;
     }
 
     private function rejection(string $code): string

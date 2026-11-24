@@ -27,7 +27,8 @@ class FakeTabby
     public static function install(): self
     {
         $fake = new self;
-        Http::fake(fn (Request $request) => str_contains($request->url(), 'tabby') ? $fake->handle($request) : Http::response([], 404));
+        // A call that is not Tabby's is left to the next stand-in (a stub that answers null is skipped), so Tabby's and Tamara's can be installed together.
+        Http::fake(fn (Request $request) => str_contains($request->url(), 'tabby') ? $fake->handle($request) : null);
 
         return $fake;
     }

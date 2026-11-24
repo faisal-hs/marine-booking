@@ -109,8 +109,11 @@ class PaymentService
             // charge" — both are stored so either can be used to query the gateway later.
             'provider_reference' => $result['provider_reference'],
             'payment_id' => $result['provider_reference'],
+            // Where the customer pays, when the gateway sends them somewhere: kept, so the same booking answered again (a retry) still says where.
+            'checkout_url' => $result['status'] === 'pending' ? ($result['redirect_url'] ?? null) : null,
             'raw_payload' => $result['raw'],
         ]);
+        $this->assertStored($payment, 'checkout_url', $result['status'] === 'pending' ? ($result['redirect_url'] ?? null) : null);
 
         $payment = $payment->fresh();
 
@@ -174,6 +177,7 @@ class PaymentService
                 'raw_payload' => $result['raw'],
             ]);
 
+            $this->assertStored($payment, 'checkout_url', $result['redirect_url'] ?? null);
             $payment = $payment->fresh();
 
             if ($result['status'] === 'failed') {
@@ -184,6 +188,19 @@ class PaymentService
 
             return ['payment' => $payment, 'redirect_url' => $payment->status === PaymentStatus::Pending ? $payment->checkout_url : null];
         });
+    }
+
+    /**
+     * What a gateway just told us must be what was saved. Laravel silently drops an attribute the model does not allow, so a Payment model (or payments table) that is older than this
+     * code would lose the checkout address with no error at all: the booking would answer `redirect_url: null` and the customer could not pay. This turns that into a loud failure.
+     */
+    protected function assertStored(Payment $payment, string $attribute, ?string $expected): void
+    {
+        if ($expected !== null && $payment->fresh()?->{$attribute} !== $expected) {
+            Log::critical("[payments] {$attribute} was not saved: app/Models/Payment.php or the payments table is out of date. Copy the whole of repo-sync-28 and run php artisan migrate; php artisan payments:check says what is wrong.");
+
+            throw new \LogicException("The payment's {$attribute} was not saved: app/Models/Payment.php or the payments table is out of date (run php artisan migrate and copy app/Models/Payment.php and app/Models/PaymentEvent.php from the package; php artisan payments:check says what is wrong).");
+        }
     }
 
     /** The method must be one the provider accepts for this activity, the gateway must take the currency, and the booking must be worth paying for. */

@@ -20,8 +20,14 @@ use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
  */
 class PaymentGatewayUnavailableException extends ServiceUnavailableHttpException
 {
-    public function __construct(?\Throwable $previous = null)
+    public function __construct(?\Throwable $previous = null, private readonly ?string $reason = null)
     {
         parent::__construct(null, 'Online payments are currently unavailable.', $previous);
+    }
+
+    /** Why (a missing setting, a gateway that could not be reached): for the log, and for the answer when the app is in debug mode. Never shown to a customer in production. */
+    public function reason(): ?string
+    {
+        return $this->reason;
     }
 }

@@ -55,7 +55,7 @@ trait TalksToGateways
 
     private function unreachable(string $failure, string $message, ?\Throwable $previous = null): \Throwable
     {
-        return $failure === PaymentGatewayUnavailableException::class ? new PaymentGatewayUnavailableException($previous) : new PaymentGatewayException($message, $previous);
+        return $failure === PaymentGatewayUnavailableException::class ? new PaymentGatewayUnavailableException($previous, $message) : new PaymentGatewayException($message, $previous);
     }
 
     /** One line in the payments log, with ids and states only. */

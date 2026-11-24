@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Payments;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BuildsOnlinePayments;
 use Tests\TestCase;
 
@@ -10,6 +12,7 @@ use Tests\TestCase;
 class PaymentCommandsTest extends TestCase
 {
     use BuildsOnlinePayments;
+    use RefreshDatabase;
 
     public function test_nothing_switched_on_is_not_a_problem(): void
     {
@@ -89,5 +92,25 @@ class PaymentCommandsTest extends TestCase
         $this->enableTabby();
         Http::fake(['*' => Http::response(['error' => 'bad'], 400)]);
         $this->artisan('payments:tabby:register-webhook')->expectsOutputToContain('Tabby refused it')->assertFailed();
+    }
+
+    public function test_a_complete_installation_is_reported_as_complete(): void
+    {
+        $this->artisan('payments:check')->expectsOutputToContain('Installation: complete')->assertSuccessful();
+    }
+
+    public function test_a_missing_table_or_column_is_reported_and_fails_the_check(): void
+    {
+        Schema::drop('payment_events');
+
+        $this->artisan('payments:check')->expectsOutputToContain('the payment_events table does not exist: run php artisan migrate.')->assertFailed();
+    }
+
+    public function test_the_columns_are_checked_too(): void
+    {
+        Schema::table('payments', fn ($table) => $table->dropIndex('payments_gateway_status_index'));
+        Schema::table('payments', fn ($table) => $table->dropColumn('checkout_url'));
+
+        $this->artisan('payments:check')->expectsOutputToContain('the payments table has no `checkout_url` column: run php artisan migrate.')->assertFailed();
     }
 }

@@ -67,6 +67,13 @@ Every refund goes through `PaymentService::refund` (customer cancellation by pol
 
 For each gateway: (1) `payments:check --live` is green; (2) book with the method and open `redirect_url`; (3) **approve** with the gateway's sandbox test customer: the booking becomes confirmed, and the gateway shows the payment captured; (4) **reject** (use the sandbox customer that is declined): the payment is `failed`/`declined`, the booking is still pending, and paying again works; (5) **abandon** until the hold runs out: payment `expired`; (6) **approve after the hold ran out** (book, wait 15 minutes, then approve): nothing is charged; (7) **cancel a paid booking**: the refund appears at the gateway; (8) re-send the webhook from the gateway dashboard: nothing changes; (9) confirm the sandbox sends the webhook (Tabby: after `register-webhook`) to your address.
 
+## 6b. When something does not work
+
+Run **`php artisan payments:check`** first. It says whether the payment code is installed completely (the `Payment` and `PaymentEvent` models, the new columns and the `payment_events` table: after copying a package, copy EVERY file and run `php artisan migrate`), and what each gateway still needs.
+
+- **`redirect_url: null` although the gateway answered.** Either the booking request was sent again (the same `Idempotency-Key`): from this version it answers with the live checkout, and `POST /customer-app/bookings/{id}/pay` returns it at any time; or `app/Models/Payment.php` is an old version without `checkout_url` among its fillable attributes: Laravel then silently drops the address Tabby sent. Now the payment fails loudly instead ("`checkout_url` was not saved ... out of date") and `payments:check` names the file.
+- **`503 PAYMENT_UNAVAILABLE`.** The gateway is not enabled, is missing a setting, or could not be reached. With `APP_DEBUG=true` the answer says which (`errors.reason`, for example "TAMARA is enabled but is missing: TAMARA_NOTIFICATION_TOKEN."), and the log has the same line. Tamara needs **both** `TAMARA_API_TOKEN` and `TAMARA_NOTIFICATION_TOKEN`; Tabby needs the public and secret keys, the merchant code and the webhook secret. `php artisan payments:check --live` tells a wrong credential from a network problem.
+
 ## 7. Details to confirm against the real sandboxes
 
 These are written from the public documentation as understood; a sandbox run is the proof:
