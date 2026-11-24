@@ -30,6 +30,11 @@ class PaymentResource extends JsonResource
             'amount' => (float) $this->amount,
             'currency' => $this->currency,
             'failure_reason' => $this->failure_reason,
+            // Why it did not succeed: declined, cancelled, expired, mismatch, late_payment, error (null otherwise).
+            'failure_code' => $this->failure_code,
+            // Where the customer pays (Tabby, Tamara) and until when; null for a payment with no checkout, and once it is over.
+            'checkout_url' => $this->status === \App\Enums\PaymentStatus::Pending ? $this->checkout_url : null,
+            'expires_at' => $this->expires_at?->toIso8601String(),
             'refunded_amount' => (float) $this->refunded_amount,
             'paid_at' => $this->paid_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

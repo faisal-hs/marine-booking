@@ -6,7 +6,7 @@ Why a script and not a PHPUnit test: the tests run on SQLite, which has no row l
 server running MANY workers (for example `PHP_CLI_SERVER_WORKERS=14 php -S 127.0.0.1:8000 -t public public/index.php`, or php-fpm), against a DEMO-SEEDED database where the
 default OTP code is on (OTP_DEFAULT_CODE_ENABLED=true): it signs in the demo provider and registers a few customers. It makes its own activities (named "Concurrency ...").
 
-    BASE_URL=http://127.0.0.1:8000/api/v1 OTP_CODE=123456 python3 tests/Concurrency/check_booking_concurrency.py [--customers 14] [--persons]
+    BASE_URL=http://127.0.0.1:8000/api/v1 OTP_CODE=123456 python3 tests/Concurrency/check_booking_concurrency.py [--customers 14] [--skip-persons]
 
 What it checks (every check uses only the API):
   A  N customers book the SAME window at once              -> exactly one booking, the rest are 409 (never a 500)
@@ -14,9 +14,13 @@ What it checks (every check uses only the API):
   C  N customers book windows that only touch              -> all of them are made (no false conflicts), no 500
   D  one customer double-taps (one Idempotency-Key, 6 at once) -> one booking, and the others get that booking back
   E  a booking is cancelled                                -> the same time can be booked again straight away
-  --persons  (informational) bookings by persons, capacity 3, N customers at once -> how many were made
+  P1 bookings by persons, capacity 3, N customers of one guest at once  -> exactly 3 are made, the rest are 409, no 500
+  P2 capacity 3, N customers of TWO guests at once                      -> exactly 1 is made (never 2: that would be 4 places)
+  P3 capacity 5, N customers of 1 to 3 guests at once                   -> the guests made never exceed 5, and the places left are what is left
+  P4 a booking is cancelled                                             -> exactly one more booking of its size can be made
+  P5 bookings by units (stock 2), N customers of one unit at once       -> exactly 2 are made
 
-It exits 0 when A-E all pass, 1 otherwise. Unpaid bookings in these checks hold their time until their hold runs out (`simulate: async`), so run it on a database you can discard.
+It exits 0 when A-E and P1-P5 all pass, 1 otherwise (--skip-persons leaves P1-P5 out). Unpaid bookings in these checks hold their time until their hold runs out (`simulate: async`), so run it on a database you can discard.
 """
 import argparse, collections, json, os, sys, threading, time, urllib.error, urllib.request, uuid
 from datetime import datetime, timedelta
@@ -91,9 +95,9 @@ def overlapping_pairs(windows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--customers', type=int, default=14)
-    ap.add_argument('--persons', action='store_true')
+    ap.add_argument('--skip-persons', action='store_true')
     n = ap.parse_args().customers
-    persons = ap.parse_args().persons
+    persons = not ap.parse_args().skip_persons
 
     # An operating period that crosses midnight, on the Friday after today (so the windows cross midnight too).
     today = datetime.now()
@@ -105,7 +109,7 @@ def main():
     _, cities = call('GET', '/public/cities')
     cat, city = cats['data'][0]['id'], next(c['id'] for c in cities if c['is_active'])
     run = int(time.time()) % 900 + 100
-    customers = [login('customer', f'0553{run}{i:03d}', name=f'Concurrency {i}') for i in range(n)]
+    customers = [login('customer', f'0553{run}{i:03d}', name=f'Concurrency {i}') for i in range(n + 5)]
     night = [{'day_of_week': 'friday', 'start_time': '20:00', 'end_time': '05:00'}]
     option = {'name': 'By time', 'booking_model': 'per_hour', 'is_default': True, 'min_duration_minutes': 30, 'max_duration_minutes': 240, 'pricing_rules': [{'price': 200}]}
 
@@ -136,7 +140,7 @@ def main():
         start = friday.replace(hour=20, minute=0) + timedelta(minutes=30 * i)
         return start.strftime('%Y-%m-%d %H:%M'), (start + timedelta(minutes=length)).strftime('%Y-%m-%d %H:%M')
 
-    res = storm([(customers[i], body(a, slot, *window(i, 60))) for i in range(n)])
+    res = storm([(customers[i], body(a, slot, *window(i % 16, 60))) for i in range(n)])   # (16 starts fit in the period; more customers share them)
     w = taken(a, slot, month, day)
     results['B'] = overlapping_pairs(w) == 0 and len(w) >= 1 and set(tally(res)) <= {201, 409}
     print(f'B  {n} overlapping windows at once      : {tally(res)} | taken windows: {len(w)}, overlapping pairs: {overlapping_pairs(w)}', 'PASS' if results['B'] else 'FAIL')
@@ -152,7 +156,7 @@ def main():
 
     def tap(i):
         barrier.wait()
-        out[i] = call('POST', '/customer-app/bookings', body(a, slot, at(21, 0), at(21, 0, 30)), customers[0], {'Idempotency-Key': key})
+        out[i] = call('POST', '/customer-app/bookings', body(a, slot, at(21, 0), at(21, 0, 30)), customers[n], {'Idempotency-Key': key})
 
     threads = [threading.Thread(target=tap, args=(i,)) for i in range(6)]
     [t.start() for t in threads]
@@ -162,22 +166,65 @@ def main():
     print(f'D  one customer double-taps (6 at once)  : {tally(out)} | distinct bookings: {len(ids)}', 'PASS' if results['D'] else 'FAIL')
 
     a, slot = make('Concurrency E', night, option)
-    s1, r1 = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[-1], {'Idempotency-Key': 'e1-' + uuid.uuid4().hex[:8]})
-    s2, _ = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[-2], {'Idempotency-Key': 'e2-' + uuid.uuid4().hex[:8]})
-    sc, _ = call('POST', f'/customer-app/bookings/{r1["data"]["booking_id"]}/cancel', {'reason': 'check'}, customers[-1])
-    s3, _ = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[-2], {'Idempotency-Key': 'e3-' + uuid.uuid4().hex[:8]})
+    s1, r1 = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[n + 1], {'Idempotency-Key': 'e1-' + uuid.uuid4().hex[:8]})
+    s2, _ = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[n + 2], {'Idempotency-Key': 'e2-' + uuid.uuid4().hex[:8]})
+    sc, _ = call('POST', f'/customer-app/bookings/{r1["data"]["booking_id"]}/cancel', {'reason': 'check'}, customers[n + 1])
+    s3, _ = call('POST', '/customer-app/bookings', body(a, slot, at(22, 0), at(22, 0, 60)), customers[n + 2], {'Idempotency-Key': 'e3-' + uuid.uuid4().hex[:8]})
     results['E'] = (s1, s2, sc, s3) == (201, 409, 200, 201)
     print(f'E  held, refused, cancelled, booked again : {(s1, s2, sc, s3)}', 'PASS' if results['E'] else 'FAIL')
 
     if persons:
-        status, r = call('POST', '/provider/activities', {'category_id': cat, 'city_id': city, 'title': f'Concurrency Persons {run}', 'max_participants': 3,
-                         'schedule': [{'day_of_week': 'saturday', 'start_time': '09:00', 'end_time': '13:00'}],
-                         'booking_options': [{'name': 'Standard', 'booking_model': 'per_person', 'is_default': True, 'max_participants': 3, 'pricing_rules': [{'participant_type': 'adult', 'price': 100}]}]}, provider)
         sat = (friday + timedelta(days=1)).strftime('%Y-%m-%d')
-        _, av = call('GET', f'/customer-app/activities/{r["data"]["id"]}/availability?month={month}')
-        pslot = next(d for d in av['data']['days'] if d['date'] == sat)['slots'][0]['id']
-        res = storm([(customers[i], {'activity_id': r['data']['id'], 'slot_id': pslot, 'date': sat, 'guests': 1, 'contact_name': 'Concurrency Tester', 'contact_phone': '0551234567', 'payment_method': 'card', 'simulate': 'async'}) for i in range(n)])
-        print(f'   bookings by persons, capacity 3, {n} at once: {tally(res)} (made: {tally(res).get(201, 0)})  [informational]')
+
+        def make_persons(title, option_extra, activity_extra=None):
+            opt = dict({'name': 'Standard', 'booking_model': 'per_person', 'is_default': True, 'pricing_rules': [{'participant_type': 'adult', 'price': 100}]}, **option_extra)
+            status, r = call('POST', '/provider/activities', dict({'category_id': cat, 'city_id': city, 'title': f'{title} {run}', 'max_participants': 20, 'schedule': [{'day_of_week': 'saturday', 'start_time': '09:00', 'end_time': '13:00'}], 'booking_options': [opt]}, **(activity_extra or {})), provider)
+            if status != 201:
+                sys.exit(f'Could not make the activity: HTTP {status} {json.dumps(r.get("errors") or r.get("message"))}')
+            _, av = call('GET', f'/customer-app/activities/{r["data"]["id"]}/availability?month={month}')
+            return r['data']['id'], next(d for d in av['data']['days'] if d['date'] == sat)['slots'][0]['id']
+
+        def spots_left(activity_id, slot_id):
+            _, av = call('GET', f'/customer-app/activities/{activity_id}/availability?month={month}')
+            return next(s for d in av['data']['days'] if d['date'] == sat for s in d['slots'] if s['id'] == slot_id)['spots_left']
+
+        def persons_body(a, slot, guests=None, quantity=None):
+            b = {'activity_id': a, 'slot_id': slot, 'date': sat, 'contact_name': 'Concurrency Tester', 'contact_phone': '0551234567', 'payment_method': 'card', 'simulate': 'async'}
+            if guests is not None:
+                b['guests'] = guests
+            if quantity is not None:
+                b['quantity'] = quantity
+            return b
+
+        a, slot = make_persons('Concurrency P1', {'max_participants': 3})
+        res = storm([(customers[i], persons_body(a, slot, 1)) for i in range(n)])
+        results['P1'] = tally(res).get(201, 0) == 3 and spots_left(a, slot) == 0 and set(tally(res)) <= {201, 409}
+        print(f'P1 {n} customers of 1 guest, capacity 3   : {tally(res)} | places left: {spots_left(a, slot)}', 'PASS' if results['P1'] else 'FAIL')
+
+        a, slot = make_persons('Concurrency P2', {'max_participants': 3})
+        res = storm([(customers[i], persons_body(a, slot, 2)) for i in range(n)])
+        results['P2'] = tally(res).get(201, 0) == 1 and spots_left(a, slot) == 1 and set(tally(res)) <= {201, 409}
+        print(f'P2 {n} customers of 2 guests, capacity 3  : {tally(res)} | places left: {spots_left(a, slot)}', 'PASS' if results['P2'] else 'FAIL')
+
+        a, slot = make_persons('Concurrency P3', {'max_participants': 5})
+        sizes = [1 + (i % 3) for i in range(n)]
+        res = storm([(customers[i], persons_body(a, slot, sizes[i])) for i in range(n)])
+        made = sum(sizes[i] for i, (s_, _) in enumerate(res) if s_ == 201)
+        results['P3'] = made <= 5 and spots_left(a, slot) == 5 - made and set(tally(res)) <= {201, 409}
+        print(f'P3 {n} customers of 1-3 guests, capacity 5: {tally(res)} | guests made: {made}, places left: {spots_left(a, slot)}', 'PASS' if results['P3'] else 'FAIL')
+
+        a, slot = make_persons('Concurrency P4', {'max_participants': 2})
+        s1, r1 = call('POST', '/customer-app/bookings', persons_body(a, slot, 2), customers[n + 3], {'Idempotency-Key': 'p4a-' + uuid.uuid4().hex[:8]})
+        s2, _ = call('POST', '/customer-app/bookings', persons_body(a, slot, 2), customers[n + 4], {'Idempotency-Key': 'p4b-' + uuid.uuid4().hex[:8]})
+        sc, _ = call('POST', f'/customer-app/bookings/{r1["data"]["booking_id"]}/cancel', {'reason': 'check'}, customers[n + 3])
+        res = storm([(customers[i], persons_body(a, slot, 2)) for i in range(min(n, 6))])
+        results['P4'] = (s1, s2, sc) == (201, 409, 200) and tally(res).get(201, 0) == 1 and set(tally(res)) <= {201, 409}
+        print(f'P4 full, cancelled, then 6 at once        : {(s1, s2, sc)} then {tally(res)}', 'PASS' if results['P4'] else 'FAIL')
+
+        a, slot = make_persons('Concurrency P5', {'booking_model': 'per_unit', 'max_quantity': 2, 'min_quantity': 1, 'pricing_rules': [{'price': 500}]})
+        res = storm([(customers[i], persons_body(a, slot, None, 1)) for i in range(n)])
+        results['P5'] = tally(res).get(201, 0) == 2 and set(tally(res)) <= {201, 409}
+        print(f'P5 {n} customers of 1 unit, stock 2       : {tally(res)}', 'PASS' if results['P5'] else 'FAIL')
 
     ok = all(results.values())
     print('\nALL PASS' if ok else '\nSOME CHECKS FAILED: ' + ', '.join(k for k, v in results.items() if not v))

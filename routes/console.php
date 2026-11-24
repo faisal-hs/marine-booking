@@ -13,6 +13,8 @@ Artisan::command('inspire', function () {
 // "pending" in reporting/admin views for however long between runs,
 // even though it's already correctly ignored by live capacity checks.
 Schedule::command('reservations:expire-stale-holds')->everyFiveMinutes();
+// The safety net under the Tabby and Tamara webhooks: a payment still waiting after a few minutes is asked of the gateway and settled.
+Schedule::command('payments:reconcile')->everyFiveMinutes()->withoutOverlapping();
 
 // Runs daily — unlike expire-stale-holds, this genuinely IS load-bearing:
 // Module 12's "verified purchase" review requirement depends entirely on

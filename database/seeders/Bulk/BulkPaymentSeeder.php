@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Bulk;
 
+use Carbon\Carbon;
 use Database\Seeders\Bulk\Concerns\BulkPools;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\DB;
  *  - cancelled AFTER being confirmed: it was paid, and 40% were refunded, 25% partly refunded, the rest not refunded;
  *  - cancelled without ever being confirmed: 20% had a failed attempt, the rest never paid;
  *  - expired: 35% had a failed attempt; pending: half have a payment in progress.
- * All through the mock gateway, in the platform currency (SAR by default).
+ * About one payment in four went through Tabby or Tamara (half each; the rest through the mock gateway), with what those gateways keep: their own reference, the status
+ * they last reported, and for a failed one the reason (`declined`). BulkPaymentEventSeeder then gives each its notifications. In the platform currency (SAR by default).
  *
  * Volume at scale 1: about 132,000.
  * Prerequisites: BulkReservationSeeder.
@@ -91,22 +93,39 @@ class BulkPaymentSeeder extends BulkSeeder
     private function payment(object $r, int $n, string $status, float $total, float $refunded, ?string $paidAt, string $at, ?string $failure): array
     {
         $mock = 'mock_'.$this->uuid('mock-payment', "{$r->id}-{$n}");
+        $online = $this->stable("payment-online-{$r->id}-{$n}", 25) ? ($this->stable("payment-tabby-{$r->id}-{$n}", 50) ? 'tabby' : 'tamara') : null;
+
+        // Through Tabby or Tamara: the gateway's own reference (Tabby's payment id; Tamara's order id), what it last said, and the reason a failed payment failed.
+        $reference = match ($online) {
+            'tabby' => 'tabby_pay_'.$this->uuid('tabby-payment', "{$r->id}-{$n}"),
+            'tamara' => $this->uuid('tamara-order', "{$r->id}-{$n}"),
+            default => $mock,
+        };
+        $gatewayStatus = match ($online) {
+            'tabby' => ['succeeded' => 'CLOSED', 'refunded' => 'CLOSED', 'partially_refunded' => 'CLOSED', 'failed' => 'REJECTED'][$status] ?? 'CREATED',
+            'tamara' => ['succeeded' => 'fully_captured', 'refunded' => 'fully_refunded', 'partially_refunded' => 'partially_refunded', 'failed' => 'declined'][$status] ?? 'new',
+            default => null,
+        };
 
         return [
             'uuid' => $this->uuid('payment', "{$r->id}-{$n}"),
             // Unique by construction: the reservation number in base 36 plus the attempt number.
             'reference_id' => 'PAY-'.strtoupper(str_pad(base_convert((string) $r->id, 10, 36), 6, '0', STR_PAD_LEFT)).$n,
             'reservation_id' => $r->id,
-            'gateway' => 'mock',
-            'payment_id' => $mock,
-            'provider_reference' => $mock,
+            'gateway' => $online ?? 'mock',
+            'payment_id' => $reference,
+            'provider_reference' => $reference,
+            'checkout_url' => $online && $status === 'pending' ? "https://checkout.{$online}.example/{$reference}" : null,
+            'expires_at' => $online && $status === 'pending' ? Carbon::parse($at)->addMinutes(15)->toDateTimeString() : null,
+            'gateway_status' => $gatewayStatus,
             'amount' => $total,
             'currency' => $r->currency,
             'status' => $status,
             'failure_reason' => $failure,
+            'failure_code' => $online && $status === 'failed' ? 'declined' : null,
             'refunded_amount' => $refunded,
             'paid_at' => in_array($status, ['succeeded', 'refunded', 'partially_refunded'], true) ? $paidAt : null,
-            'raw_payload' => json_encode(['simulate' => $status === 'failed' ? 'sync_failure' : ($status === 'pending' ? 'async' : 'sync_success'), 'amount' => $total]),
+            'raw_payload' => json_encode($online ? ['gateway' => $online, 'status' => $gatewayStatus] : ['simulate' => $status === 'failed' ? 'sync_failure' : ($status === 'pending' ? 'async' : 'sync_success'), 'amount' => $total]),
             'created_at' => $at,
             'updated_at' => $at,
         ];

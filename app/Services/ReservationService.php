@@ -94,32 +94,25 @@ class ReservationService
         // (missing rule, inactive option, etc.) should never hold a lock.
         $quote = $this->pricingService->quote($activity, $bookingOption, $schedulePeriod, $participants, $quantity, $duration, $window['minutes'] ?? null);
 
-        if ($window !== null) {
-            // The option's lock row is made HERE, on its own, before the transaction: made inside it, the first bookings would each hold a shared lock on the row and then all want it
-            // exclusively, which deadlocks. INSERT IGNORE: if another request just made it, that is as good.
-            DB::table('reservation_capacity_locks')->insertOrIgnore(self::OPTION_LOCK + ['activity_booking_option_id' => $bookingOption->id, 'created_at' => now(), 'updated_at' => now()]);
-        }
+        // THE LOCK ROW IS MADE HERE, on its own, before the transaction (INSERT IGNORE: if another request just made it, that is as good). Made inside the transaction, the first
+        // requests would each hold a shared lock on the row and then all want it exclusively, which deadlocks; and a plain read made before the lock would see stale data.
+        $lockKey = $this->lockKey($bookingOption, $schedulePeriod, $date, $window);
+        DB::table('reservation_capacity_locks')->insertOrIgnore($lockKey + ['created_at' => now(), 'updated_at' => now()]);
 
-        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source, $window, $attributes) {
+        $reservation = DB::transaction(function () use ($activity, $bookingOption, $customer, $schedulePeriod, $date, $participants, $quantity, $duration, $quote, $couponCode, $source, $window, $lockKey, $attributes) {
+            // THE LOCK COMES FIRST. Locking is the first thing this transaction does, so everything it reads afterwards is what the request before it committed (a read made before the
+            // lock would not see that, on MySQL's default isolation level). Every request, by persons or by time, takes exactly this one lock row and then (below) the coupon's, in
+            // that order, so two requests cannot wait for each other.
+            ReservationCapacityLock::where($lockKey)->lockForUpdate()->first();
+
             if ($window !== null) {
-                // A booking by TIME. The lock is the option's: nobody else books time on this option until this booking is made. Locking is the FIRST thing this transaction does, so
-                // everything it reads afterwards is what the one before it committed (a read made before the lock would not see that, on MySQL's default isolation level).
-                ReservationCapacityLock::where(self::OPTION_LOCK + ['activity_booking_option_id' => $bookingOption->id])->lockForUpdate()->first();
-                // Free? Looked at across the WHOLE option, not just this departure.
+                // A booking by TIME: the lock is the option's, and the time is looked at across the WHOLE option, not just this departure.
                 app(TimeWindows::class)->assertFree($bookingOption, $window['from'], $window['to']);
             } else {
-                // Guarantees a lockable row exists even for the very first
-                // reservation attempt on this exact slot — see
-                // ReservationCapacityLock's class doc comment for why a plain
-                // lockForUpdate() on the reservations table alone can't do this.
-                $lock = ReservationCapacityLock::firstOrCreate([
-                    'activity_booking_option_id' => $bookingOption->id,
-                    'schedule_period_id' => $schedulePeriod?->id ?? 0,
-                    'reservation_date' => $date->toDateString(),
-                ]);
-                ReservationCapacityLock::whereKey($lock->id)->lockForUpdate()->first();
+                // A booking by persons or units: the lock is this option's departure on this day, and the places left are counted under it.
                 $this->assertCapacityAvailable($bookingOption, $schedulePeriod, $date, $participants, $quantity);
             }
+
             // A coupon is checked, and its last use taken, under a lock: two bookings cannot both have it. The provider funds the discount, so what the
             // customer pays (and what the provider earns on) is the total after it.
             $coupon = null;
@@ -175,6 +168,19 @@ class ReservationService
      * acquired — this is what actually prevents two concurrent bookings
      * from both reading "capacity available" before either commits.
      */
+    /**
+     * The one lock a booking takes. A booking by time: the OPTION's (whatever the departure or the day), because its windows must not overlap anywhere. Any other booking: this option's
+     * departure on this day, which is also what its capacity is counted for.
+     *
+     * @return array{activity_booking_option_id: int, schedule_period_id: int, reservation_date: string}
+     */
+    protected function lockKey(ActivityBookingOption $option, ?ActivitySchedulePeriod $period, Carbon $date, ?array $window): array
+    {
+        return $window !== null
+            ? self::OPTION_LOCK + ['activity_booking_option_id' => $option->id]
+            : ['activity_booking_option_id' => $option->id, 'schedule_period_id' => $period?->id ?? 0, 'reservation_date' => $date->toDateString()];
+    }
+
     protected function assertCapacityAvailable(
         ActivityBookingOption $option,
         ?ActivitySchedulePeriod $period,
@@ -222,14 +228,19 @@ class ReservationService
             ]);
         }
 
-        $reservation->update([
+        // Only a booking that is STILL pending is flipped, and only the request that flips it announces it: two payments settling at the same moment (a webhook and the customer's
+        // return, a gateway that sent a notification twice) confirm it once, and send one confirmation, whatever either of them last read.
+        $flipped = Reservation::whereKey($reservation->id)->where('status', ReservationStatus::Pending->value)->update([
             'status' => ReservationStatus::Confirmed->value,
             'confirmed_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $reservation = $reservation->fresh();
 
-        event(new ReservationConfirmed($reservation));
+        if ($flipped === 1) {
+            event(new ReservationConfirmed($reservation));
+        }
 
         return $reservation;
     }

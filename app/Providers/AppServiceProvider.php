@@ -172,6 +172,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ReservationConfirmed::class, SendReservationConfirmedNotifications::class);
         Event::listen(ReservationCancelled::class, SendReservationCancelledNotifications::class);
         Event::listen(ReservationExpired::class, SendReservationExpiredNotifications::class);
+        // A booking that is cancelled or lapses closes its open checkouts at Tabby / Tamara.
+        Event::listen(ReservationCancelled::class, \App\Listeners\VoidPendingPayments::class);
+        Event::listen(ReservationExpired::class, \App\Listeners\VoidPendingPayments::class);
 
         Event::listen(PaymentFailed::class, SendPaymentFailedNotifications::class);
         Event::listen(PaymentRefunded::class, SendPaymentRefundedNotifications::class);

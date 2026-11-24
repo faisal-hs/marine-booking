@@ -99,6 +99,9 @@ What a booking is made of is the **reservation type** of its price option, in fo
 
 A departure of an option booked by time also has `booked_windows` (the times already taken inside it, `{from, to}`, so an app can show what is free) and `ends_next_day` (true for a period that runs past midnight, 20:00 to 05:00). The departures of the other options are as they were.
 
+### Paying with Tabby or Tamara
+`payment_method: tabby` or `tamara` (the activity must accept it: `allowed_payment_methods`) pays through that gateway. The booking answer has `payment_id`, `payment_status` (`pending`) and **`redirect_url`**: send the customer there. They come back to the app at `PAYMENT_RETURN_*_URL` with `?booking=&payment=&status=` (`paid`, `pending`, `failed`, `cancelled`, `expired`); the status is checked with the gateway, so poll `GET /bookings/{id}` if it says `pending`. `GET /customer/payments/{payment}` has `status`, `failure_code` (`declined`, `cancelled`, `expired`, `mismatch`, `late_payment`, `error`), `checkout_url` (while it is waiting) and `expires_at` (the end of the booking's hold). To **pay again** (after a payment that failed, or another way): `POST /customer/reservations/{uuid}/payments` with `payment_method`; a booking that is still waiting gets the same checkout back, one that is paid is refused (`422`). A gateway that is not ready is `503 PAYMENT_UNAVAILABLE`. See docs/PAYMENTS.md.
+
 ### Booking by time (from and to)
 A booking option booked by time is configured by the provider (docs/PROVIDER_API.md): the **shortest booking in minutes**, which is also the **block** a booking grows by, and the **price of one block**; optionally the longest. 30 minutes at 200 means 30 minutes costs 200, 60 costs 400, 90 costs 600, 120 costs 800. The price is the number of blocks times the block price: it is **not** prorated by the minute, and a length that is not a whole number of blocks is refused.
 

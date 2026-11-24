@@ -23,11 +23,13 @@ class InitiatePaymentRequest extends FormRequest
     {
         return [
             'simulate' => ['sometimes', 'string', Rule::in(['sync_success', 'sync_failure', 'async'])],
+            // Paying again (after a payment that failed, or to change how): the method; without it, the one the booking was made with.
+            'payment_method' => ['sometimes', 'string', Rule::in(\App\Http\Requests\CustomerApp\CreateBookingRequest::PAYMENT_METHODS)],
         ];
     }
 
     public function params(): array
     {
-        return $this->only(['simulate']);
+        return $this->only(['simulate', 'payment_method']);
     }
 }

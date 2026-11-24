@@ -328,3 +328,11 @@ Route::prefix('public')->name('api.public.')->group(function () {
 */
 Route::post('/webhooks/payments/{gateway}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.payments');
+
+/*
+| Where Tabby and Tamara send the CUSTOMER back (signed address; see PaymentReturnController). Public: the customer arrives from the gateway's page.
+*/
+Route::get('/payments/{payment}/return/{outcome}', [\App\Http\Controllers\Api\Webhooks\PaymentReturnController::class, 'handle'])
+    ->whereIn('outcome', ['success', 'cancel', 'failure'])
+    ->middleware('throttle:60,1')
+    ->name('payments.return');

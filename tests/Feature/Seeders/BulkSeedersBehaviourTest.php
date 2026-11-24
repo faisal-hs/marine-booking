@@ -25,7 +25,7 @@ class BulkSeedersBehaviourTest extends TestCase
     /** Every table the seeders fill. */
     private const TABLES = ['users', 'customers', 'providers', 'provider_requests', 'provider_profile_changes', 'wallet_entries', 'withdrawals', 'coupons', 'coupon_redemptions', 'review_replies', 'activity_views', 'cities', 'conversations', 'messages', 'support_tickets', 'verification_document_types', 'provider_document_events', 'provider_documents', 'admins', 'categories', 'feature_definitions', 'activities', 'activity_images',
         'activity_feature_values', 'activity_requirements', 'activity_inclusions', 'activity_options', 'activity_schedule_periods', 'activity_availability_overrides',
-        'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'reviews', 'favorites', 'devices', 'otps',
+        'activity_booking_options', 'activity_pricing_rules', 'reservations', 'reservation_capacity_locks', 'payments', 'payment_events', 'reviews', 'favorites', 'devices', 'otps',
         'notifications', 'broadcasts', 'model_has_roles'];
 
     protected function setUp(): void
