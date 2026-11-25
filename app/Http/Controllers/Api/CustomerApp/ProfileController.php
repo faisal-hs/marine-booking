@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\CustomerApp;
 
 use App\Http\Requests\CustomerApp\DeleteAccountRequest;
 use App\Http\Requests\CustomerApp\UpdateProfileRequest;
+use App\Services\AccountService;
 use App\Services\CustomerApp\AccountDeletion;
 use App\Services\CustomerApp\CustomerProfile;
 use Illuminate\Http\Request;
@@ -13,12 +14,19 @@ use Illuminate\Support\Str;
 /** The signed-in customer's own profile, signing out, and deleting the account. */
 class ProfileController extends CustomerAppController
 {
-    public function __construct(private readonly CustomerProfile $profile, private readonly AccountDeletion $deletion) {}
+    public function __construct(private readonly CustomerProfile $profile, private readonly AccountDeletion $deletion, private readonly AccountService $accountService) {}
 
     public function show(Request $request)
     {
-        return $this->ok($this->profile->present($this->customer($request)));
+        $customer = $this->profile->present($this->customer($request));
+
+        $customer['available_accounts'] = $this->accountService->available(
+            $this->customer($request)->user
+        );
+
+        return $this->ok($customer);
     }
+
 
     /** Only what is sent is changed. A new email has to be verified again. */
     public function update(UpdateProfileRequest $request)
@@ -37,7 +45,7 @@ class ProfileController extends CustomerAppController
 
         if ($file = $request->file('avatar')) {
             $old = $user->avatar_path;
-            $user->avatar_path = $file->storeAs('avatars', Str::uuid().'.'.$file->extension(), 'public');
+            $user->avatar_path = $file->storeAs('avatars', Str::uuid() . '.' . $file->extension(), 'public');
             $old && Storage::disk('public')->delete($old);
         }
 
@@ -52,7 +60,7 @@ class ProfileController extends CustomerAppController
             $customer->city = $request->input('city');
         }
 
-        $customer->fill(collect(['email', 'sms', 'marketing'])->filter(fn ($k) => $request->has("notifications.{$k}"))->mapWithKeys(fn ($k) => ["notify_{$k}" => $request->boolean("notifications.{$k}")])->all())->save();
+        $customer->fill(collect(['email', 'sms', 'marketing'])->filter(fn($k) => $request->has("notifications.{$k}"))->mapWithKeys(fn($k) => ["notify_{$k}" => $request->boolean("notifications.{$k}")])->all())->save();
 
         return $this->ok($this->profile->present($customer->refresh()->setRelation('user', $user)), 'Profile updated');
     }
