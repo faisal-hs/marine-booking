@@ -30,7 +30,7 @@ class CouponController extends CustomerAppController
         $code = (string) $request->input('coupon_code');
         $subtotal = null;
 
-        if ($request->filled('date')) {
+        if ($request->filled('date') || $request->filled('from')) {
             // The booking itself is priced as the summary prices it (a departure that is not available, or details the option does not take, are refused as there).
             $subtotal = (float) $this->checkout->summary($activity, collect($request->validated())->except(['coupon_code', 'amount'])->all())['subtotal'];
         } elseif ($request->filled('amount')) {

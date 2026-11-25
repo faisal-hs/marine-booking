@@ -202,18 +202,21 @@ class CustomerAppReservationTypesTest extends TestCase
         [$hourly] = $this->activityOf('per_hour', 700, ['min_duration' => 2, 'max_duration' => 6, 'duration_unit' => 'hour'], 'Charter');
         [$daily] = $this->activityOf('per_day', 2000, ['min_duration' => 1, 'max_duration' => 3], 'Yacht');
 
-        $h = $this->summary(['duration' => 3], $hourly)->assertOk()->json('data');
+        // By the hour it is a WINDOW: from and to (the length is the difference between them).
+        $window = fn (string $to) => ['slot_id' => $hourly->schedulePeriods()->first()->id, 'from' => self::NEXT_SATURDAY.' 09:00', 'to' => self::NEXT_SATURDAY.' '.$to];
+
+        $h = $this->summary($window('12:00'), $hourly)->assertOk()->json('data');
         $this->assertSame('time', $h['reservation_type']);
         $this->assertEquals([2100, 700, [['hour', 'Hour', 3, 700, 2100]]], [$h['subtotal'], $h['unit_price'], array_map(fn ($l) => [$l['type'], $l['label'], $l['quantity'], $l['unit_price'], $l['total']], $h['lines'])]);
-        $this->assertSame(3, $h['details']['duration']);
+        $this->assertSame([180, null], [$h['details']['minutes'], $h['details']['duration']]);
 
         $d = $this->summary(['duration' => 2], $daily)->assertOk()->json('data');
         $this->assertEquals([4000, 'day'], [$d['subtotal'], $d['lines'][0]['type']]);
 
-        $this->summary([], $hourly)->assertStatus(422)->assertJsonValidationErrors('duration');
-        $this->summary(['duration' => 1], $hourly)->assertStatus(422)->assertJsonValidationErrors('duration');   // under the minimum of 2
-        $this->summary(['duration' => 7], $hourly)->assertStatus(422)->assertJsonValidationErrors('duration');   // over the maximum of 6
-        $this->summary(['duration' => 4], $daily)->assertStatus(422)->assertJsonValidationErrors('duration');
+        $this->summary([], $hourly)->assertStatus(422)->assertJsonValidationErrors(['from', 'to']);                    // by the hour, from and to are required
+        $this->summary(['duration' => 3], $hourly)->assertStatus(422)->assertJsonValidationErrors(['from', 'to']);    // and a duration in hours is no longer a way to ask
+        $this->summary($window('10:00'), $hourly)->assertStatus(422)->assertJsonValidationErrors('to');              // one hour is under the minimum of 2
+        $this->summary(['duration' => 4], $daily)->assertStatus(422)->assertJsonValidationErrors('duration');          // by the day it is still a duration, within 1 to 3
     }
 
     // --- Fixed -----------------------------------------------------------------------------------------------------------
@@ -251,14 +254,16 @@ class CustomerAppReservationTypesTest extends TestCase
         [$activity] = $this->activityOf('per_hour', 700, ['min_duration' => 1, 'max_duration' => 8], 'Charter');
         Coupon::create(['provider_id' => $this->a['provider']->id, 'code' => 'HALF', 'type' => 'percent', 'value' => 50, 'is_active' => true, 'usage_limit' => 1]);
 
-        $s = $this->summary(['duration' => 4, 'coupon_code' => 'half'], $activity)->assertOk()->json('data');
-        $this->assertEquals([2800, 1400, 1400], [$s['subtotal'], $s['discount'], $s['total']]);
+        $window = fn (string $from, string $to) => ['slot_id' => $activity->schedulePeriods()->first()->id, 'from' => self::NEXT_SATURDAY." {$from}", 'to' => self::NEXT_SATURDAY." {$to}"];
+
+        $s = $this->summary($window('09:00', '11:00') + ['coupon_code' => 'half'], $activity)->assertOk()->json('data');
+        $this->assertEquals([1400, 700, 700], [$s['subtotal'], $s['discount'], $s['total']]);
         $this->assertTrue($s['coupon']['is_valid']);
 
-        $id = $this->book(['duration' => 4, 'coupon_code' => 'HALF'], $activity)->assertCreated()->json('data.booking_id');
-        $this->assertEquals(1400, Reservation::findOrFail($id)->total);
+        $id = $this->book($window('09:00', '11:00') + ['coupon_code' => 'HALF'], $activity)->assertCreated()->json('data.booking_id');
+        $this->assertEquals(700, Reservation::findOrFail($id)->total);
         $this->assertSame(1, CouponRedemption::count());
-        $this->assertFalse($this->summary(['duration' => 4, 'coupon_code' => 'HALF'], $activity)->assertOk()->json('data.coupon.is_valid'), 'Used up');
+        $this->assertFalse($this->summary($window('11:00', '13:00') + ['coupon_code' => 'HALF'], $activity)->assertOk()->json('data.coupon.is_valid'), 'Used up (and this window is free)');
     }
 
     // --- The booking ------------------------------------------------------------------------------------------------------
@@ -271,7 +276,7 @@ class CustomerAppReservationTypesTest extends TestCase
 
         $persons = $this->book(['participants' => ['adult' => 2, 'child' => 1]])->assertCreated()->json('data.booking_id');
         $units = $this->book(['quantity' => 2], $unit)->assertCreated()->json('data.booking_id');
-        $time = $this->book(['duration' => 3], $hour)->assertCreated()->json('data.booking_id');
+        $time = $this->book(['slot_id' => $hour->schedulePeriods()->first()->id, 'from' => self::NEXT_SATURDAY.' 09:00', 'to' => self::NEXT_SATURDAY.' 12:00'], $hour)->assertCreated()->json('data.booking_id');
 
         $r = Reservation::findOrFail($persons);
         $this->assertSame(['adult' => 2, 'child' => 1], $r->participants);

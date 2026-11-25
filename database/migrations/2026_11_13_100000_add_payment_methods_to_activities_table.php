@@ -17,15 +17,15 @@ return new class extends Migration
         }
 
         Schema::table('activities', function (Blueprint $table) {
-            $table->boolean('allows_tabby')->default(false)->after('is_featured');
-            $table->boolean('allows_tamara')->default(false)->after('allows_tabby');
+            $table->boolean('allows_tabby')->default(true)->after('is_featured');
+            $table->boolean('allows_tamara')->default(true)->after('allows_tabby');
         });
     }
 
     public function down(): void
     {
         if (Schema::hasColumn('activities', 'allows_tabby')) {
-            Schema::table('activities', fn (Blueprint $t) => $t->dropColumn(['allows_tabby', 'allows_tamara']));
+            Schema::table('activities', fn(Blueprint $t) => $t->dropColumn(['allows_tabby', 'allows_tamara']));
         }
     }
 };

@@ -94,6 +94,8 @@ return [
         'success' => env('PAYMENT_RETURN_SUCCESS_URL'),
         'cancel' => env('PAYMENT_RETURN_CANCEL_URL'),
         'failure' => env('PAYMENT_RETURN_FAILURE_URL'),
+        // With no address above, the customer sees a PAGE with the status, the amount and the reference numbers; this is where its "Back to the app" button goes (empty: no button).
+        'app' => env('PAYMENT_RETURN_APP_URL'),
     ],
 
     // A payment still waiting this many minutes after it was started is looked at by `payments:reconcile` (and settled if the webhook never came).

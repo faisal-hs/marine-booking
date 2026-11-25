@@ -77,7 +77,6 @@ class TamaraPaymentGateway implements AsyncPaymentGateway
         ], PaymentGatewayUnavailableException::class);
 
         $json = $response->json() ?? [];
-        dd($payment, $json);
         $orderId = (string) data_get($json, 'order_id', '');
         $checkoutUrl = (string) data_get($json, 'checkout_url', '');
 

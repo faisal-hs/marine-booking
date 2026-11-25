@@ -101,7 +101,7 @@ class CustomerAppCouponValidationTest extends TestCase
         $option->pricingRules()->create(['participant_type' => null, 'price' => 700]);
         $this->coupon(['code' => 'HALF', 'value' => 50]);
 
-        $d = $this->validate(['coupon_code' => 'HALF', 'date' => self::NEXT_SATURDAY, 'time' => '09:00', 'duration' => 4], $hourly->id)->assertOk()->json('data');
+        $d = $this->validate(['coupon_code' => 'HALF', 'slot_id' => $hourly->schedulePeriods()->first()->id, 'from' => self::NEXT_SATURDAY.' 09:00', 'to' => self::NEXT_SATURDAY.' 13:00'], $hourly->id)->assertOk()->json('data');
 
         $this->assertEquals([2800, 1400, 1400], [$d['subtotal'], $d['discount'], $d['total']]);
     }

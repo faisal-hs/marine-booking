@@ -165,7 +165,7 @@ class Checkout
      * What the customer said about the booking, as the pricing and the reservation need it, by the option's reservation type:
      *   persons   `participants` {adult, child, infant}, or `guests` (that many adults)
      *   units     `quantity`
-     *   time      `duration` (hours or days, as the option counts)
+     *   time      by the DAY: `duration` (days). By the hour or the minute there is no `duration`: the booking is a window, `from` and `to`, REQUIRED (see windowSlot)
      *   fixed     nothing: `guests` / `participants` may be sent for the places the booking takes
      * What does not belong to the type is left out, not an error. Returns `guests`: the number of places taken (null when none were named).
      *
@@ -218,10 +218,17 @@ class Checkout
         }
 
         if ($type === ReservationType::TIME) {
+            // A booking by the hour or the minute is a window inside the departure: where it starts and where it ends, both required. (How long it lasts is the difference between them.)
+            if ($option->booking_model === BookingModel::PerHour) {
+                $needs = 'A booking by time needs from and to: when it starts and when it ends ("YYYY-MM-DD HH:mm", inside the departure), with the slot_id.';
+
+                throw ValidationException::withMessages(['from' => [$needs], 'to' => [$needs]]);
+            }
+
             $duration = (int) ($in['duration'] ?? 0);
 
             if ($duration < 1) {
-                throw ValidationException::withMessages(['duration' => ['Send how long (duration), at least 1 '.($option->booking_model === BookingModel::PerDay ? 'day' : 'hour').'.']]);
+                throw ValidationException::withMessages(['duration' => ['Send how long (duration), at least 1 day.']]);
             }
 
             return ['participants' => $guests === null ? null : $participants, 'quantity' => null, 'duration' => $duration, 'guests' => $guests];

@@ -76,7 +76,8 @@ trait TalksToGateways
     /** Where the gateway sends the customer: OUR return endpoint (signed, so it cannot be made up), which then sends them to the app. */
     protected function returnUrl(Payment $payment, string $outcome): string
     {
-        return URL::temporarySignedRoute('payments.return', now()->addDays(3), ['payment' => $payment->uuid, 'outcome' => $outcome]);
+        // The language of the app is signed into the address, so the page the customer lands on speaks it.
+        return URL::temporarySignedRoute('payments.return', now()->addDays(3), ['payment' => $payment->uuid, 'outcome' => $outcome, 'lang' => app()->getLocale() === 'ar' ? 'ar' : 'en']);
     }
 
     protected function webhookUrl(): string

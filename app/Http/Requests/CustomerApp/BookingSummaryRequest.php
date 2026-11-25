@@ -28,7 +28,7 @@ class BookingSummaryRequest extends FormRequest
             'slot_id' => ['required_without:time', 'required_with:from', 'nullable', 'integer', 'min:1'],
             // The price option (see price_options on the activity); the activity's default one when it is not sent.
             'booking_option_id' => ['nullable', 'integer', 'min:1'],
-            // What the booking is made of, by the option's reservation type: persons (`guests`, or `participants` by kind), units (`quantity`), time (`duration`).
+            // What the booking is made of, by the option's reservation type: persons (`guests`, or `participants` by kind), units (`quantity`), days (`duration`). By the hour or the minute it is `from` and `to`.
             // Which of them an option needs is decided once the option is known (Checkout::details), and said by key.
             'guests' => ['nullable', 'integer', 'min:1', 'max:100'],
             'participants' => ['nullable', 'array'],

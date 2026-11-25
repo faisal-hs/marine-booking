@@ -28,6 +28,13 @@ class ValidateCouponRequest extends FormRequest
         if (! $this->filled('coupon_code') && $this->filled('code')) {
             $this->merge(['coupon_code' => $this->input('code')]);
         }
+
+        // "2026-11-28T10:00" and "2026-11-28 10:00:00" are the same as "2026-11-28 10:00" (as for the booking summary).
+        foreach (['from', 'to'] as $key) {
+            if (is_string($this->input($key)) && preg_match('/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?$/', trim($this->input($key)), $m)) {
+                $this->merge([$key => "{$m[1]} {$m[2]}"]);
+            }
+        }
     }
 
     public function rules(): array
@@ -37,7 +44,10 @@ class ValidateCouponRequest extends FormRequest
             'amount' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:+1 year'],
             'time' => ['nullable', 'date_format:H:i'],
-            'slot_id' => ['nullable', 'integer', 'min:1'],
+            // A booking BY TIME is priced for a window: `slot_id`, `from` and `to` ("2026-11-28 10:00"), as for the booking summary.
+            'from' => ['nullable', 'date_format:Y-m-d H:i', 'required_with:to', 'before_or_equal:+1 year'],
+            'to' => ['nullable', 'date_format:Y-m-d H:i', 'required_with:from'],
+            'slot_id' => ['nullable', 'required_with:from', 'integer', 'min:1'],
             'booking_option_id' => ['nullable', 'integer', 'min:1'],
             'guests' => ['nullable', 'integer', 'min:1', 'max:100'],
             'participants' => ['nullable', 'array'],
@@ -50,11 +60,11 @@ class ValidateCouponRequest extends FormRequest
     public function after(): array
     {
         return [function ($validator) {
-            if (($this->filled('time') || $this->filled('slot_id')) && ! $this->filled('date')) {
+            if (($this->filled('time') || $this->filled('slot_id')) && ! $this->filled('date') && ! $this->filled('from')) {
                 $validator->errors()->add('date', 'Send the date of the departure (date) with its time or slot_id.');
             }
 
-            if ($this->filled('date') && ! $this->filled('time') && ! $this->filled('slot_id')) {
+            if ($this->filled('date') && ! $this->filled('from') && ! $this->filled('time') && ! $this->filled('slot_id')) {
                 $validator->errors()->add('time', 'Send the time (time) or the id (slot_id) of the departure with its date.');
             }
 
